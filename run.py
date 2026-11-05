@@ -1,16 +1,23 @@
 import os
 from flask import Flask, request, jsonify, send_from_directory
 from app.controllers.project_controller import ProjectController
-from app.controllers.company_controller import UpdateCompanyProfileController   
+from app.controllers.company_controller import UpdateCompanyProfileController
+from app.controllers.verification_controller import SubmitVerificationController, ReviewVerificationController
 from app.repositories.memory_repo import MemoryRepo, SEED_CATEGORIES
-from app.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA        
+from app.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
+from app.repositories.verification_repo import VerificationRepo
 from app.services.file_upload_service import FileUploadService
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, "Portal"), static_url_path="")
+
 upload_service = FileUploadService(upload_folder=os.path.join(BASE_DIR, "uploads"))
+company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA)
+verification_repo = VerificationRepo()
 project_controller = ProjectController(MemoryRepo(), MemoryRepo(SEED_CATEGORIES), upload_service)
-company_controller = UpdateCompanyProfileController(CompanyRepo.from_data(SEED_COMPANY_DATA), upload_service)  
+company_controller = UpdateCompanyProfileController(company_repo, upload_service)
+verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
+review_controller = ReviewVerificationController(verification_repo, company_repo)
 
 @app.route("/")
 def home():
@@ -44,7 +51,7 @@ def api_update_company():
     try:
         logo = request.files.get("logo")
         company = company_controller.update(request.form.get("user_id", ""), {
-            "company_id": request.form.get("company_id", ""),   # 正常时后端忽略它、按 user_id 定位；攻击演示时触发 ownership check
+            "company_id": request.form.get("company_id", ""),
             "name": request.form.get("name", ""),
             "description": request.form.get("description", ""),
             "address": request.form.get("address", ""),
@@ -53,9 +60,43 @@ def api_update_company():
             "logo": {"filename": logo.filename, "content": logo.read()} if logo and logo.filename else None,
         })
         return jsonify({"message": "Company information updated successfully.", "company": company.public_view()}), 200
-    except PermissionError as err:      # 越权 → 403（约定见 PROJECT_CONTEXT.md）
+    except PermissionError as err:
         return jsonify({"error": str(err)}), 403
-    except ValueError as err:           # 校验失败 → 400
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+# ---------- ID-02 ----------
+@app.route("/api/verifications", methods=["GET"])
+def api_list_verifications():
+    try:
+        return jsonify(verification_controller.view(request.args.get("user_id", "")))
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/verifications", methods=["POST"])
+def api_submit_verification():
+    try:
+        docs = [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("documents")]
+        r = verification_controller.submit(request.form.get("user_id", ""), {
+            "company_id": request.form.get("company_id", ""),
+            "documents": docs,
+        })
+        return jsonify({"message": "Documents submitted for review.", "request": r.public_view()}), 201
+    except PermissionError as err:
+        return jsonify({"error": str(err)}), 403
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/admin/verifications", methods=["GET"])
+def api_admin_queue():
+    return jsonify(review_controller.queue())
+
+@app.route("/api/admin/verifications/<request_id>/review", methods=["POST"])
+def api_review_verification(request_id):
+    try:
+        r = review_controller.review(request_id, request.form.get("decision", ""), request.form.get("reason"))
+        return jsonify({"message": "Review recorded.", "request": r.public_view()}), 200
+    except ValueError as err:
         return jsonify({"error": str(err)}), 400
 
 @app.route("/uploads/<path:filepath>")

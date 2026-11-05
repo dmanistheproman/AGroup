@@ -15,15 +15,7 @@ class UpdateCompanyProfileController:
         return company.public_view() if company else None
 
     def update(self, user_id, data):
-        # 定位目标公司：允许显式给 company_id（正常时与本人一致；攻击测试时是别人的）
-        company = (self.companies.get(data.get("company_id"))
-                   if data.get("company_id") else self.companies.get_by_owner(user_id))
-        if company is None:
-            raise ValueError("No company profile found for this account.")
-
-        # ownership check（任务2）：只能编辑自己名下的公司
-        if not company.is_owned_by(user_id):
-            raise PermissionError("You can only edit your own company profile.")
+        company = self.companies.resolve_for_owner(user_id, data.get("company_id"))
 
         # 验证（用例 BF5 / AF1）
         name = require_text(data.get("name"), "Company name", 70)

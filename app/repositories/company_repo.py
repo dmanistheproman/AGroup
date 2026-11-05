@@ -29,3 +29,12 @@ class CompanyRepo:
     def save(self, company):
         self.items[company.id] = company
         return company
+
+    def resolve_for_owner(self, user_id, claimed_company_id=None):
+        """共享的归属校验：定位 user_id 名下公司；claimed 与本人不符 → PermissionError。"""
+        company = self.get(claimed_company_id) if claimed_company_id else self.get_by_owner(user_id)
+        if company is None:
+            raise ValueError("No company profile found for this account.")
+        if not company.is_owned_by(user_id):
+            raise PermissionError("You can only manage your own company profile.")
+        return company
