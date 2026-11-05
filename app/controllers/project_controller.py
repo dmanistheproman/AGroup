@@ -1,4 +1,5 @@
 """<<control>> ProjectController — 方法名与顺序图消息一致。"""
+from app.validators import require_text
 import time
 
 class ProjectController:
@@ -9,12 +10,8 @@ class ProjectController:
 
     def create(self, data):
         # 1) 字段验证
-        title = (data.get("title") or "").strip()
-        if not title:
-            raise ValueError("Title is required.")
-        if len(title) > 100:
-            raise ValueError("Title must be at most 100 characters.")
-        description = (data.get("description") or "").strip()
+        title = require_text(data.get("title"), "Title", 100)
+        description = require_text(data.get("description"), "Description", 2000)
         if not description:
             raise ValueError("Description is required.")
 
