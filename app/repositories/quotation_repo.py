@@ -14,7 +14,7 @@ SEED_QUOTATION_DATA = [
      "design_fee": 4500, "material_cost": 26500, "construction_fee": 14000,
      "valid_until": "2026-10-30",
      "payment_schedule": "50% on signing, 50% on completion",
-     "status": "EXPIRED"},
+     "status": "EXPIRED"}, {"quotation_id": "QT-103", "enquiry_id": "CUS-103", "client_name": "Meera Raj", "requirements": "Material and finish palette for a child-safe renovation", "design_fee": 6000, "material_cost": 38000, "construction_fee": 22000, "valid_until": "2026-12-20", "payment_schedule": "S$12,000 deposit, S$30,000 carpentry, S$18,000 handover (design fee already received)", "status": "ACCEPTED"},
 ]
 
 class QuotationRepo:

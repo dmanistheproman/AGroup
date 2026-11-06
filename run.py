@@ -15,6 +15,8 @@ from app.repositories.quotation_repo import QuotationRepo, SEED_QUOTATION_DATA
 from app.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
 from app.controllers.quotation_controller import SubmitQuotationController
 from app.controllers.review_controller import ListReviewsController
+from app.controllers.payment_controller import PaymentController
+from app.repositories.payment_repo import payment_repo
 from app.services.file_upload_service import FileUploadService
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -37,6 +39,17 @@ enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA)
 quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA)
 submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
 list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
+
+# ---------- ID-09：付款进度（平台只记录不代收；里程碑属于已接受的报价） ----------
+payment_controller = PaymentController(
+    payment_repo,
+    company_repo,
+    quotations_for=lambda user_id: [
+        q for q in submit_quotation_controller.list_for(user_id)
+        if isinstance(q, dict) and q.get("status") == "ACCEPTED"
+    ],
+)
+
 
 
 @app.route("/")
@@ -220,6 +233,37 @@ def api_reviews():
     except ValueError as err:
         return jsonify({"error": str(err)}), 400
 
+# ---------- ID-09：付款进度端点 ----------
+@app.route("/api/payment-progress")
+def api_payment_progress():
+    try:
+        return jsonify(payment_controller.progress(request.args.get("user_id", "")))
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/payment-milestones/<milestone_id>/pay", methods=["POST"])
+def api_pay_milestone(milestone_id):
+    try:
+        result = payment_controller.mark_paid(milestone_id, request.form.get("user_id", ""),
+                                              {"paid_date": request.form.get("paid_date") or None})
+        return jsonify(result), 200
+    except PermissionError as err:
+        return jsonify({"error": str(err)}), 403
+    except KeyError:
+        return jsonify({"error": "Payment milestone not found."}), 404
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/payment-milestones/<milestone_id>/remind", methods=["POST"])
+def api_remind_milestone(milestone_id):
+    try:
+        return jsonify(payment_controller.remind(milestone_id, request.form.get("user_id", ""))), 200
+    except PermissionError as err:
+        return jsonify({"error": str(err)}), 403
+    except KeyError:
+        return jsonify({"error": "Payment milestone not found."}), 404
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
 
 @app.route("/uploads/<path:filepath>")
 def uploaded_file(filepath):
