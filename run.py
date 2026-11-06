@@ -3,9 +3,11 @@ from flask import Flask, request, jsonify, send_from_directory
 from app.controllers.project_controller import ProjectController
 from app.controllers.company_controller import UpdateCompanyProfileController
 from app.controllers.verification_controller import SubmitVerificationController, ReviewVerificationController
-from app.repositories.memory_repo import MemoryRepo, SEED_CATEGORIES
+from app.repositories.memory_repo import MemoryRepo, SEED_CATEGORIES, SEED_PROJECTS
 from app.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 from app.repositories.verification_repo import VerificationRepo
+from app.repositories.customer_repo import CustomerRepo, SEED_CUSTOMER_DATA
+from app.controllers.potential_clients_controller import FindPotentialClientsController
 from app.services.file_upload_service import FileUploadService
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -14,10 +16,11 @@ app = Flask(__name__, static_folder=os.path.join(BASE_DIR, "Portal"), static_url
 upload_service = FileUploadService(upload_folder=os.path.join(BASE_DIR, "uploads"))
 company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA)
 verification_repo = VerificationRepo()
-project_controller = ProjectController(MemoryRepo(), MemoryRepo(SEED_CATEGORIES), upload_service)
+project_controller = ProjectController(MemoryRepo(SEED_PROJECTS), MemoryRepo(SEED_CATEGORIES), upload_service)
 company_controller = UpdateCompanyProfileController(company_repo, upload_service)
 verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
 review_controller = ReviewVerificationController(verification_repo, company_repo)
+potential_clients_controller = FindPotentialClientsController(CustomerRepo.from_data(SEED_CUSTOMER_DATA))
 
 @app.route("/")
 def home():
@@ -37,6 +40,24 @@ def api_create_project():
         return jsonify({"message": "Project added successfully.", "project": project}), 201
     except ValueError as err:
         return jsonify({"error": str(err)}), 400
+
+# ---------- ID-03b：历史项目列表与删除 ----------
+@app.route("/api/projects", methods=["GET"])
+def api_list_projects():
+    return jsonify(project_controller.list_projects(request.args.get("user_id", "")))
+
+@app.route("/api/projects/<project_id>", methods=["DELETE"])
+def api_delete_project(project_id):
+    try:
+        result = project_controller.delete(
+            request.args.get("user_id", ""),
+            project_id,
+            request.args.get("confirm_impact") == "true",
+        )
+        return jsonify(result), 200
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 404
+
 
 # ---------- ID-01 ----------
 @app.route("/api/company", methods=["GET"])
@@ -98,6 +119,14 @@ def api_review_verification(request_id):
         return jsonify({"message": "Review recorded.", "request": r.public_view()}), 200
     except ValueError as err:
         return jsonify({"error": str(err)}), 400
+
+# ---------- ID-04 ----------
+@app.route("/api/potential-clients", methods=["GET"])
+def api_potential_clients():
+    styles = request.args.getlist("style")   # 多风格：重复的 style 参数
+    return jsonify(potential_clients_controller.find(request.args.get("user_id", ""), styles))
+
+
 
 @app.route("/uploads/<path:filepath>")
 def uploaded_file(filepath):
