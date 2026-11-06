@@ -10,6 +10,11 @@ from app.repositories.customer_repo import CustomerRepo, SEED_CUSTOMER_DATA
 from app.controllers.potential_clients_controller import FindPotentialClientsController
 from app.repositories.proposal_repo import ProposalRepo, SEED_PROPOSAL_DATA
 from app.controllers.proposal_controller import SubmitProposalController, ReviseProposalController
+from app.repositories.enquiry_repo import EnquiryRepo, SEED_ENQUIRY_DATA
+from app.repositories.quotation_repo import QuotationRepo, SEED_QUOTATION_DATA
+from app.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
+from app.controllers.quotation_controller import SubmitQuotationController
+from app.controllers.review_controller import ListReviewsController
 from app.services.file_upload_service import FileUploadService
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +32,11 @@ potential_clients_controller = FindPotentialClientsController(CustomerRepo.from_
 proposal_repo = ProposalRepo.from_data(SEED_PROPOSAL_DATA)
 submit_proposal_controller = SubmitProposalController(proposal_repo, upload_service)
 revise_proposal_controller = ReviseProposalController(proposal_repo, upload_service)
+# ---------- ID-07 / ID-08：报价（附加于已确认的请求）与客户评价（限本公司） ----------
+enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA)
+quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA)
+submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
+list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
 
 
 @app.route("/")
@@ -161,6 +171,52 @@ def api_revise_proposal(proposal_id):
             "images": [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images")]}
     try:
         return jsonify(revise_proposal_controller.revise(request.form.get("user_id", ""), proposal_id, data))
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+# ---------- ID-07 / ID-08：报价与评价端点（无文件上传；ValueError → 400） ----------
+@app.route("/api/quotations", methods=["GET", "POST"])
+def api_quotations():
+    if request.method == "GET":
+        return jsonify(submit_quotation_controller.list_for(request.args.get("user_id", "")))
+    try:
+        quotation = submit_quotation_controller.create(request.form.get("user_id", ""), {
+            "enquiry_id": request.form.get("enquiry_id", ""),
+            "design_fee": request.form.get("design_fee", ""),
+            "material_cost": request.form.get("material_cost", ""),
+            "construction_fee": request.form.get("construction_fee", ""),
+            "valid_until": request.form.get("valid_until", ""),
+            "payment_schedule": request.form.get("payment_schedule", ""),
+        })
+        return jsonify({"quotation": quotation}), 201
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/quotations/<quotation_id>/present", methods=["POST"])
+def api_present_quotation(quotation_id):
+    try:
+        return jsonify(submit_quotation_controller.present(request.form.get("user_id", ""), quotation_id))
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/quotations/<quotation_id>/revise", methods=["POST"])
+def api_revise_quotation(quotation_id):
+    try:
+        return jsonify(submit_quotation_controller.revise(request.form.get("user_id", ""), quotation_id, {
+            "design_fee": request.form.get("design_fee", ""),
+            "material_cost": request.form.get("material_cost", ""),
+            "construction_fee": request.form.get("construction_fee", ""),
+            "valid_until": request.form.get("valid_until", ""),
+            "payment_schedule": request.form.get("payment_schedule", ""),
+            "note": request.form.get("note", ""),
+        }))
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/reviews")
+def api_reviews():
+    try:
+        return jsonify(list_reviews_controller.list_for(request.args.get("user_id", "")))
     except ValueError as err:
         return jsonify({"error": str(err)}), 400
 
