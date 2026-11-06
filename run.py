@@ -8,6 +8,8 @@ from app.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 from app.repositories.verification_repo import VerificationRepo
 from app.repositories.customer_repo import CustomerRepo, SEED_CUSTOMER_DATA
 from app.controllers.potential_clients_controller import FindPotentialClientsController
+from app.repositories.proposal_repo import ProposalRepo, SEED_PROPOSAL_DATA
+from app.controllers.proposal_controller import SubmitProposalController, ReviseProposalController
 from app.services.file_upload_service import FileUploadService
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +23,11 @@ company_controller = UpdateCompanyProfileController(company_repo, upload_service
 verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
 review_controller = ReviewVerificationController(verification_repo, company_repo)
 potential_clients_controller = FindPotentialClientsController(CustomerRepo.from_data(SEED_CUSTOMER_DATA))
+# ---------- ID-05 / ID-06：设计提案 — 两个控制器必须共享同一仓库实例 ----------
+proposal_repo = ProposalRepo.from_data(SEED_PROPOSAL_DATA)
+submit_proposal_controller = SubmitProposalController(proposal_repo, upload_service)
+revise_proposal_controller = ReviseProposalController(proposal_repo, upload_service)
+
 
 @app.route("/")
 def home():
@@ -126,6 +133,36 @@ def api_potential_clients():
     styles = request.args.getlist("style")   # 多风格：重复的 style 参数
     return jsonify(potential_clients_controller.find(request.args.get("user_id", ""), styles))
 
+# ---------- ID-05 / ID-06 ----------
+@app.route("/api/proposals", methods=["GET", "POST"])
+def api_proposals():
+    if request.method == "GET":
+        return jsonify(submit_proposal_controller.list_for(request.args.get("user_id", "")))
+    data = {"title": request.form.get("title", ""),
+            "description": request.form.get("description", ""),
+            "client_name": request.form.get("client_name", ""),
+            "images": [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images")]}
+    try:
+        return jsonify({"proposal": submit_proposal_controller.create(request.form.get("user_id", ""), data)}), 201
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/proposals/<proposal_id>/present", methods=["POST"])
+def api_present_proposal(proposal_id):
+    try:
+        return jsonify(submit_proposal_controller.present(request.form.get("user_id", ""), proposal_id))
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/proposals/<proposal_id>/revise", methods=["POST"])
+def api_revise_proposal(proposal_id):
+    data = {"description": request.form.get("description", ""),
+            "note": request.form.get("note", ""),
+            "images": [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images")]}
+    try:
+        return jsonify(revise_proposal_controller.revise(request.form.get("user_id", ""), proposal_id, data))
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
 
 
 @app.route("/uploads/<path:filepath>")
