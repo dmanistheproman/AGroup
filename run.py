@@ -15,6 +15,7 @@ from app.repositories.quotation_repo import QuotationRepo, SEED_QUOTATION_DATA
 from app.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
 from app.controllers.quotation_controller import SubmitQuotationController
 from app.controllers.review_controller import ListReviewsController
+from app.controllers.review_enquiry_controller import ReviewEnquiryController
 from app.controllers.payment_controller import PaymentController
 from app.repositories.payment_repo import payment_repo
 from app.services.file_upload_service import FileUploadService
@@ -38,6 +39,7 @@ revise_proposal_controller = ReviseProposalController(proposal_repo, upload_serv
 enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA)
 quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA)
 submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
+review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10：需求审查（accept/decline/clarify）
 list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
 
 # ---------- ID-09：付款进度（平台只记录不代收；里程碑属于已接受的报价） ----------
@@ -262,6 +264,29 @@ def api_remind_milestone(milestone_id):
         return jsonify({"error": str(err)}), 403
     except KeyError:
         return jsonify({"error": "Payment milestone not found."}), 404
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+# ---------- ID-10：客户设计需求审查 ----------
+@app.route("/api/enquiries")
+def api_enquiries():
+    return jsonify(review_enquiry_controller.list_for(request.args.get("user_id", "")))
+
+@app.route("/api/enquiries/<enquiry_id>/review", methods=["POST"])
+def api_review_enquiry(enquiry_id):
+    try:
+        result = review_enquiry_controller.review(
+            enquiry_id, request.form.get("user_id", ""),
+            request.form.get("decision", ""), request.form.get("reason"))
+        return jsonify(result), 200
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/enquiries/<enquiry_id>/clarify", methods=["POST"])
+def api_clarify_enquiry(enquiry_id):
+    try:
+        return jsonify(review_enquiry_controller.clarify(
+            enquiry_id, request.form.get("user_id", ""), request.form.get("note", ""))), 200
     except ValueError as err:
         return jsonify({"error": str(err)}), 400
 
