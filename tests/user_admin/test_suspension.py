@@ -1,8 +1,8 @@
 """Tests work before the real user-account module exists."""
 import unittest
 from dataclasses import replace
-from user_admin.models import UserAccount
-from user_admin.suspension import SuspendAccountController, SuspensionError
+from backend.entities.account import UserAccount
+from backend.controllers.user_admin.suspend_account import SuspendAccountController, SuspensionError
 
 
 class FakeUserAccountRegistry:

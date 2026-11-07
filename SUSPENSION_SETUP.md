@@ -6,13 +6,11 @@ member will connect the user accounts and account database.
 
 ## Files added
 
-- `backend/requirements.txt` — Flask dependency.
-- `backend/app.py` — HTTP API and static portal server.
-- `backend/user_admin/__init__.py` — Python package marker.
-- `backend/user_admin/models.py` — BCE entity classes.
-- `backend/user_admin/repository.py` — account-repository contract and safe placeholder.
-- `backend/user_admin/suspension.py` — BCE suspension controller.
-- `backend/tests/test_suspension.py` — independent unit tests with fake accounts.
+- `backend/boundary/user_admin_routes.py` — HTTP API (User Admin routes).
+- `backend/entities/account.py` — BCE entity classes.
+- `backend/repositories/account_repo.py` — account-repository contract and safe placeholder.
+- `backend/controllers/user_admin/suspend_account.py` — BCE suspension controller.
+- `tests/user_admin/test_suspension.py` — independent unit tests with fake accounts.
 - `Portal/suspend-account.js` — suspension form and API call.
 
 ## Existing files edited
@@ -24,27 +22,24 @@ member will connect the user accounts and account database.
 
 ## Run the controller tests (works before accounts/Flask exist)
 
-From `AGroup-main/backend/`:
+From the project root:
 
 ```bash
-python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s tests -t . -v
 ```
 
 ## Run the portal API (Flask required)
 
-From `AGroup-main/backend/`:
+From the project root:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-AGROUP_LOCAL_DEV_ADMIN=1 python app.py
+python3 run.py
 ```
 
-For PowerShell replace the activation line with `.venv\Scripts\Activate.ps1`
-and set `$env:AGROUP_LOCAL_DEV_ADMIN="1"` before `python app.py`.
+`run.py` creates `.venv`, installs `requirements.txt`, sets
+`AGROUP_LOCAL_DEV_ADMIN=1`, picks a free port and prints the URLs.
 
-Visit `http://127.0.0.1:8000/portal.html#admin/accounts`, then select
+Visit `http://127.0.0.1:<port>/portal.html#admin/accounts`, then select
 **Suspend User Account (backend)**. **Do not** use `python -m http.server`
 for the API workflow.
 

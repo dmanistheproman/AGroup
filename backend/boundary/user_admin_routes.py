@@ -1,23 +1,14 @@
-"""Flask entry point for the User Admin suspension feature."""
+"""Boundary: HTTP routes for the User Admin role."""
 import os
-from pathlib import Path
-from flask import Flask, jsonify, request
-from user_admin.repository import AccountStoreNotConnected, UnconnectedAccountRegistry
-from user_admin.suspension import SuspendAccountController, SuspensionError
+from flask import Blueprint, jsonify, request
+from backend.repositories.account_repo import AccountStoreNotConnected
+from backend.controllers.user_admin.suspend_account import SuspendAccountController, SuspensionError
 
 
-PORTAL_DIR = Path(__file__).resolve().parent.parent / 'Portal'
+def create_user_admin_blueprint(controller: SuspendAccountController, admin_provider=None):
+    bp = Blueprint('user_admin', __name__)
 
-
-def create_app(registry=None, admin_provider=None):
-    app = Flask(__name__, static_folder=str(PORTAL_DIR), static_url_path='')
-    controller = SuspendAccountController(registry if registry is not None else UnconnectedAccountRegistry())
-
-    @app.get('/')
-    def home():
-        return app.send_static_file('portal.html')
-
-    @app.post('/api/user-admin/accounts/<account_id>/suspend')
+    @bp.post('/api/user-admin/accounts/<account_id>/suspend')
     def suspend_account(account_id):
         # The frontend is not trusted to identify or authorise the administrator.
         admin = admin_provider() if admin_provider else None
@@ -47,9 +38,4 @@ def create_app(registry=None, admin_provider=None):
             suspendedAt=record.suspended_at.isoformat(),
         ), 200
 
-    return app
-
-
-if __name__ == '__main__':
-    # Local development only. Do not deploy using the built-in development server.
-    create_app().run(host='127.0.0.1', port=8000, debug=False)
+    return bp

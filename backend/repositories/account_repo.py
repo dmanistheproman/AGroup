@@ -1,6 +1,6 @@
 """Interface to the account module that another teammate will implement."""
 from typing import Protocol
-from .models import UserAccount, SuspensionRecord, AdminAction
+from backend.entities.account import UserAccount, SuspensionRecord, AdminAction
 
 
 class AccountStoreNotConnected(Exception):

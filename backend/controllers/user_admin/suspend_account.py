@@ -1,8 +1,8 @@
 """Control class for User Admin story 1: Suspend User Account."""
 from datetime import datetime, timezone
 from uuid import uuid4
-from .models import SuspensionRecord, AdminAction
-from .repository import UserAccountRegistry
+from backend.entities.account import SuspensionRecord, AdminAction
+from backend.repositories.account_repo import UserAccountRegistry
 
 
 class SuspensionError(Exception):
