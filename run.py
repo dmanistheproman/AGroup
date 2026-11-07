@@ -4,8 +4,8 @@
     python3 run.py                # macOS / Linux
 
 What it does:
-  1. Creates .venv on first run and installs requirements.txt
-     (reinstalls automatically when requirements.txt changes).
+  1. Creates .venv on first run and installs backend/requirements.txt
+     (reinstalls automatically when that file changes).
   2. Picks a free local port, starting from 5050. Ports the OS refuses
      (e.g. Windows' reserved ranges around 8000, macOS AirPlay on 5000)
      are skipped; if the next 20 are all unavailable, the OS picks one.
@@ -30,7 +30,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 VENV_DIR = ROOT / ".venv"
-REQUIREMENTS = ROOT / "requirements.txt"
+REQUIREMENTS = ROOT / "backend" / "requirements.txt"
 STAMP = VENV_DIR / ".requirements.sha256"
 HOST = "127.0.0.1"
 DEFAULT_PORT = 5050

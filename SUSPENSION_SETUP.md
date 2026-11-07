@@ -10,13 +10,13 @@ member will connect the user accounts and account database.
 - `backend/entities/account.py` — BCE entity classes.
 - `backend/repositories/account_repo.py` — account-repository contract and safe placeholder.
 - `backend/controllers/user_admin/suspend_account.py` — BCE suspension controller.
-- `tests/user_admin/test_suspension.py` — independent unit tests with fake accounts.
-- `Portal/suspend-account.js` — suspension form and API call.
+- `backend/tests/user_admin/test_suspension.py` — independent unit tests with fake accounts.
+- `frontend/suspend-account.js` — suspension form and API call.
 
 ## Existing files edited
 
-- `Portal/portal.html` — loads the suspension script and updates footer wording.
-- `Portal/portal.js` — adds a suspension button in Accounts & appeals, forwards
+- `frontend/portal.html` — loads the suspension script and updates footer wording.
+- `frontend/portal.js` — adds a suspension button in Accounts & appeals, forwards
   its click and form submission to the new JavaScript file, and removes the
   old fake Suspend account dropdown action.
 
@@ -25,7 +25,7 @@ member will connect the user accounts and account database.
 From the project root:
 
 ```bash
-python3 -m unittest discover -s tests -t . -v
+python3 -m unittest discover -s backend/tests -t . -v
 ```
 
 ## Run the portal API (Flask required)
@@ -36,7 +36,7 @@ From the project root:
 python3 run.py
 ```
 
-`run.py` creates `.venv`, installs `requirements.txt`, sets
+`run.py` creates `.venv`, installs `backend/requirements.txt`, sets
 `AGROUP_LOCAL_DEV_ADMIN=1`, picks a free port and prints the URLs.
 
 Visit `http://127.0.0.1:<port>/portal.html#admin/accounts`, then select

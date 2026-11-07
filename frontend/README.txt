@@ -10,7 +10,7 @@ Open index.html in a modern browser for a quick preview. For consistent local
 storage shared between the customer website and staff portal, serve the folder:
 
 1. Open a terminal in the ProjectMD folder.
-2. Run: python -m http.server 8000 --bind 127.0.0.1 --directory Portal
+2. Run: python -m http.server 8000 --bind 127.0.0.1 --directory frontend
 3. Customer: http://127.0.0.1:8000/index.html
 4. Portal:   http://127.0.0.1:8000/portal.html
 5. Stop the server with Ctrl+C when finished.

@@ -34,8 +34,8 @@ from backend.services.file_upload_service import FileUploadService
 from backend.boundary.designer_routes import create_designer_blueprint
 
 ROOT = Path(__file__).resolve().parent.parent
-PORTAL_DIR = ROOT / 'Portal'
-UPLOAD_DIR = ROOT / 'uploads'
+FRONTEND_DIR = ROOT / 'frontend'
+UPLOAD_DIR = ROOT / 'backend' / 'uploads'
 
 
 def build_designer_controllers(upload_service):
@@ -72,7 +72,7 @@ def build_designer_controllers(upload_service):
 
 
 def create_app(registry=None, admin_provider=None):
-    app = Flask(__name__, static_folder=str(PORTAL_DIR), static_url_path='')
+    app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
 
     # ----- shared services -----
     upload_service = FileUploadService(upload_folder=str(UPLOAD_DIR))
