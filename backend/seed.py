@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import random
 
-from .entities import timestamp
+from backend.services.management_rules import timestamp
 
 
 def seed_demo(store):
@@ -30,6 +30,7 @@ def seed_demo(store):
         for project_id in range(1, 121):
             project = dict(originals[(project_id - 1) % len(originals)])
             project["id"] = project_id
+            project["primary_category_id"] = category_ids[project["style"]]
             if project_id > len(originals):
                 project["title"] += f" · Study {project_id:03d}"
             age_hours = (project_id * 17) % (90 * 24) + 1

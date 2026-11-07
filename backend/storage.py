@@ -49,6 +49,10 @@ CREATE TABLE IF NOT EXISTS audit (
     record TEXT NOT NULL,
     occurred_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS sequences (
+    name TEXT PRIMARY KEY,
+    value INTEGER NOT NULL
+);
 CREATE INDEX IF NOT EXISTS assignments_by_category ON assignments(category_id);
 CREATE INDEX IF NOT EXISTS activity_by_project_time ON activities(project_id, occurred_at);
 CREATE INDEX IF NOT EXISTS activity_by_time ON activities(occurred_at);
