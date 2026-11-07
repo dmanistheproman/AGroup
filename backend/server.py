@@ -13,6 +13,15 @@ from backend.repositories.user_account_repo import UserAccountRepo, SEED_ACCOUNT
 from backend.controllers.shared.login_controller import LoginController
 from backend.boundary.auth_routes import create_auth_blueprint
 
+# ----- Shared: support tickets, reports, notifications -----
+from backend.repositories.notification_repo import NotificationRepo, SEED_NOTIFICATION_DATA
+from backend.repositories.support_ticket_repo import SupportTicketRepo
+from backend.controllers.shared.notification_service import NotificationService
+from backend.controllers.shared.notification_rules import NotificationRules
+from backend.controllers.shared.request_service import RequestService
+from backend.controllers.shared.submit_ticket_controller import SubmitTicketController
+from backend.boundary.shared_routes import create_shared_blueprint
+
 # ----- User Admin -----
 from backend.repositories.account_repo import UnconnectedAccountRegistry
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController
@@ -100,6 +109,12 @@ def create_app(registry=None, admin_provider=None):
     login = LoginController(user_accounts, lambda: session)
     app.register_blueprint(create_auth_blueprint(login))
     app.extensions['login'] = login   # for role guards in other blueprints
+
+    # ----- Shared: support tickets, reports, notifications (S-07, S-15, S-19) -----
+    notifications = NotificationService(NotificationRepo.from_data(SEED_NOTIFICATION_DATA))
+    support_tickets = SupportTicketRepo()
+    requests = RequestService(support_tickets, NotificationRules(notifications, user_accounts, support_tickets))
+    app.register_blueprint(create_shared_blueprint(login, SubmitTicketController(requests), requests, notifications))
 
     # ----- User Admin -----
     account_registry = registry if registry is not None else UnconnectedAccountRegistry()
