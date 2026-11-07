@@ -113,12 +113,13 @@ SOURCE ALIGNMENT
 FILE ORGANISATION
 -----------------
 index.html       Customer page shell.
-customer.js      Customer views, forms and browser-local interactions.
+js/customer.js   Customer views, forms and browser-local interactions.
 portal.html      Role-based portal shell.
-portal.js        Portal wireframes and simulated workflows.
-data.js          Fictional customer data and shared storage/escaping helpers.
-styles.css       Customer styling and common components.
-portal.css       Monochrome portal wireframe styling.
+js/portal.js     Portal wireframes and simulated workflows.
+js/data.js       Fictional customer data and shared storage/escaping helpers.
+css/styles.css   Customer styling and common components.
+css/portal.css   Monochrome portal wireframe styling.
+js/suspend-account.js  User Admin suspension form and API call.
 assets/          Local illustrative interior photographs.
 
 NEXT IMPLEMENTATION STEP

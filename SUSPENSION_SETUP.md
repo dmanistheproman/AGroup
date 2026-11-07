@@ -11,12 +11,12 @@ member will connect the user accounts and account database.
 - `backend/repositories/account_repo.py` — account-repository contract and safe placeholder.
 - `backend/controllers/user_admin/suspend_account.py` — BCE suspension controller.
 - `backend/tests/user_admin/test_suspension.py` — independent unit tests with fake accounts.
-- `frontend/suspend-account.js` — suspension form and API call.
+- `frontend/js/suspend-account.js` — suspension form and API call.
 
 ## Existing files edited
 
 - `frontend/portal.html` — loads the suspension script and updates footer wording.
-- `frontend/portal.js` — adds a suspension button in Accounts & appeals, forwards
+- `frontend/js/portal.js` — adds a suspension button in Accounts & appeals, forwards
   its click and form submission to the new JavaScript file, and removes the
   old fake Suspend account dropdown action.
 
