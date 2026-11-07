@@ -123,6 +123,9 @@ js/login.js      Login form checks and demo account buttons.
 js/account.js    Shared demo session and the header account menu.
 css/login.css    Login page layout.
 css/account.css  Header avatar and dropdown menu.
+js/icons.js      AGroupIcons.icon(name): Lucide icon markup.
+css/icons.css    Icon size and colour (follows the text).
+assets/icons/    Lucide icons (lucide.svg, ISC LICENSE); build with scripts/build_icons.py.
 assets/          Local illustrative interior photographs.
 
 NEXT IMPLEMENTATION STEP

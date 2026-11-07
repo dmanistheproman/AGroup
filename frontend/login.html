@@ -7,6 +7,7 @@
 <title>AGroup — Log in</title>
 <link rel="stylesheet" href="css/styles.css">
 <link rel="stylesheet" href="css/login.css">
+<link rel="stylesheet" href="css/icons.css">
 <script src="js/account.js" defer></script>
 <script src="js/login.js" defer></script>
 </head>
@@ -15,7 +16,7 @@
 
 <header class="site-header">
   <a class="brand" href="index.html" aria-label="AGroup home"><span class="brand-mark">A</span>AGroup<span class="brand-dot">.</span></a>
-  <div class="header-actions"><a class="text-button" href="index.html">← Back to website</a></div>
+  <div class="header-actions"><a class="text-button" href="index.html"><svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/lucide.svg#arrow-left"></use></svg> Back to website</a></div>
 </header>
 
 <main>
@@ -34,7 +35,7 @@
         </label>
         <p id="login-error" class="inline-error" role="alert" aria-live="polite" hidden></p>
         <div class="login-actions">
-          <button class="button" type="submit">Log in <span>↗</span></button>
+          <button class="button" type="submit">Log in <svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/lucide.svg#arrow-up-right"></use></svg></button>
           <button class="text-button underlined" type="button" data-action="register">Create an account</button>
         </div>
       </form>

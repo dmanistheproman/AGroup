@@ -50,6 +50,7 @@
     return ((parts[0] || '?')[0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
   }
 
+  const icon = name => (window.AGroupIcons ? window.AGroupIcons.icon(name) : '');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   /* ---------- header account menu ---------- */
@@ -57,7 +58,7 @@
   function renderMenu(slot) {
     const user = current();
     if (!user) {
-      slot.innerHTML = '<a class="button small" href="login.html">Log in</a>';
+      slot.innerHTML = `<a class="button small" href="login.html">Log in ${icon('log-in')}</a>`;
       return;
     }
     const role = ROLES[user.role] || ROLES.customer;
@@ -68,11 +69,11 @@
                 aria-label="Account menu for ${esc(user.name)}">${esc(initials(user.name))}</button>
         <div class="account-dropdown" role="menu">
           <div class="account-who"><strong>${esc(user.name)}</strong><small>${esc(role.label)}${user.demo ? ' · demo' : ''}</small></div>
-          <button type="button" role="menuitem" data-action="profile">My space</button>
-          <button type="button" role="menuitem" data-action="inquiries">My enquiries</button>
-          <button type="button" role="menuitem" data-action="preferences">Notification preferences</button>
-          ${staff ? `<a role="menuitem" href="${esc(role.home)}">My workspace ↗</a>` : ''}
-          <button type="button" role="menuitem" data-account="logout">Log out</button>
+          <button type="button" role="menuitem" data-action="profile">${icon('user')}My space</button>
+          <button type="button" role="menuitem" data-action="inquiries">${icon('inbox')}My enquiries</button>
+          <button type="button" role="menuitem" data-action="preferences">${icon('bell')}Notification preferences</button>
+          ${staff ? `<a role="menuitem" href="${esc(role.home)}">${icon('layout-dashboard')}My workspace</a>` : ''}
+          <button type="button" role="menuitem" data-account="logout">${icon('log-out')}Log out</button>
         </div>
       </div>`;
 

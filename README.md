@@ -84,6 +84,7 @@ When you add a use case for your role (`<role>` is one of `customer`, `designer`
 | Register routes | `backend/server.py`, in `create_app()` |
 | Unit tests | `backend/tests/<role>/test_<use_case>_controller.py` |
 | Page/UI code | `frontend/js/`, `frontend/css/`, loaded from `index.html` or `portal.html` |
+| Icons | [Lucide](https://lucide.dev) only, no emoji or Unicode symbols: add the name to `scripts/build_icons.py`, run `python scripts/build_icons.py`, then use `AGroupIcons.icon('name')` in JS or `<svg class="icon"><use href="assets/icons/lucide.svg#name"></use></svg>` in HTML |
 
 Import backend code from the project root, for example `from backend.entities.enquiry import Enquiry`.
 
