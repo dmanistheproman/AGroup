@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Log in to AGroup — customers, interior designers and platform staff.">
+<title>AGroup — Log in</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/login.css">
+<script src="js/login.js" defer></script>
+</head>
+<body>
+<div class="demo-bar">AGroup student prototype <span>Sample accounts · demo actions only</span></div>
+
+<header class="site-header">
+  <a class="brand" href="index.html" aria-label="AGroup home"><span class="brand-mark">A</span>AGroup<span class="brand-dot">.</span></a>
+  <div class="header-actions"><a class="text-button" href="index.html">← Back to website</a></div>
+</header>
+
+<main>
+  <section class="hero login-hero">
+    <div class="hero-copy login-panel">
+      <p class="eyebrow">WELCOME BACK</p>
+      <h2>Log in to AGroup.</h2>
+      <p class="login-intro">One account for customers, interior designers and platform staff. You will see the home page for your role.</p>
+
+      <form id="login-form" class="form-stack" novalidate>
+        <label>EMAIL
+          <input name="email" type="email" autocomplete="email" placeholder="you@example.com" required>
+        </label>
+        <label>PASSWORD
+          <input name="password" type="password" autocomplete="current-password" placeholder="Your password" required>
+        </label>
+        <p id="login-error" class="inline-error" role="alert" aria-live="polite" hidden></p>
+        <div class="login-actions">
+          <button class="button" type="submit">Log in <span>↗</span></button>
+          <button class="text-button underlined" type="button" data-action="register">Create an account</button>
+        </div>
+      </form>
+
+      <p id="login-note" class="hint" aria-live="polite" hidden></p>
+    </div>
+
+    <div class="hero-image">
+      <img src="assets/bedroom.jpg" alt="Bright living room with a neutral sofa and woven wall decor">
+      <div class="photo-label"><span>MADE YOURS</span><strong>Pick up where you left off.</strong><small>Interior inspiration · illustrative photograph</small></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <a class="brand" href="index.html"><span class="brand-mark">A</span>AGroup.</a>
+  <p>Spaces to inspire. People to make them happen.</p>
+  <small>Academic prototype. All firms, prices, reviews and project details are fictional. Photos are illustrative.</small>
+</footer>
+</body>
+</html>
