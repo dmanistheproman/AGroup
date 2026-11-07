@@ -23,3 +23,7 @@ class EnquiryRepo:
 
     def get(self, enquiry_id):
         return self.items.get(enquiry_id)
+
+    def all(self):
+        return list(self.items.values())
+
