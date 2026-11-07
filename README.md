@@ -36,6 +36,21 @@ The terminal shows both addresses:
 
 Don't use `python -m http.server` for the full app. It serves the pages only, so every feature that calls the backend fails.
 
+## Demo accounts
+
+Log in at `/login.html`. Every demo account uses the password `demo`.
+
+| Email | Role |
+|---|---|
+| `customer@demo.agroup` | Customer (Alex Tan) |
+| `designer@demo.agroup` | Interior Designer (Form & Field) |
+| `commonground@demo.agroup` | Interior Designer (Common Ground) |
+| `helpdesk@demo.agroup` | Helpdesk Agent |
+| `admin@demo.agroup` | User Admin |
+| `manager@demo.agroup` | Platform Manager |
+
+The Interior Designer workspace and the User Admin company-verification screen use live data, so they need the matching login. The other portal screens are still browser-only wireframes.
+
 ## Running the tests
 
 ```bash
@@ -84,8 +99,11 @@ When you add a use case for your role (`<role>` is one of `customer`, `designer`
 | Register routes | `backend/server.py`, in `create_app()` |
 | Unit tests | `backend/tests/<role>/test_<use_case>_controller.py` |
 | Page/UI code | `frontend/js/`, `frontend/css/`, loaded from `index.html` or `portal.html` |
+| Icons | [Lucide](https://lucide.dev) only, no emoji or Unicode symbols: add the name to `scripts/build_icons.py`, run `python scripts/build_icons.py`, then use `AGroupIcons.icon('name')` in JS or `<svg class="icon"><use href="assets/icons/lucide.svg#name"></use></svg>` in HTML |
 
 Import backend code from the project root, for example `from backend.entities.enquiry import Enquiry`.
+
+Before you write backend code, read `backend/CONVENTIONS.md`: how to name things, which exceptions map to which HTTP status, and how to get the logged-in user.
 
 See `backend/boundary/designer_routes.py` and `backend/boundary/user_admin_routes.py` for working examples.
 

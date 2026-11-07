@@ -1,6 +1,5 @@
 """<<control>> ProjectController — 方法名与顺序图消息一致。"""
 from backend.services.validators import require_text
-import time
 
 class ProjectController:
     def __init__(self, project_repo, category_repo, upload_service):
@@ -14,7 +13,7 @@ class ProjectController:
         description = require_text(data.get("description"), "Description", 2000)
         if not description:
             raise ValueError("Description is required.")
-        project_id = data.get("project_id") or "IDP-{}".format(int(time.time() * 1000))
+        project_id = data.get("project_id") or self.projects.next_reference("IDP")
         # 2) loop [each image]: 逐张上传（顺序图 msg4-7）
         attachments = []
         for image in data.get("images") or []:

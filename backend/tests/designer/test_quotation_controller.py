@@ -100,6 +100,7 @@ def test_accept_is_the_shared_face_and_terminal():
 def test_http_response_shape_contracts():
     from backend import server as portal
     client = portal.create_app().test_client()
+    client.post("/api/auth/login", json={"email": "designer@demo.agroup", "password": "demo"})  # session identity
     http_data = {**DATA, "valid_until": "2099-12-31"}  # 远期日期，测试不受真实时钟影响
     created = client.post("/api/quotations", data=http_data)
     assert created.status_code == 201

@@ -1,4 +1,5 @@
 """<<entity>> Project / Category 的仓库 — 接 Firestore 前的内存替身。"""
+import re
 
 class MemoryRepo:
     def __init__(self, items=None):
@@ -17,6 +18,13 @@ class MemoryRepo:
     def delete(self, item_id):
         """ID-03b：删除并返回被删项；不存在时返回 None。"""
         return self.items.pop(item_id, None)
+
+    def next_reference(self, prefix):
+        """续接既有序号：取现有 <prefix>-<数字> 键的最大值 +1（无则从 001 起）。"""
+        nums = [int(m.group(1)) for key in self.items
+                for m in [re.match(prefix + r"-(\d+)$", key)] if m]
+        return "{}-{:03d}".format(prefix, (max(nums) if nums else 0) + 1)
+
 
 # 与原型演示数据对应的分类（Retro 是 archived，正好用来演示被拒绝的分支）
 SEED_CATEGORIES = {

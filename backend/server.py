@@ -2,9 +2,16 @@
 
 Start the site with `python run.py` from the project root.
 """
+import os
+import secrets
 from pathlib import Path
 from types import SimpleNamespace
-from flask import Flask
+from flask import Flask, session
+
+# ----- Shared: login -----
+from backend.repositories.user_account_repo import UserAccountRepo, SEED_ACCOUNT_DATA
+from backend.controllers.shared.login_controller import LoginController
+from backend.boundary.auth_routes import create_auth_blueprint
 
 # ----- User Admin -----
 from backend.repositories.account_repo import UnconnectedAccountRegistry
@@ -31,6 +38,10 @@ from backend.repositories.quotation_repo import QuotationRepo, SEED_QUOTATION_DA
 from backend.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
 from backend.repositories.payment_repo import payment_repo
 from backend.services.file_upload_service import FileUploadService
+from backend.services.credit_status_service import CreditStatusService
+from backend.controllers.designer.credit_status_controller import ViewCreditStatusController
+from backend.repositories.activity_repo import ActivityRepo, SEED_ACTIVITY_EVENTS
+from backend.controllers.designer.statistics_controller import ViewProjectStatisticsController
 from backend.boundary.designer_routes import create_designer_blueprint
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -39,7 +50,7 @@ UPLOAD_DIR = ROOT / 'backend' / 'uploads'
 
 
 def build_designer_controllers(upload_service):
-    """ID-01 … ID-10 wiring, moved from the ID branch's run.py."""
+    """ID-01 … ID-13 wiring, moved from the ID branch's run.py."""
     company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA)
     verification_repo = VerificationRepo()
     # ---------- ID-05 / ID-06：设计提案 — 两个控制器必须共享同一仓库实例 ----------
@@ -48,8 +59,10 @@ def build_designer_controllers(upload_service):
     enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA)
     quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA)
 
+    projects_repo = MemoryRepo(SEED_PROJECTS)
+
     c = SimpleNamespace()
-    c.project_controller = ProjectController(MemoryRepo(SEED_PROJECTS), MemoryRepo(SEED_CATEGORIES), upload_service)
+    c.project_controller = ProjectController(projects_repo, MemoryRepo(SEED_CATEGORIES), upload_service)
     c.company_controller = UpdateCompanyProfileController(company_repo, upload_service)
     c.verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
     c.review_controller = ReviewVerificationController(verification_repo, company_repo)
@@ -58,6 +71,8 @@ def build_designer_controllers(upload_service):
     c.revise_proposal_controller = ReviseProposalController(proposal_repo, upload_service)
     c.submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
     c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10：需求审查（accept/decline/clarify）
+    c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo))
+    c.statistics_controller = ViewProjectStatisticsController(ActivityRepo.from_data(SEED_ACTIVITY_EVENTS), projects_repo)
     c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
     # ---------- ID-09：付款进度（平台只记录不代收；里程碑属于已接受的报价） ----------
     c.payment_controller = PaymentController(
@@ -73,9 +88,18 @@ def build_designer_controllers(upload_service):
 
 def create_app(registry=None, admin_provider=None):
     app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
+    # Signs the session cookie. Set AGROUP_SECRET_KEY to keep sessions across restarts.
+    app.config.update(SECRET_KEY=os.environ.get('AGROUP_SECRET_KEY') or secrets.token_hex(32),
+                      SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
 
     # ----- shared services -----
     upload_service = FileUploadService(upload_folder=str(UPLOAD_DIR))
+
+    # ----- Shared: login (X-03) -----
+    user_accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    login = LoginController(user_accounts, lambda: session)
+    app.register_blueprint(create_auth_blueprint(login))
+    app.extensions['login'] = login   # for role guards in other blueprints
 
     # ----- User Admin -----
     account_registry = registry if registry is not None else UnconnectedAccountRegistry()
@@ -84,7 +108,7 @@ def create_app(registry=None, admin_provider=None):
 
     # ----- Interior Designer -----
     designer = build_designer_controllers(upload_service)
-    app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR)))
+    app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
 
     @app.get('/')
     def home():
