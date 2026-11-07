@@ -107,7 +107,10 @@
     }
     const role = ROLES[user.role] || ROLES.customer;
     const staff = user.role !== 'customer';
+    const canContactSupport = user.role === 'customer' || user.role === 'designer';
     slot.innerHTML = `
+      <div class="account-bar">
+      <div data-notification-bell></div>
       <div class="account-menu">
         <button class="account-avatar" type="button" aria-haspopup="true" aria-expanded="false"
                 aria-label="Account menu for ${esc(user.name)}">${esc(initials(user.name))}</button>
@@ -119,8 +122,10 @@
           <button type="button" role="menuitem" data-action="profile">${icon('user')}My space</button>
           <button type="button" role="menuitem" data-action="inquiries">${icon('inbox')}My enquiries</button>
           <button type="button" role="menuitem" data-action="preferences">${icon('bell')}Notification preferences</button>`}
+          ${canContactSupport ? `<button type="button" role="menuitem" data-support="contact">${icon('life-buoy')}Contact support</button>` : ''}
           <button type="button" role="menuitem" data-account="logout">${icon('log-out')}Log out</button>
         </div>
+      </div>
       </div>`;
 
     const menu = slot.querySelector('.account-menu');
@@ -143,6 +148,7 @@
 
   function renderAll() {
     document.querySelectorAll('[data-account-slot]').forEach(renderMenu);
+    document.dispatchEvent(new CustomEvent('agroup:account-rendered'));   // lets the notification bell redraw
   }
 
   window.AGroupAccount = { current, userId, signIn, signOut, sync, homeFor, DEMO_ACCOUNTS };

@@ -19,7 +19,7 @@ ICONS = sorted({
     # arrows
     "arrow-up-right", "arrow-right", "arrow-left", "arrow-left-right", "arrow-down", "rotate-ccw",
     # account
-    "log-in", "log-out", "user", "bell", "inbox", "layout-dashboard",
+    "log-in", "log-out", "user", "bell", "inbox", "layout-dashboard", "life-buoy", "x", "check-check",
     # portal navigation
     "layout-grid", "badge-check", "list", "history", "chart-column", "check", "flag",
     "upload", "download", "house", "ellipsis", "banknote", "receipt", "file-text", "merge",
