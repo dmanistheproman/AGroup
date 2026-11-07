@@ -1,5 +1,4 @@
 """<<control>> SubmitVerificationController / ReviewVerificationController — 命名与任务列表一致。"""
-import time
 from backend.entities.verification_request import VerificationRequest
 
 class SubmitVerificationController:
@@ -32,7 +31,7 @@ class SubmitVerificationController:
             request.resubmit(refs)
         else:
             request = VerificationRequest(
-                request_id="VER-{}".format(int(time.time() * 1000)),
+                request_id=self.verifications.next_reference(),
                 company_id=company.id, requested_by=user_id, documents=refs)
         return self.verifications.save(request)   # BF4 提交管理员；BF5 Pending Review
 

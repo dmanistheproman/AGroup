@@ -14,6 +14,7 @@ SEED_CUSTOMER_DATA = [
     {"customer_id": "CUS-104", "name": "Sam Wong", "home_type": "HDB",
      "preferred_styles": ["Japandi"], "budget": 45000, "sharing_consent": False,
      "requirements": "Compact storage-first renovation. Profile not shared."},
+    {"customer_id": "CUS-105", "name": "Dana Teo", "home_type": "HDB", "preferred_styles": ["Minimalist"], "budget": 50000, "sharing_consent": True, "requirements": "Full renovation for a resale flat; timeline flexible."}
 ]
 
 class CustomerRepo:

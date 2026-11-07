@@ -1,6 +1,5 @@
 """<<control>> SubmitProposalController（ID-05）/ ReviseProposalController（ID-06）
 — 共享同一 ProposalRepo 实例（shared: offers）。"""
-import time
 from backend.entities.design_proposal import DesignProposal
 from backend.services.validators import require_text
 
@@ -31,7 +30,7 @@ class SubmitProposalController:
         description = require_text(data.get("description"), "Description", 2000)
         if not description:
             raise ValueError("Description is required.")
-        proposal_id = "PROP-{}".format(int(time.time() * 1000))
+        proposal_id = self.proposals.next_reference()
         attachments = []
         for image in data.get("images") or []:
             attachments.append(self.uploads.upload(image, "Proposal", proposal_id))

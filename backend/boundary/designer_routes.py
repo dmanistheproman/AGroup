@@ -1,4 +1,4 @@
-"""Boundary: HTTP routes for the Interior Designer role (ID-01 … ID-10).
+"""Boundary: HTTP routes for the Interior Designer role (ID-01 … ID-13).
 
 Moved from the ID branch's run.py. Route bodies are unchanged; controllers
 now come from `c`, built once in backend/server.py.
@@ -238,6 +238,45 @@ def create_designer_blueprint(c, upload_dir):
         try:
             return jsonify(c.review_enquiry_controller.clarify(
                 enquiry_id, request.form.get("user_id", ""), request.form.get("note", ""))), 200
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+
+    # ---------- ID-11: 客户问题回复与标记 ----------
+    @bp.route("/api/enquiries/<enquiry_id>/questions/<question_id>/reply", methods=["POST"])
+    def api_reply_question(enquiry_id, question_id):
+        try:
+            return jsonify(c.review_enquiry_controller.reply_question(
+                enquiry_id, request.form.get("user_id", ""), question_id,
+                request.form.get("answer", ""))), 200
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+
+    @bp.route("/api/enquiries/<enquiry_id>/questions/<question_id>/flag", methods=["POST"])
+    def api_flag_question(enquiry_id, question_id):
+        try:
+            return jsonify(c.review_enquiry_controller.flag_question(
+                enquiry_id, request.form.get("user_id", ""), question_id,
+                request.form.get("reason", ""))), 200
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+
+    # ---------- ID-12：客户信用状态（仅平台内数据；仅对发过请求的客户） ----------
+    @bp.route("/api/credit-status")
+    def api_credit_status():
+        try:
+            return jsonify(c.credit_status_controller.status_for(
+                request.args.get("customer_id", ""), request.args.get("user_id", ""))), 200
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+
+    # ---------- ID-13：IDP 统计（事件仅种子；lifetime 与近期分列） ----------
+    @bp.route("/api/statistics")
+    def api_statistics():
+        try:
+            return jsonify(c.statistics_controller.statistics(
+                request.args.get("user_id", ""),
+                period=request.args.get("period", "monthly"),
+                date_from=request.args.get("from"), date_to=request.args.get("to")))
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
