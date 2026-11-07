@@ -87,6 +87,8 @@ When you add a use case for your role (`<role>` is one of `customer`, `designer`
 
 Import backend code from the project root, for example `from backend.entities.enquiry import Enquiry`.
 
+Before you write backend code, read `backend/CONVENTIONS.md`: how to name things, which exceptions map to which HTTP status, and how to get the logged-in user.
+
 See `backend/boundary/designer_routes.py` and `backend/boundary/user_admin_routes.py` for working examples.
 
 ## Troubleshooting
