@@ -44,6 +44,11 @@ from backend.repositories.activity_repo import ActivityRepo, SEED_ACTIVITY_EVENT
 from backend.controllers.designer.statistics_controller import ViewProjectStatisticsController
 from backend.boundary.designer_routes import create_designer_blueprint
 
+# ----- Customer -----
+from backend.repositories.favourite_repo import FavouriteRepository
+from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
+from backend.boundary.customer_routes import customer_bp
+
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT / 'frontend'
 UPLOAD_DIR = ROOT / 'backend' / 'uploads'
@@ -109,6 +114,13 @@ def create_app(registry=None, admin_provider=None):
     # ----- Interior Designer -----
     designer = build_designer_controllers(upload_service)
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
+
+     # ----- Customer -----
+    favourite_repo = FavouriteRepository()
+    favourites_ctrl = ManageFavouritesController(favourite_repo)
+
+    app.favourites_ctrl = favourites_ctrl
+    app.register_blueprint(customer_bp)
 
     @app.get('/')
     def home():
