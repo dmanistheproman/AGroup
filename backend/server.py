@@ -2,9 +2,16 @@
 
 Start the site with `python run.py` from the project root.
 """
+import os
+import secrets
 from pathlib import Path
 from types import SimpleNamespace
-from flask import Flask
+from flask import Flask, session
+
+# ----- Shared: login -----
+from backend.repositories.user_account_repo import UserAccountRepo, SEED_ACCOUNT_DATA
+from backend.controllers.shared.login_controller import LoginController
+from backend.boundary.auth_routes import create_auth_blueprint
 
 # ----- User Admin -----
 from backend.repositories.account_repo import UnconnectedAccountRegistry
@@ -73,9 +80,18 @@ def build_designer_controllers(upload_service):
 
 def create_app(registry=None, admin_provider=None):
     app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
+    # Signs the session cookie. Set AGROUP_SECRET_KEY to keep sessions across restarts.
+    app.config.update(SECRET_KEY=os.environ.get('AGROUP_SECRET_KEY') or secrets.token_hex(32),
+                      SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
 
     # ----- shared services -----
     upload_service = FileUploadService(upload_folder=str(UPLOAD_DIR))
+
+    # ----- Shared: login (X-03) -----
+    user_accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    login = LoginController(user_accounts, lambda: session)
+    app.register_blueprint(create_auth_blueprint(login))
+    app.extensions['login'] = login   # for role guards in other blueprints
 
     # ----- User Admin -----
     account_registry = registry if registry is not None else UnconnectedAccountRegistry()
