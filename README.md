@@ -60,6 +60,25 @@ The Interior Designer workspace and the User Admin company-verification screen u
 
 Run `python run.py` once first so that `.venv` exists.
 
+## CI/CD
+
+Every push and pull request runs the GitHub Actions pipeline in `.github/workflows/ci-cd.yml`. Results are on the repository's **Actions** tab.
+
+| Stage | What it does |
+|---|---|
+| CI · tests | `pytest backend/tests` on Ubuntu (Python 3.12, 3.14) and Windows (Python 3.14) |
+| CI · frontend checks | JavaScript syntax check of `frontend/js/*.js` |
+| CD · staging | Builds the `Dockerfile` image, runs it with gunicorn and smoke-tests it with `scripts/smoke_test.py` |
+| CD · deliver | On `main` only: publishes the image to GitHub Packages (`ghcr.io/dmanistheproman/agroup`) |
+
+Deploying to production is manual, and needs Docker:
+
+```bash
+docker run -p 8000:8000 -e AGROUP_SECRET_KEY=<random text> ghcr.io/dmanistheproman/agroup:latest
+```
+
+To smoke-test your local server, run `python scripts/smoke_test.py http://127.0.0.1:5050`.
+
 ## Project layout
 
 ```text
