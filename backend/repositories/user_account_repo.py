@@ -7,7 +7,8 @@ from werkzeug.security import generate_password_hash
 
 from backend.entities.user_account import UserAccount
 
-# Demo accounts, one per role. Every demo password is "demo" (hashed once here).
+# Demo accounts: one per role, plus a second designer to show the ownership check.
+# Every demo password is "demo" (hashed once here).
 _DEMO_PASSWORD_HASH = generate_password_hash("demo")
 
 SEED_ACCOUNT_DATA = [
@@ -15,6 +16,8 @@ SEED_ACCOUNT_DATA = [
      "role": UserAccount.ROLE_CUSTOMER},                 # CustomerProfile CUS-101
     {"user_id": "user-form-field", "name": "Form & Field", "email": "designer@demo.agroup",
      "role": UserAccount.ROLE_DESIGNER},                 # owns DesignerCompany COM-FF
+    {"user_id": "user-common-ground", "name": "Common Ground", "email": "commonground@demo.agroup",
+     "role": UserAccount.ROLE_DESIGNER},                 # owns DesignerCompany COM-CG
     {"user_id": "user-helpdesk", "name": "Helpdesk Agent", "email": "helpdesk@demo.agroup",
      "role": UserAccount.ROLE_HELPDESK},
     {"user_id": "user-admin", "name": "User Admin", "email": "admin@demo.agroup",

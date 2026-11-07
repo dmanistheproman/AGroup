@@ -108,7 +108,7 @@ def create_app(registry=None, admin_provider=None):
 
     # ----- Interior Designer -----
     designer = build_designer_controllers(upload_service)
-    app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR)))
+    app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
 
     @app.get('/')
     def home():
