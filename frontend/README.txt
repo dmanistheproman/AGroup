@@ -6,14 +6,11 @@ START HERE
 Customer website: index.html
 Partner/staff portal: portal.html
 
-Open index.html in a modern browser for a quick preview. For consistent local
-storage shared between the customer website and staff portal, serve the folder:
+Start the app from the project root (see README.md there):
 
-1. Open a terminal in the ProjectMD folder.
-2. Run: python -m http.server 8000 --bind 127.0.0.1 --directory frontend
-3. Customer: http://127.0.0.1:8000/index.html
-4. Portal:   http://127.0.0.1:8000/portal.html
-5. Stop the server with Ctrl+C when finished.
+1. Run: python run.py   (macOS / Linux: python3 run.py)
+2. The browser opens the customer website; the terminal prints both addresses.
+3. Stop the server with Ctrl+C when finished.
 
 No build step or package installation is required. Keep the HTML, CSS,
 JavaScript and assets together when copying the prototype. The included photos
@@ -23,8 +20,9 @@ WHAT THIS VERSION IS
 --------------------
 A static HTML/CSS/JavaScript prototype for discussing the customer experience
 and the four role-specific workspaces. It is not a deployed application.
-Python/Flask, Firestore, authentication, access control and actual file uploads
-are not implemented. The Python command above is only a static file server.
+Screens backed by the Python/Flask backend call /api/... routes; the rest are
+browser-local wireframes. Firestore, authentication and access control are not
+implemented yet.
 The portal role selector changes the preview; it is not an access-control system.
 
 Firms, projects, ratings, records, prices, documents and analytics are fictional.
