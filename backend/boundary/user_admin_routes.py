@@ -2,7 +2,7 @@
 import os
 from flask import Blueprint, jsonify, request
 from backend.repositories.account_repo import AccountStoreNotConnected
-from backend.controllers.user_admin.suspend_account import SuspendAccountController, SuspensionError
+from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController, SuspensionError
 
 
 def create_user_admin_blueprint(controller: SuspendAccountController, admin_provider=None):

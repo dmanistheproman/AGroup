@@ -2,7 +2,7 @@
 import unittest
 from dataclasses import replace
 from backend.entities.account import UserAccount
-from backend.controllers.user_admin.suspend_account import SuspendAccountController, SuspensionError
+from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController, SuspensionError
 
 
 class FakeUserAccountRegistry:

@@ -8,7 +8,7 @@ from flask import Flask
 
 # ----- User Admin -----
 from backend.repositories.account_repo import UnconnectedAccountRegistry
-from backend.controllers.user_admin.suspend_account import SuspendAccountController
+from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController
 from backend.boundary.user_admin_routes import create_user_admin_blueprint
 
 # ----- Interior Designer -----

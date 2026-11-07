@@ -9,8 +9,8 @@ member will connect the user accounts and account database.
 - `backend/boundary/user_admin_routes.py` — HTTP API (User Admin routes).
 - `backend/entities/account.py` — BCE entity classes.
 - `backend/repositories/account_repo.py` — account-repository contract and safe placeholder.
-- `backend/controllers/user_admin/suspend_account.py` — BCE suspension controller.
-- `backend/tests/user_admin/test_suspension.py` — independent unit tests with fake accounts.
+- `backend/controllers/user_admin/suspend_account_controller.py` — BCE suspension controller.
+- `backend/tests/user_admin/test_suspend_account_controller.py` — independent unit tests with fake accounts.
 - `frontend/js/suspend-account.js` — suspension form and API call.
 
 ## Existing files edited
