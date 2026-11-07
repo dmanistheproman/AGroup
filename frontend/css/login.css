@@ -6,4 +6,8 @@
 .login-actions{display:flex;gap:25px;align-items:center;flex-wrap:wrap;margin-top:6px}
 .login-actions .underlined{padding-bottom:4px}
 #login-error:empty{display:none}
+.demo-accounts{margin-top:30px;padding-top:6px;border-top:1px solid var(--line)}
+.demo-account-list{display:flex;flex-wrap:wrap;gap:8px}
+.demo-account-list button{border:1px solid var(--line);background:var(--white);border-radius:30px;padding:7px 13px;font-size:12px;color:var(--ink);cursor:pointer}
+.demo-account-list button:hover,.demo-account-list button:focus-visible{border-color:var(--olive);color:var(--olive)}
 @media(max-width:700px){.login-hero .hero-image{height:260px}}

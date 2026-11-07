@@ -118,6 +118,11 @@ js/data.js       Fictional customer data and shared storage/escaping helpers.
 css/styles.css   Customer styling and common components.
 css/portal.css   Monochrome portal wireframe styling.
 js/suspend-account.js  User Admin suspension form and API call.
+login.html       Log in page (demo login until the backend login is connected).
+js/login.js      Login form checks and demo account buttons.
+js/account.js    Shared demo session and the header account menu.
+css/login.css    Login page layout.
+css/account.css  Header avatar and dropdown menu.
 assets/          Local illustrative interior photographs.
 
 NEXT IMPLEMENTATION STEP

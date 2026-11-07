@@ -7,6 +7,7 @@
 <title>AGroup — Log in</title>
 <link rel="stylesheet" href="css/styles.css">
 <link rel="stylesheet" href="css/login.css">
+<script src="js/account.js" defer></script>
 <script src="js/login.js" defer></script>
 </head>
 <body>
@@ -39,6 +40,11 @@
       </form>
 
       <p id="login-note" class="hint" aria-live="polite" hidden></p>
+
+      <div class="demo-accounts">
+        <p class="hint">Demo login: the server login is not connected yet, so any password is accepted. Try a demo account:</p>
+        <div id="demo-accounts" class="demo-account-list"></div>
+      </div>
     </div>
 
     <div class="hero-image">
