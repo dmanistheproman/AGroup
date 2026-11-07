@@ -22,7 +22,7 @@ ICONS = sorted({
     "log-in", "log-out", "user", "bell", "inbox", "layout-dashboard",
     # portal navigation
     "layout-grid", "badge-check", "list", "history", "chart-column", "check", "flag",
-    "upload", "download", "house", "ellipsis", "banknote", "receipt",
+    "upload", "download", "house", "ellipsis", "banknote", "receipt", "file-text", "merge",
     # customer site
     "heart", "star",
 })
@@ -36,11 +36,11 @@ def fetch(url):
 
 
 def symbol(name, svg):
-    """Turn one Lucide SVG file into a <symbol> that keeps its stroke settings."""
+    """Turn one Lucide SVG file into a <symbol> (shape only)."""
     inner = re.search(r"<svg[^>]*>(.*)</svg>", svg, re.S).group(1).strip()
     inner = re.sub(r"\s*\n\s*", "", inner)
-    return (f'<symbol id="{name}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-            f'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{inner}</symbol>')
+    # Only the shape: fill/stroke come from css/icons.css, so an icon can be shown filled.
+    return f'<symbol id="{name}" viewBox="0 0 24 24">{inner}</symbol>'
 
 
 def main():
