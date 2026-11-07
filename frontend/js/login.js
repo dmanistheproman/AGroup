@@ -1,6 +1,5 @@
 /* LoginPage boundary: enterCredentials(email, password) and displayError(message).
-   Demo login: the form is checked in the browser and the session is kept locally
-   (see account.js) until the backend login is connected. */
+   Sends the credentials to POST /api/auth/login (LoginController on the server). */
 (() => {
   'use strict';
 
@@ -8,6 +7,7 @@
   const form = document.querySelector('#login-form');
   const error = document.querySelector('#login-error');
   const note = document.querySelector('#login-note');
+  const submit = form.querySelector('button[type="submit"]');
   const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   function displayError(message) {
@@ -20,12 +20,15 @@
     note.hidden = !message;
   }
 
-  function enterCredentials(email, password) {
+  async function enterCredentials(email, password) {
     if (!email || !password) return displayError('Enter your email and password.');
     if (!EMAIL.test(email)) return displayError('Enter a valid email address.');
     displayError('');
-    const user = account.signIn(email);
-    location.href = account.homeFor(user);
+    submit.disabled = true;
+    const result = await account.signIn(email, password);
+    submit.disabled = false;
+    if (result.error) return displayError(result.error);
+    location.href = account.homeFor(result.user);
   }
 
   form.addEventListener('submit', event => {
@@ -45,12 +48,12 @@
   account.DEMO_ACCOUNTS.forEach(demo => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.textContent = demo.name === 'Alex Tan' ? 'Customer · Alex Tan' : demo.name;
+    button.textContent = demo.label;
     button.addEventListener('click', () => {
       form.email.value = demo.email;
       form.password.value = 'demo';
       displayError('');
-      form.querySelector('button[type="submit"]').focus();
+      submit.focus();
     });
     list.appendChild(button);
   });

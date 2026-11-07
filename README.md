@@ -36,6 +36,21 @@ The terminal shows both addresses:
 
 Don't use `python -m http.server` for the full app. It serves the pages only, so every feature that calls the backend fails.
 
+## Demo accounts
+
+Log in at `/login.html`. Every demo account uses the password `demo`.
+
+| Email | Role |
+|---|---|
+| `customer@demo.agroup` | Customer (Alex Tan) |
+| `designer@demo.agroup` | Interior Designer (Form & Field) |
+| `commonground@demo.agroup` | Interior Designer (Common Ground) |
+| `helpdesk@demo.agroup` | Helpdesk Agent |
+| `admin@demo.agroup` | User Admin |
+| `manager@demo.agroup` | Platform Manager |
+
+The Interior Designer workspace and the User Admin company-verification screen use live data, so they need the matching login. The other portal screens are still browser-only wireframes.
+
 ## Running the tests
 
 ```bash
