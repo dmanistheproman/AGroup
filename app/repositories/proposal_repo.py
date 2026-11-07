@@ -1,6 +1,7 @@
 """<<entity>> 仓库 — ProposalRepo（shared: offers；接 Firestore 前的内存替身）。
 注意：ID-05 与 ID-06 的控制器必须共享同一个 ProposalRepo 实例。"""
 from app.entities.design_proposal import DesignProposal
+import re
 
 SEED_PROPOSAL_DATA = [
     {"proposal_id": "PROP-801", "client_name": "Alex Tan", "title": "Concept proposal",
@@ -33,3 +34,10 @@ class ProposalRepo:
 
     def all(self):
         return list(self.items.values())
+
+    def next_reference(self):
+        """续接种子序号：取现有 PROP-<数字> 引用的最大值 +1（空仓回退 PROP-801）。"""
+        nums = [int(m.group(1)) for key in self.items
+                for m in [re.match(r"PROP-(\d+)$", key)] if m]
+        return "PROP-{}".format((max(nums) if nums else 800) + 1)
+

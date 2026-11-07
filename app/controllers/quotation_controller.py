@@ -48,7 +48,7 @@ class SubmitQuotationController:
             raise ValueError("Enquiry not found — a quotation must attach to a client request.")
         if not enquiry.is_confirmed():
             raise ValueError("Requirements for this enquiry are not confirmed yet — confirm them (ID-10) before quoting.")
-        quotation_id = "QT-{}".format(int(datetime.datetime.now().timestamp() * 1000))
+        quotation_id = self.quotations.next_reference()
         quotation = Quotation(
             quotation_id=quotation_id, enquiry_id=enquiry.id,
             client_name=enquiry.client_name, requirements=enquiry.requirements,

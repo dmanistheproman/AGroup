@@ -1,5 +1,6 @@
 """<<entity>> 仓库 — QuotationRepo（接 Firestore 前的内存替身；含 ID-07 任务 3 的到期检查）。"""
 import datetime
+import re
 from app.entities.quotation import Quotation
 
 SEED_QUOTATION_DATA = [
@@ -34,6 +35,13 @@ class QuotationRepo:
 
     def all(self):
         return list(self.items.values())
+
+    def next_reference(self):
+        """续接种子序号：取现有 QT-<数字> 引用的最大值 +1（空仓回退 QT-101）。"""
+        nums = [int(m.group(1)) for key in self.items
+                for m in [re.match(r"QT-(\d+)$", key)] if m]
+        return "QT-{}".format((max(nums) if nums else 100) + 1)
+
 
     def expire_due(self, today=None):
         """ID-07 任务 3：到期未响应 → EXPIRED（shared: status change）。返回本次新到期的数量。"""
