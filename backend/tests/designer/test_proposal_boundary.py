@@ -8,6 +8,7 @@ from backend import server as portal
 
 def test_create_proposal_with_real_multipart_upload():
     client = portal.create_app().test_client()
+    client.post("/api/auth/login", json={"email": "designer@demo.agroup", "password": "demo"})  # session identity
     res = client.post("/api/proposals", data={
         "title": "Boundary check",
         "client_name": "Alex Tan",

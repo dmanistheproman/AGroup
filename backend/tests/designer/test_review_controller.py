@@ -32,12 +32,13 @@ def test_review_entity_validates_rating_range():
         Review(review_id="REV-998", customer="X", company="Form & Field", rating=0,
                comment="c", date="2026-11-01")
 
-# HTTP 边界：GET /api/reviews 返回数组；未知账号 400
+# HTTP boundary: GET /api/reviews returns a list for the logged-in designer; not logged in -> 401
 def test_reviews_http_boundary():
     from backend import server as portal
     client = portal.create_app().test_client()
-    res = client.get("/api/reviews?user_id=user-form-field")
+    client.post("/api/auth/login", json={"email": "designer@demo.agroup", "password": "demo"})  # session identity
+    res = client.get("/api/reviews")
     assert res.status_code == 200
     rows = res.get_json()
     assert len(rows) == 2 and all("rating" in r and "comment" in r for r in rows)
-    assert client.get("/api/reviews?user_id=ghost").status_code == 400
+    assert portal.create_app().test_client().get("/api/reviews").status_code == 401
