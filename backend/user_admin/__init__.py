@@ -1,1 +1,0 @@
-"""User Admin application functions."""
