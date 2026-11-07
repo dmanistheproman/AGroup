@@ -55,7 +55,7 @@ def ids(store, ticket_id, kind):
 
 @case("HD05-01", "Merge two open tickets, same requester+IDP",
       "Merged; B merged, read-only, linked to A; A has messages a1,b1,a2,b2 and notes an1,bn1 in timestamp order")
-def test_merge_success(store):
+def test_merges_two_open_tickets_with_same_requester_and_idp(store):
     MergeTicketController(store).merge_tickets("A", "B")
     b = store.get_ticket("B")
     return (f"Merged; B {b['status']}, {'read-only' if b['readOnly'] else 'writable'}, linked to "
@@ -64,28 +64,28 @@ def test_merge_success(store):
 
 
 @case("HD05-02", "Same ticket twice", "Error; nothing merged")
-def test_same_ticket(store):
+def test_rejects_same_ticket(store):
     return attempt(store, "A", "A", "nothing merged")
 
 
 @case("HD05-03", "One ticket already merged", "Error; nothing merged")
-def test_already_merged(store):
+def test_rejects_already_merged_ticket(store):
     return attempt(store, "A", "D", "nothing merged")
 
 
 @case("HD05-04", "One ticket closed", "Error; nothing merged")
-def test_closed(store):
+def test_rejects_closed_ticket(store):
     return attempt(store, "A", "C", "nothing merged")
 
 
 @case("HD05-05", "Different requester or IDP", "Error; nothing merged")
-def test_requester_idp_mismatch(store):
+def test_rejects_requester_or_idp_mismatch(store):
     results = {attempt(store, "A", other, "nothing merged") for other in ("E", "F")}  # E: requester, F: IDP
     return results.pop() if len(results) == 1 else f"Mixed: {sorted(results)}"
 
 
 @case("HD05-06", "Failure part way through", "Error; both tickets unchanged")
-def test_failure_rolls_back(store):
+def test_failure_rolls_back_both_tickets(store):
     calls = []
     real = store._apply
 
@@ -100,7 +100,7 @@ def test_failure_rolls_back(store):
 
 
 @case("HD05-07", "Write to a merged ticket", "Rejected")
-def test_merged_ticket_read_only(store):
+def test_rejects_writes_to_merged_ticket(store):
     try:
         ticket.update(store, "D", {"subject": "edited"})
     except PermissionError:
