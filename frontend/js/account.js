@@ -113,10 +113,12 @@
                 aria-label="Account menu for ${esc(user.name)}">${esc(initials(user.name))}</button>
         <div class="account-dropdown" role="menu">
           <div class="account-who"><strong>${esc(user.name)}</strong><small>${esc(role.label)}</small></div>
+          ${staff ? `
+          <a role="menuitem" href="${esc(role.home)}">${icon('layout-dashboard')}My workspace</a>
+          <a role="menuitem" href="index.html">${icon('house')}Customer website</a>` : `
           <button type="button" role="menuitem" data-action="profile">${icon('user')}My space</button>
           <button type="button" role="menuitem" data-action="inquiries">${icon('inbox')}My enquiries</button>
-          <button type="button" role="menuitem" data-action="preferences">${icon('bell')}Notification preferences</button>
-          ${staff ? `<a role="menuitem" href="${esc(role.home)}">${icon('layout-dashboard')}My workspace</a>` : ''}
+          <button type="button" role="menuitem" data-action="preferences">${icon('bell')}Notification preferences</button>`}
           <button type="button" role="menuitem" data-account="logout">${icon('log-out')}Log out</button>
         </div>
       </div>`;
@@ -128,10 +130,15 @@
     toggle.addEventListener('click', () => setOpen(!menu.classList.contains('open')));
     menu.addEventListener('click', async event => {
       if (event.target.closest('[role="menuitem"]')) setOpen(false);
-      if (event.target.closest('[data-account="logout"]')) { await signOut(); renderAll(); }
+      if (event.target.closest('[data-account="logout"]')) { await signOut(); renderAll(); reroutePortal(); }
     });
     menu.addEventListener('keydown', event => { if (event.key === 'Escape') { setOpen(false); toggle.focus(); } });
     document.addEventListener('click', event => { if (!menu.contains(event.target)) setOpen(false); });
+  }
+
+  // The portal shows the workspace of the logged-in role: redraw it when the session changes.
+  function reroutePortal() {
+    if (document.querySelector('#portal-nav')) window.dispatchEvent(new HashChangeEvent('hashchange'));
   }
 
   function renderAll() {
@@ -144,7 +151,7 @@
     renderAll();                                   // draw from the local copy first
     if (await sync()) {                            // then follow the server session
       renderAll();
-      if (document.querySelector('#portal-nav')) window.dispatchEvent(new HashChangeEvent('hashchange'));
+      reroutePortal();
     }
   });
 })();

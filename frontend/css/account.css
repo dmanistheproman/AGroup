@@ -14,3 +14,5 @@
 .account-dropdown [data-account=logout]{color:#8e2d20;border-top:1px solid var(--line);border-radius:0 0 4px 4px;margin-top:6px;padding-top:11px}
 .account-dropdown [role=menuitem] .icon{color:var(--muted)}
 .account-dropdown [data-account=logout] .icon{color:inherit}
+/* Portal sidebar: workspace of the logged-in role (replaces PREVIEW AS). */
+.role-label strong{display:block;margin-top:6px;font-size:15px;letter-spacing:0;font-weight:600;color:var(--ink)}

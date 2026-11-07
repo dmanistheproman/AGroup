@@ -49,7 +49,7 @@ Log in at `/login.html`. Every demo account uses the password `demo`.
 | `admin@demo.agroup` | User Admin |
 | `manager@demo.agroup` | Platform Manager |
 
-The Interior Designer workspace and the User Admin company-verification screen use live data, so they need the matching login. The other portal screens are still browser-only wireframes.
+The portal shows only the workspace of the logged-in role (customers use the customer website). The Interior Designer workspace and the User Admin company-verification screen use live data; the other portal screens are still browser-only wireframes.
 
 ## Running the tests
 

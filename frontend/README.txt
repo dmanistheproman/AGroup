@@ -23,7 +23,7 @@ and the four role-specific workspaces. It is not a deployed application.
 Screens backed by the Python/Flask backend call /api/... routes; the rest are
 browser-local wireframes. Firestore, authentication and access control are not
 implemented yet.
-The portal role selector changes the preview; it is not an access-control system.
+The portal shows only the workspace of the logged-in role (demo accounts, password "demo").
 
 Firms, projects, ratings, records, prices, documents and analytics are fictional.
 Photos are illustrative and do not represent the fictional firms' actual work.
@@ -52,7 +52,7 @@ CUSTOMER WEBSITE
 
 BACKEND PORTAL WIREFRAME
 -----------------------
-Use the PREVIEW AS selector in the sidebar.
+Log in with a demo account; the sidebar shows that role's workspace.
 
 User Admin:
 Overview; company verification; escalated tickets; listing/review moderation;
