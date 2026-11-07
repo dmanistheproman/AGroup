@@ -30,7 +30,7 @@ class SubmitProposalController:
         description = require_text(data.get("description"), "Description", 2000)
         if not description:
             raise ValueError("Description is required.")
-        proposal_id = self.proposal.next_reference()
+        proposal_id = self.proposals.next_reference()
         attachments = []
         for image in data.get("images") or []:
             attachments.append(self.uploads.upload(image, "Proposal", proposal_id))

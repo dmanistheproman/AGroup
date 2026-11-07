@@ -15,6 +15,8 @@ class PaymentRepo:
         self._add("QT-103", "Deposit payment", 12000, "2026-10-25")
         self._add("QT-103", "Carpentry progress payment", 30000, "2026-11-20")
         self._add("QT-103", "Handover and final payment", 18000, "2026-12-18")
+        self._add("QT-104", "Consultation fee", 4000, "2026-09-20", status=PaymentMilestone.PAID, paid_date="2026-10-02")
+        self._add("QT-104", "Deposit payment", 8000, "2026-11-05")
 
     def _add(self, quotation_id, name, amount, due_date,
              status=PaymentMilestone.PENDING, paid_date=None):
@@ -42,6 +44,12 @@ class PaymentRepo:
         if milestone_id not in self._milestones:
             raise KeyError("Payment milestone not found")
         return self._milestones[milestone_id]
+
+    def list_for_quotation_ids(self, quotation_ids):
+        """ID-12：按报价 ID 集合过滤里程碑（纯查询，不做状态刷新）。"""
+        wanted = set(quotation_ids)
+        return [m for m in self._milestones.values() if m.quotation_id in wanted]
+
 
     def list_for_quotation(self, quotation_id, today=None):
         self._lazy_overdue(today)

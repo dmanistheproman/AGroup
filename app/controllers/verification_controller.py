@@ -31,7 +31,7 @@ class SubmitVerificationController:
             request.resubmit(refs)
         else:
             request = VerificationRequest(
-                request_id=self.request.next_reference(),
+                request_id=self.verifications.next_reference(),
                 company_id=company.id, requested_by=user_id, documents=refs)
         return self.verifications.save(request)   # BF4 提交管理员；BF5 Pending Review
 

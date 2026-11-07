@@ -19,6 +19,11 @@ from app.controllers.review_enquiry_controller import ReviewEnquiryController
 from app.controllers.payment_controller import PaymentController
 from app.repositories.payment_repo import payment_repo
 from app.services.file_upload_service import FileUploadService
+from app.services.credit_status_service import CreditStatusService
+from app.controllers.credit_status_controller import ViewCreditStatusController
+from app.repositories.activity_repo import ActivityRepo, SEED_ACTIVITY_EVENTS
+from app.controllers.statistics_controller import ViewProjectStatisticsController
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = Flask(__name__, static_folder=os.path.join(BASE_DIR, "Portal"), static_url_path="")
@@ -26,7 +31,8 @@ app = Flask(__name__, static_folder=os.path.join(BASE_DIR, "Portal"), static_url
 upload_service = FileUploadService(upload_folder=os.path.join(BASE_DIR, "uploads"))
 company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA)
 verification_repo = VerificationRepo()
-project_controller = ProjectController(MemoryRepo(SEED_PROJECTS), MemoryRepo(SEED_CATEGORIES), upload_service)
+projects_repo = MemoryRepo(SEED_PROJECTS)
+project_controller = ProjectController(projects_repo, MemoryRepo(SEED_CATEGORIES), upload_service)
 company_controller = UpdateCompanyProfileController(company_repo, upload_service)
 verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
 review_controller = ReviewVerificationController(verification_repo, company_repo)
@@ -40,6 +46,8 @@ enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA)
 quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA)
 submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
 review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10：需求审查（accept/decline/clarify）
+credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo))
+statistics_controller = ViewProjectStatisticsController(ActivityRepo.from_data(SEED_ACTIVITY_EVENTS), projects_repo)
 list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
 
 # ---------- ID-09：付款进度（平台只记录不代收；里程碑属于已接受的报价） ----------
@@ -287,6 +295,45 @@ def api_clarify_enquiry(enquiry_id):
     try:
         return jsonify(review_enquiry_controller.clarify(
             enquiry_id, request.form.get("user_id", ""), request.form.get("note", ""))), 200
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+# ---------- ID-11: 客户问题回复与标记 ----------
+@app.route("/api/enquiries/<enquiry_id>/questions/<question_id>/reply", methods=["POST"])
+def api_reply_question(enquiry_id, question_id):
+    try:
+        return jsonify(review_enquiry_controller.reply_question(
+            enquiry_id, request.form.get("user_id", ""), question_id,
+            request.form.get("answer", ""))), 200
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+@app.route("/api/enquiries/<enquiry_id>/questions/<question_id>/flag", methods=["POST"])
+def api_flag_question(enquiry_id, question_id):
+    try:
+        return jsonify(review_enquiry_controller.flag_question(
+            enquiry_id, request.form.get("user_id", ""), question_id,
+            request.form.get("reason", ""))), 200
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+# ---------- ID-12：客户信用状态（仅平台内数据；仅对发过请求的客户） ----------
+@app.route("/api/credit-status")
+def api_credit_status():
+    try:
+        return jsonify(credit_status_controller.status_for(
+            request.args.get("customer_id", ""), request.args.get("user_id", ""))), 200
+    except ValueError as err:
+        return jsonify({"error": str(err)}), 400
+
+# ---------- ID-13：IDP 统计（事件仅种子；lifetime 与近期分列） ----------
+@app.route("/api/statistics")
+def api_statistics():
+    try:
+        return jsonify(statistics_controller.statistics(
+            request.args.get("user_id", ""),
+            period=request.args.get("period", "monthly"),
+            date_from=request.args.get("from"), date_to=request.args.get("to")))
     except ValueError as err:
         return jsonify({"error": str(err)}), 400
 

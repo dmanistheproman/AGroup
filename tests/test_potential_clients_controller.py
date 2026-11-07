@@ -23,7 +23,7 @@ def test_filters_by_single_style():
 def test_filters_by_multiple_styles():
     ctrl = build()
     rows = ctrl.find("user-form-field", ["Minimalist", "Contemporary"])
-    assert {r["name"] for r in rows} == {"Casey Lim", "Meera Raj"}
+    assert {r["name"] for r in rows} == {"Casey Lim", "Meera Raj", "Dana Teo"}
 
 # ---- AF1：无匹配 → 空列表（前端显示 no matching result）----
 def test_no_match_returns_empty_list():
@@ -45,10 +45,10 @@ def test_client_view_includes_requirements():
 # ---- 无风格参数 = 全部已同意共享的客户 ----
 def test_empty_style_list_returns_all_consenting_clients():
     ctrl = build()
-    assert len(ctrl.find("user-form-field", [])) == 3
+    assert len(ctrl.find("user-form-field", [])) == 4
 
 # ---- 大小写/空白容错（来自 URL 的参数）----
 def test_style_parameters_are_trimmed():
     ctrl = build()
     rows = ctrl.find("user-form-field", [" Minimalist "])
-    assert {r["name"] for r in rows} == {"Casey Lim", "Meera Raj"}
+    assert {r["name"] for r in rows} == {"Casey Lim", "Meera Raj", "Dana Teo"}

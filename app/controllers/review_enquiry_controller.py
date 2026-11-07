@@ -31,7 +31,7 @@ class ReviewEnquiryController:
             enquiry.decline(reason)
             message = ("Collaboration declined and recorded. The use case ends here; the client "
                        "is notified (demo record; notification service not implemented).")
-        return {"enquiry": self._view(enquiry), "reviewed": True, "message": message}
+        return {"enquiry": self._view(enquiry),"questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "reviewed": True, "message": message}
 
     def clarify(self, enquiry_id, user_id, note):
         enquiry = self._find(enquiry_id)
@@ -42,8 +42,19 @@ class ReviewEnquiryController:
             raise ValueError("Requirements already reviewed — clarification is only possible before the decision.")
         self._clarifications.setdefault(enquiry.id, []).append(
             {"note": note, "at": date.today().isoformat()})
-        return {"enquiry": self._view(enquiry), "message":
+        return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(),"message":
                 f"Clarification request recorded for {enquiry.client_name} (message thread not implemented)."}
+
+    def reply_question(self, enquiry_id, user_id, question_id, answer):
+        enquiry = self._find(enquiry_id)
+        enquiry.answer_question(question_id, answer)
+        return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "message": "Reply sent to the client (demo record; notification service not implemented)."}
+
+    def flag_question(self, enquiry_id, user_id, question_id, reason=None):
+        enquiry = self._find(enquiry_id)
+        enquiry.flag_question(question_id, reason)
+        return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "message": "Question flagged — transferred to the platform for handling (demo record; notification service not implemented)."}
+
 
     def _find(self, enquiry_id):
         enquiry = self._repo.get((enquiry_id or "").strip())
@@ -61,4 +72,6 @@ class ReviewEnquiryController:
             "decided_at": enquiry.decided_at,
             "decision_reason": enquiry.decision_reason,
             "clarifications": self._clarifications.get(enquiry.id, []),
+            "questions": enquiry.questions, 
+            "unanswered": enquiry.unanswered_count(),
         }

@@ -13,7 +13,7 @@ class ProjectController:
         description = require_text(data.get("description"), "Description", 2000)
         if not description:
             raise ValueError("Description is required.")
-        project_id = data.get("project_id") or self.project.next_reference("IDP")
+        project_id = data.get("project_id") or self.projects.next_reference("IDP")
         # 2) loop [each image]: 逐张上传（顺序图 msg4-7）
         attachments = []
         for image in data.get("images") or []:
