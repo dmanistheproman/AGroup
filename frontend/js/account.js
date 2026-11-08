@@ -68,6 +68,17 @@
     }
   }
 
+  // Create Account (S-13): customer self-registration; the server logs the new customer in.
+  async function register(name, email, password) {
+    try {
+      const r = await call('POST', '/api/auth/register', { name, email, password });
+      if (!r.ok) return { error: r.data.error || 'The account could not be created. Please try again.', field: r.data.field };
+      return { user: remember(r.data.user) };
+    } catch {
+      return { error: 'Cannot reach the server. Start it with python run.py and try again.' };
+    }
+  }
+
   async function signOut() {
     try { await call('POST', '/api/auth/logout'); } catch { /* still clear the local copy */ }
     remember(null);
@@ -152,7 +163,7 @@
     document.dispatchEvent(new CustomEvent('agroup:account-rendered'));   // lets the notification bell redraw
   }
 
-  window.AGroupAccount = { current, userId, signIn, signOut, sync, homeFor, DEMO_ACCOUNTS };
+  window.AGroupAccount = { current, userId, signIn, register, signOut, sync, homeFor, DEMO_ACCOUNTS };
 
   document.addEventListener('DOMContentLoaded', async () => {
     renderAll();                                   // draw from the local copy first

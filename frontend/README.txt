@@ -119,6 +119,8 @@ css/styles.css   Customer styling and common components.
 css/portal.css   Monochrome portal wireframe styling.
 js/suspend-account.js  User Admin suspension form and API call.
 login.html       Log in page; calls POST /api/auth/login (demo accounts, password "demo").
+register.html    Create an account (customers); calls POST /api/auth/register, errors shown beside each field.
+js/register.js   Registration form checks and server call.
 js/login.js      Login form checks, server login and demo account buttons.
 js/account.js    Server session (/api/auth/me) with a local copy, and the header account menu.
 css/login.css    Login page layout.

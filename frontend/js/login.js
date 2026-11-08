@@ -39,10 +39,6 @@
 
   form.addEventListener('input', () => displayError(''));
 
-  document.querySelector('[data-action="register"]').addEventListener('click', () => {
-    showNote('Account registration is not available yet.');
-  });
-
   // Demo account buttons fill in the form; the user still presses Log in.
   const list = document.querySelector('#demo-accounts');
   account.DEMO_ACCOUNTS.forEach(demo => {
