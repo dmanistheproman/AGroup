@@ -1,0 +1,60 @@
+# Nightly random-data test (X-05): generate a full test-data set with a new random seed, check the business
+# rules on it and smoke-test the app running on it. Runs at 04:00 Singapore time (20:00 UTC), when few people
+# are working, and can be started by hand. A failure prints the seed, so it can be repeated locally:
+#   python scripts/generate_data.py --reset --seed <seed> && python scripts/check_data.py
+name: Nightly random data
+
+on:
+  schedule:
+    - cron: "0 20 * * *"
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "Seed to use (empty = random)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  random-data:
+    name: "Random data · generate, check rules, smoke test"
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AGROUP_DATABASE: ${{ github.workspace }}/instance/nightly.sqlite3
+      AGROUP_SECRET_KEY: nightly-test-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements.txt
+      - name: Pick the seed
+        id: seed
+        run: |
+          SEED="${{ github.event.inputs.seed }}"
+          if [ -z "$SEED" ]; then SEED=$(( RANDOM * 32768 + RANDOM )); fi
+          echo "seed=$SEED" >> "$GITHUB_OUTPUT"
+          echo "### Nightly random data — seed \`$SEED\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Repeat locally: \`python scripts/generate_data.py --reset --seed $SEED && python scripts/check_data.py\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Seed: $SEED"
+      - name: Generate test data
+        run: python scripts/generate_data.py --database "$AGROUP_DATABASE" --seed ${{ steps.seed.outputs.seed }}
+      - name: Check business rules
+        run: python scripts/check_data.py "$AGROUP_DATABASE"
+      - name: Start the app on the generated data
+        run: |
+          python -c "from backend.server import create_app; create_app().run(host='127.0.0.1', port=5050)" > app.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:5050/ > /dev/null && exit 0
+            sleep 1
+          done
+          echo "The app did not start"; cat app.log; exit 1
+      - name: Smoke test
+        run: python scripts/smoke_test.py http://127.0.0.1:5050
+      - name: Check business rules again (after the smoke test)
+        run: python scripts/check_data.py "$AGROUP_DATABASE"

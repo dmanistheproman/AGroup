@@ -65,6 +65,8 @@ python run.py --database instance/test-data.sqlite3        # open the site on th
 
 The demo accounts above work on the test database too; generated accounts (for example `studio1@example.com`) use the password `testdata`.
 
+`python scripts/check_data.py [database]` checks business rules that must hold for any data (merged tickets are linked, every audited status change is allowed and has its reason, favourites and payments point at valid records, only participants write in a conversation, ...). The **Nightly random data** workflow runs every day at 04:00 Singapore time (and on demand from the Actions tab): it generates a full data set with a new random seed, checks the rules and smoke-tests the app on it. The seed is printed so a failure can be repeated locally.
+
 ## Platform Management
 
 Start the shared application with `python run.py`, log in as `manager@demo.agroup` with password `demo`, then open **Project categories**. The workspace supports the 14 management stories, including reports, category merging, and the additional Deleted categories page.
@@ -106,6 +108,7 @@ Every push and pull request runs the GitHub Actions pipeline in `.github/workflo
 | CI · frontend checks | JavaScript syntax check of `frontend/js/*.js` |
 | CD · staging | Builds the `Dockerfile` image, runs it with gunicorn and smoke-tests it with `scripts/smoke_test.py`, on the demo data and on a generated test-data set |
 | CD · deliver | On `main` only: publishes the image to GitHub Packages (`ghcr.io/dmanistheproman/agroup`) |
+| Nightly random data | Daily at 04:00 SGT and on demand: random-seed test data, business-rule checks, smoke test (`.github/workflows/nightly-random-data.yml`) |
 
 Deploying to production is manual, and needs Docker:
 
