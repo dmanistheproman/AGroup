@@ -21,6 +21,8 @@ class ViewProjectStatisticsController:
         buckets = self._buckets(period, today, date_from, date_to)
         projects = []
         for p in self._projects.all():
+            if p.get("owner_id") and p["owner_id"] != user_id:
+                continue
             events = self._events.for_project(p["id"])
             series = []
             for start, end, label in buckets:

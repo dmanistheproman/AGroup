@@ -12,6 +12,10 @@ from backend.entities.user_account import UserAccount
 def create_designer_blueprint(c, upload_dir, login):
     bp = Blueprint("designer", __name__)
 
+    @bp.errorhandler(PermissionError)
+    def forbidden(error):
+        return jsonify(error=str(error)), 403
+
     # ---- who is the user: the login session, never a user_id sent by the browser ----
     def current_user_id():
         user = login.current_user()
@@ -26,6 +30,10 @@ def create_designer_blueprint(c, upload_dir, login):
         return role_error(login, UserAccount.ROLE_DESIGNER)
 
     # ---------- ID-03 ----------
+    @bp.get("/api/project-categories")
+    def api_project_categories():
+        return jsonify(categories=c.project_controller.categories.all())
+
     @bp.route("/api/projects", methods=["POST"])
     def api_create_project():
         try:
@@ -35,6 +43,9 @@ def create_designer_blueprint(c, upload_dir, login):
                 "description": request.form.get("description", ""),
                 "category_id": request.form.get("category_id", ""),
                 "images": images,
+                "owner_id": current_user_id(),
+                "firm": (c.company_controller.view(current_user_id()) or {}).get("name", ""),
+                "stage": request.form.get("stage", "Current project"),
             })
             return jsonify({"message": "Project added successfully.", "project": project}), 201
         except ValueError as err:

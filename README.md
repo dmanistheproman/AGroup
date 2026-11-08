@@ -49,7 +49,29 @@ Log in at `/login.html`. Every demo account uses the password `demo`.
 | `admin@demo.agroup` | User Admin |
 | `manager@demo.agroup` | Platform Manager |
 
-The portal shows only the workspace of the logged-in role (customers use the customer website). The Interior Designer workspace and the User Admin company-verification screen use live data; the other portal screens are still browser-only wireframes.
+The portal shows only the workspace of the logged-in role (customers use the customer website). The Interior Designer workspace, Platform Management workspace and User Admin company-verification screen use server data and require the matching login. Helpdesk and several other portal screens still use browser demonstrations.
+
+## Platform Management
+
+Start the shared application with `python run.py`, log in as `manager@demo.agroup` with password `demo`, then open **Project categories**. The workspace supports the 14 management stories, including reports, category merging, and the additional Deleted categories page.
+
+Category merging transfers the source assignments to the target, removes duplicate links and marks the source as merged. You can then delete the empty source category to move it to **Deleted categories**. A category containing projects must have those projects transferred before deletion.
+
+The controller follows the merge sequence diagram through `find_pair`, validation, `merge_into`, `ProjectCategoryAssignment.reassign` and `_mark_merged`. Reading, validation and all writes share one database transaction. Failed writes roll back the operation, and category versions reject stale submissions.
+
+The shared server registers the management routes in `backend/boundary/management_routes.py`. Controllers live in `backend/controllers/management/`, with one class per use case. Their entity operations are in individual files under `backend/entities/`. The browser boundary classes are in `frontend/js/management.js` and use `frontend/js/api.js`.
+
+Designer projects, category choices, customer discovery and management reports share `instance/agroup.sqlite3`. The first launch seeds 120 fictional projects, eight categories and sample activity. Subsequent launches retain saved changes. Existing management databases are supported. Set `AGROUP_DATABASE` to select another database location.
+
+The designer repositories adapt existing `IDP-001` style references to the same numeric project records used by the catalogue. Existing `cat-japandi` style category references are accepted for compatibility. New forms load current active category IDs from the server. Designer drafts appear in their owner's portfolio and management counts, and become eligible for public discovery when their stored status is `PUBLISHED`.
+
+Reports use Singapore time, Monday-to-Sunday weeks and calendar months. Project counts measure projects created within the period. Views, favourite additions and enquiries count recorded events. Category filters use current assignments. CSV downloads retain the generated report snapshot after later category changes.
+
+Management APIs require a logged-in Platform Manager. Mutating management requests also require the session's CSRF token. The existing shared login and other role routes use their own established access checks.
+
+Project and category persistence currently uses SQLite. Other group repositories, including demo accounts, continue to use in-memory data. Firestore integration remains future work. The current management entity services retain their transactional database operations from the original BCE implementation, while designer repositories adapt to the same store.
+
+The earlier `python app.py` entry point also starts the shared application. `backend/tests/management/` contains the management regression and shared-application tests, so the existing CI workflow includes them.
 
 ## Running the tests
 
@@ -59,6 +81,25 @@ The portal shows only the workspace of the logged-in role (customers use the cus
 ```
 
 Run `python run.py` once first so that `.venv` exists.
+
+## CI/CD
+
+Every push and pull request runs the GitHub Actions pipeline in `.github/workflows/ci-cd.yml`. Results are on the repository's **Actions** tab.
+
+| Stage | What it does |
+|---|---|
+| CI · tests | `pytest backend/tests` on Ubuntu (Python 3.12, 3.14) and Windows (Python 3.14) |
+| CI · frontend checks | JavaScript syntax check of `frontend/js/*.js` |
+| CD · staging | Builds the `Dockerfile` image, runs it with gunicorn and smoke-tests it with `scripts/smoke_test.py` |
+| CD · deliver | On `main` only: publishes the image to GitHub Packages (`ghcr.io/dmanistheproman/agroup`) |
+
+Deploying to production is manual, and needs Docker:
+
+```bash
+docker run -p 8000:8000 -e AGROUP_SECRET_KEY=<random text> ghcr.io/dmanistheproman/agroup:latest
+```
+
+To smoke-test your local server, run `python scripts/smoke_test.py http://127.0.0.1:5050`.
 
 ## Project layout
 
