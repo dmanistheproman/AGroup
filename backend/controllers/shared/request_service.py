@@ -30,12 +30,36 @@ class RequestService:
         return saved
 
     def assign_handler(self, request_id, handler_id):
-        for _, repo, _ in self._types:
+        for _, repo, target_type in self._types:
             request = repo.get(request_id)
             if request is not None:
                 request.assign_handler(handler_id)
-                return repo.save(request)
+                saved = repo.save(request)
+                if hasattr(self.rules, "on_handler_assigned"):
+                    self.rules.on_handler_assigned(target_type, saved)
+                return saved
         raise LookupError(f"Request {request_id} was not found.")
+
+    def ensure_thread(self, request):
+        """Give a request stored before threads existed (seeded enquiries) its thread and attachment group."""
+        if request.thread_id:
+            return request
+        _, repo, _ = self._type_of(request)
+        request.attach(self.threads.create().id, request.attachment_group_id or self.attachments.create_group().id)
+        return repo.save(request)
+
+    def find_for(self, user, request_id):
+        """A request for someone who takes part in it (the requester or the handler)."""
+        request = self.find(request_id)
+        if request is None:
+            raise LookupError(f"Request {request_id} was not found.")
+        if user is None or not request.can_access(user.id):
+            raise PermissionError("You can only open your own requests.")
+        return request
+
+    def type_of(self, request):
+        """The record type used by StatusChangeService and notifications, for example ENQUIRY."""
+        return self._type_of(request)[2]
 
     def find(self, request_id):
         """Any registered request by its ID, or None."""

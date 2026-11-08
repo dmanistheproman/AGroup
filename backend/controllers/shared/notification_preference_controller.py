@@ -6,7 +6,10 @@ from backend.entities.user_account import UserAccount
 
 class NotificationPreferenceController:
     EVENT_TYPES = {"NEW_MESSAGE": "New messages from designers and the helpdesk",
-                   "TICKET_STATUS": "Updates to my support requests"}
+                   "TICKET_STATUS": "Updates to my support requests",
+                   "ENQUIRY_UPDATE": "Designer decisions and answers on my enquiries",
+                   "OFFER_SENT": "New quotations and design proposals",
+                   "PAYMENT_REMINDER": "Payment reminders"}
 
     def __init__(self, preference_repo):
         self.preferences = preference_repo

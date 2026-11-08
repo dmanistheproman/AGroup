@@ -7,6 +7,8 @@ Each kind of record is registered once with a function that finds it (and option
 The record's class declares its lifecycle:
     TRANSITIONS     {from_status: {to_status, ...}}
     REASON_REQUIRED {to_status, ...}
+A record whose change does more than set the status (an enquiry's decision date, a verification's reviewer)
+gives itself apply_status(status, reason, actor_id); otherwise set_status(status) is used.
 For example, in server.py:
     status_change.register("SUPPORT_TICKET", support_tickets.get, support_tickets.save)
 """
@@ -38,7 +40,9 @@ class StatusChangeService:
             raise ValueError(f"Keep the reason within {MAX_REASON} characters.")
 
         new_status = self._member(lifecycle, current, new_status)
-        if hasattr(target, "set_status"):
+        if hasattr(target, "apply_status"):
+            target.apply_status(new_status, reason or None, actor_id)
+        elif hasattr(target, "set_status"):
             target.set_status(new_status)
         else:
             target.status = new_status

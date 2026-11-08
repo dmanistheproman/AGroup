@@ -81,4 +81,4 @@ class ProposalRepo:
                                attachments=json.loads(row["attachments"]), status=row["status"],
                                version=row["revision"], feedback=row["feedback"],
                                feedback_history=json.loads(row["feedback_history"]),
-                               revision_note=row["revision_note"]) for row in rows]
+                               revision_note=row["revision_note"], request_id=row["request_id"]) for row in rows]

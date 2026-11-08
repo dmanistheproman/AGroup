@@ -9,14 +9,18 @@ import json
 import sqlite3
 from contextlib import closing
 
+from backend.entities.design_proposal import DesignProposal
+from backend.entities.enquiry import Enquiry
 from backend.entities.enums import AccountStatus, ProjectStatus, TicketStatus
 from backend.entities.project import Project
 from backend.entities.quotation import Quotation
 from backend.entities.support_ticket import SupportTicket
 from backend.entities.user_account import UserAccount
+from backend.entities.verification_request import VerificationRequest
 
 LIFECYCLES = {"SUPPORT_TICKET": SupportTicket, "USER_ACCOUNT": UserAccount, "PROJECT": Project,
-              "QUOTATION": Quotation}
+              "QUOTATION": Quotation, "ENQUIRY": Enquiry, "VERIFICATION_REQUEST": VerificationRequest,
+              "DESIGN_PROPOSAL": DesignProposal}
 STAFF = ("HELPDESK", "USER_ADMIN", "PLATFORM_MANAGER")
 
 

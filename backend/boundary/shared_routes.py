@@ -126,6 +126,34 @@ def create_shared_blueprint(shared):
             raise PermissionError("You can only view your own requests.")
         return ticket_page(ticket)
 
+    # ---- Request page for its requester and handler: enquiries, verification requests, tickets (S-19, S-20) ----
+    @bp.get("/api/requests/<request_id>")
+    @require_role(login)
+    def view_request(request_id):
+        user = login.current_user()
+        found = shared.requests.find_for(user, request_id)
+        kind = shared.requests.type_of(found)
+        if kind == "SUPPORT_TICKET":
+            return ticket_page(found)
+        found = shared.requests.ensure_thread(found)
+        messages = shared.messages.list_messages(found.thread_id, user)
+        history = shared.status_change.history_of(kind, found.id)
+        record = {"id": found.id, "kind": kind, "status": found.status, "created_at": found.created_at,
+                  "requester_id": found.requester_id, "handler_id": found.handler_id, "thread_id": found.thread_id}
+        if kind == "ENQUIRY":
+            record.update(title="Enquiry", summary=found.requirements, budget=found.budget,
+                          client_name=found.client_name, decided_at=found.decided_at,
+                          decision_reason=found.decision_reason, questions=found.questions)
+        else:
+            record.update(title="Verification request", summary=f"{len(found.documents)} document(s)",
+                          **found.public_view())
+        names = {}
+        for person in [found.requester_id, found.handler_id] + [m.author_id for m in messages] + \
+                [e.actor_id for e in history]:
+            name_of(person, names)
+        return jsonify(request=record, messages=[m.public_view() for m in messages],
+                       history=[e.public_view() for e in history], names=names)
+
     # ---- Claim a ticket: the agent becomes its handler ----
     @bp.post("/api/support/tickets/<ticket_id>/assign")
     @require_role(login, UserAccount.ROLE_HELPDESK)

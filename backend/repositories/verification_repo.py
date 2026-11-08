@@ -58,6 +58,6 @@ class VerificationRepo:
         request = VerificationRequest(row["request_id"], row["company_id"], row["requested_by"],
                                       json.loads(row["documents"]), row["status"], row["rejection_reason"],
                                       row["created_at"], row["reviewed_by"])
-        request.requester_id, request.handler_id = row["requester_id"], row["handler_id"]
+        request.requester_id, request.handler_id = row["requester_id"] or row["requested_by"], row["handler_id"]
         request.attach(row["thread_id"], row["attachment_group_id"])
         return request

@@ -13,6 +13,7 @@ class PaymentController:
         self._repo = repo
         self._companies = company_repo
         self._quotations_for = quotations_for or (lambda user_id: [])
+        self.rules = None   # NotificationRules (S-07), set in server.py: reminders reach the client
 
     # ---- use case: view payment progress --------------------------------
     def progress(self, user_id, today=None):
@@ -60,9 +61,10 @@ class PaymentController:
         from datetime import date
         milestone.last_reminded_at = date.today().isoformat()
         self._repo.save(milestone)
+        sent = self.rules.on_payment_reminder(milestone) if self.rules is not None else None
         return {"reminded": True,
-                "message": f"Payment reminder for '{milestone.name}' sent to the client "
-                           f"(demo record; notification service not implemented)"}
+                "message": f"Payment reminder for '{milestone.name}' sent to the client." if sent else
+                           f"Payment reminder for '{milestone.name}' recorded (the client has no account to notify)."}
 
     # ---- internals -------------------------------------------------------
     def _assert_owned(self, milestone_id, user_id):

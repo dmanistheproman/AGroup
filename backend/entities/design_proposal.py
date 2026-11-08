@@ -8,10 +8,15 @@ class DesignProposal(Offer):
     STATUS_UNDER_REVIEW = "UNDER_REVIEW"   # UC5 BF4: Under Review
     STATUS_CONFIRMED = "CONFIRMED"         # UC6 AF1, reserved (the flow belongs to C-06 / a later task)
 
+    # Lifecycle for StatusChangeService (S-04). A revision stays Under Review with a new version.
+    TRANSITIONS = {STATUS_DRAFT: {STATUS_UNDER_REVIEW}, STATUS_UNDER_REVIEW: {STATUS_CONFIRMED}}
+    REASON_REQUIRED = frozenset()
+
     def __init__(self, proposal_id, client_name, title, description,
                  attachments=None, status=None, version=1,
-                 feedback=None, feedback_history=None, revision_note=None):
+                 feedback=None, feedback_history=None, revision_note=None, request_id=None):
         self.id = proposal_id
+        self.request_id = request_id   # the enquiry it answers (S-21), when the designer chose one
         self.client_name = client_name
         self.title = title
         self.description = description
@@ -54,7 +59,7 @@ class DesignProposal(Offer):
 
     def public_view(self):
         """Client-side view of the shared offer (reused by C-06): leaves out the feedback history and other designer-side details."""
-        return {"id": self.id, "client_name": self.client_name, "title": self.title,
+        return {"id": self.id, "request_id": self.request_id, "client_name": self.client_name, "title": self.title,
                 "description": self.description, "attachments": list(self.attachments),
                 "status": self.status, "version": self.version,
                 "revision_note": self.revision_note}

@@ -3,11 +3,19 @@ import time
 from backend.entities.request import Request
 
 class VerificationRequest(Request):
+    STATUS_PENDING = "PENDING_REVIEW"
+    STATUS_APPROVED = "APPROVED"
+    STATUS_REJECTED = "REJECTED"
+    # Lifecycle for StatusChangeService (S-04); a rejected request goes back to review when resubmitted.
+    TRANSITIONS = {STATUS_PENDING: {STATUS_APPROVED, STATUS_REJECTED}, STATUS_REJECTED: {STATUS_PENDING}}
+    REASON_REQUIRED = frozenset({STATUS_REJECTED})
+
     def __init__(self, request_id, company_id, requested_by, documents=None,
                  status="PENDING_REVIEW", rejection_reason=None, submitted_at=None, reviewed_by=None):
         self.id = request_id
         self.company_id = company_id
         self.requested_by = requested_by
+        self.requester_id = requested_by
         self.documents = list(documents or [])
         self.status = status
         self.rejection_reason = rejection_reason
@@ -28,6 +36,16 @@ class VerificationRequest(Request):
         if not (reason or "").strip():
             raise ValueError("A rejection reason is required.")
         self.status, self.reviewed_by, self.rejection_reason = "REJECTED", reviewer, reason.strip()
+
+    def apply_status(self, status, reason=None, actor_id=None):
+        """Called by StatusChangeService after it has checked the transition; the actor is the reviewer."""
+        if status == self.STATUS_APPROVED:
+            self.approve(actor_id)
+        elif status == self.STATUS_REJECTED:
+            self.reject(actor_id, reason)
+        else:
+            self.resubmit(self.documents)
+        return self
 
     def resubmit(self, documents):
         if self.status != "REJECTED":

@@ -141,10 +141,28 @@ def build_designer_controllers(upload_service, store):
             if isinstance(q, dict) and q.get("status") == "ACCEPTED"
         ],
     )
+    c.payment_repo = payment_repo
     c.customer_repo, c.company_repo = customer_repo, company_repo   # shared with AccountService (S-13)
     c.enquiry_repo, c.verification_repo = enquiry_repo, verification_repo   # shared with RequestService (S-19)
     c.quotation_repo, c.proposal_repo = quotation_repo, proposal_repo   # shared with OfferService (S-21)
     return c
+
+
+def _connect_designer_records(shared, designer):
+    """Enquiries, verification requests and offers use the shared status change, notifications and threads
+    (S-01, S-04, S-07, S-19, S-21)."""
+    shared.status_change.register("ENQUIRY", designer.enquiry_repo.get, designer.enquiry_repo.save)
+    shared.status_change.register("VERIFICATION_REQUEST", designer.verification_repo.get, designer.verification_repo.save)
+    rules = shared.rules
+    rules.enquiries, rules.verifications = designer.enquiry_repo, designer.verification_repo
+    rules.quotations, rules.proposals, rules.companies = designer.quotation_repo, designer.proposal_repo, designer.company_repo
+    shared.messages.register_owner(designer.enquiry_repo.find_by_thread)
+    designer.review_enquiry_controller.connect(shared)
+    designer.verification_controller.shared = designer.review_controller.shared = shared
+    designer.submit_quotation_controller.status_change = shared.status_change
+    designer.submit_proposal_controller.enquiries = designer.enquiry_repo
+    designer.submit_proposal_controller.status_change = shared.status_change
+    designer.revise_proposal_controller.rules = designer.payment_controller.rules = rules
 
 
 def build_management_controllers(store):
@@ -243,7 +261,9 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.conversations = StartConversationController(shared.conversation_repo, designer.company_repo, shared.threads)
     shared.inbox = InboxService(shared.tickets, designer.enquiry_repo, designer.verification_repo,
                                 shared.conversation_repo, shared.notifications)
-    shared.offers = OfferService(designer.quotation_repo, designer.proposal_repo, shared.status_change)
+    shared.offers = OfferService(designer.quotation_repo, designer.proposal_repo, shared.status_change, shared.rules)
+    _connect_designer_records(shared, designer)
+    app.extensions['designer'] = designer
     app.register_blueprint(create_auth_blueprint(login, accounts))
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
 

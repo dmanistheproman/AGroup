@@ -39,15 +39,22 @@ def login(client, email):
     return client.post("/api/auth/login", json={"email": email, "password": "demo"})
 
 
+def new_enquiry(shared):
+    from backend.entities.enquiry import Enquiry
+    sam = shared.account_service.create_account("Sam Wong", "sam@example.com", "long enough", "CUSTOMER")
+    return sam, shared.requests.open(Enquiry(sam.id, sam.name, "Kitchen with oak", 40000))
+
+
 # ---- enquiries (C-06, ID-10) ----
 
 def test_a_designer_decision_on_an_enquiry_is_audited_and_the_customer_is_told(shared, designer_side):
-    designer_side.review_enquiry_controller.review("CUS-101", "user-form-field", "accept")
-    history = shared.status_change.history_of("ENQUIRY", "CUS-101")
+    sam, enquiry = new_enquiry(shared)
+    designer_side.review_enquiry_controller.review(enquiry.id, "user-form-field", "accept")
+    history = shared.status_change.history_of("ENQUIRY", enquiry.id)
     assert [(h.from_status, h.to_status, h.actor_id) for h in history] == \
         [("AWAITING_REPLY", "CONFIRMED", "user-form-field")]
-    assert "ENQUIRY_UPDATE" in kinds(shared, "CUS-101")
-    assert shared.requests.find("CUS-101").handler_id == "user-form-field"   # the designer who answers handles it
+    assert "ENQUIRY_UPDATE" in kinds(shared, sam.id)
+    assert shared.requests.find(enquiry.id).handler_id == "user-form-field"   # the designer who answers handles it
 
 
 def test_declining_an_enquiry_needs_a_reason_and_keeps_it(shared, designer_side):
@@ -60,9 +67,7 @@ def test_declining_an_enquiry_needs_a_reason_and_keeps_it(shared, designer_side)
 
 
 def test_a_new_enquiry_reaches_its_designer(shared):
-    from backend.entities.enquiry import Enquiry
-    sam = shared.account_service.create_account("Sam Wong", "sam@example.com", "long enough", "CUSTOMER")
-    enquiry = shared.requests.open(Enquiry(sam.id, sam.name, "Kitchen with oak", 40000))
+    _, enquiry = new_enquiry(shared)
     shared.requests.assign_handler(enquiry.id, "user-form-field")
     assert "NEW_ENQUIRY" in kinds(shared, "user-form-field")
 
@@ -78,7 +83,7 @@ def test_an_enquiry_thread_is_for_the_customer_and_its_designer(shared, designer
 
 
 def test_the_customer_replies_on_their_enquiry_and_the_designer_is_told(shared, designer_side):
-    designer_side.review_enquiry_controller.review("CUS-101", "user-form-field", "accept")
+    shared.requests.assign_handler("CUS-101", "user-form-field")   # seeded as confirmed
     enquiry = shared.requests.ensure_thread(shared.requests.find("CUS-101"))
     shared.messages.post_message(enquiry.thread_id, user(shared, "CUS-101"), "Can we start in December?")
     note = shared.notifications.list_for("user-form-field")[0]
@@ -116,7 +121,7 @@ def test_a_verification_decision_is_audited_and_the_designer_is_told(shared, des
 # ---- offers (S-21, ID-05, ID-07, ID-09) ----
 
 def test_sending_a_quotation_is_audited_and_the_customer_is_told(shared, designer_side):
-    designer_side.review_enquiry_controller.review("CUS-101", "user-form-field", "accept")
+    shared.requests.assign_handler("CUS-101", "user-form-field")   # seeded as confirmed
     quotation = designer_side.submit_quotation_controller.create("user-form-field", {
         "enquiry_id": "CUS-101", "design_fee": 3000, "material_cost": 20000, "construction_fee": 15000,
         "valid_until": "2099-01-01", "payment_schedule": "30/40/30"})
@@ -128,7 +133,7 @@ def test_sending_a_quotation_is_audited_and_the_customer_is_told(shared, designe
 
 
 def test_revising_after_an_adjustment_request_goes_back_to_the_customer(shared, designer_side):
-    designer_side.review_enquiry_controller.review("CUS-101", "user-form-field", "accept")
+    shared.requests.assign_handler("CUS-101", "user-form-field")   # seeded as confirmed
     q = designer_side.submit_quotation_controller.create("user-form-field", {
         "enquiry_id": "CUS-101", "design_fee": 3000, "material_cost": 20000, "construction_fee": 15000,
         "valid_until": "2099-01-01", "payment_schedule": "30/40/30"})
@@ -143,7 +148,7 @@ def test_revising_after_an_adjustment_request_goes_back_to_the_customer(shared, 
 
 
 def test_a_proposal_for_an_enquiry_reaches_that_customer(shared, designer_side):
-    designer_side.review_enquiry_controller.review("CUS-101", "user-form-field", "accept")
+    shared.requests.assign_handler("CUS-101", "user-form-field")   # seeded as confirmed
     proposal = designer_side.submit_proposal_controller.create("user-form-field", {
         "title": "Warm oak living room", "enquiry_id": "CUS-101", "description": "Oak, linen and soft light."})
     assert proposal["client_name"] == "Alex Tan" and proposal["request_id"] == "CUS-101"
@@ -168,11 +173,13 @@ def test_a_payment_reminder_reaches_the_customer(shared, designer_side):
 # ---- the request page (S-20) ----
 
 def test_the_request_page_is_for_its_customer_and_designer(app, shared, designer_side):
-    designer_side.review_enquiry_controller.clarify("CUS-101", "user-form-field", "Which rooms?")
+    shared.requests.assign_handler("CUS-101", "user-form-field")
+    enquiry = shared.requests.ensure_thread(shared.requests.find("CUS-101"))
+    shared.messages.post_message(enquiry.thread_id, user(shared, "user-form-field"), "Which rooms?")
     client = app.test_client()
     login(client, "customer@demo.agroup")
     page = client.get("/api/requests/CUS-101").get_json()
-    assert page["request"]["kind"] == "ENQUIRY" and page["request"]["status"] == "AWAITING_REPLY"
+    assert page["request"]["kind"] == "ENQUIRY" and page["request"]["status"] == "CONFIRMED"
     assert [m["body"] for m in page["messages"]] == ["Which rooms?"]
     other = app.test_client()
     login(other, "commonground@demo.agroup")

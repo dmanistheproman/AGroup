@@ -353,10 +353,10 @@ class _Generator:
                                                                designer.id, [f"uploads/{company.id}/licence.pdf"]))
             roll = self.rng.random()
             if roll < 0.3:
-                request.approve("user-admin")
+                self.s.status_change.change_status("VERIFICATION_REQUEST", request.id, "APPROVED", "user-admin")
             elif roll < 0.5:
-                request.reject("user-admin", "The licence document is not readable.")
-            self.r.verifications.save(request)
+                self.s.status_change.change_status("VERIFICATION_REQUEST", request.id, "REJECTED", "user-admin",
+                                                   "The licence document is not readable.")
 
     # ---- support tickets, messages, notes and merges (S-15, S-01, S-02, HD-05) ----
     def tickets(self):

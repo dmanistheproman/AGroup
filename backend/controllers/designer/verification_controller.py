@@ -1,4 +1,8 @@
-"""<<control>> SubmitVerificationController / ReviewVerificationController — named as in the task list."""
+"""<<control>> SubmitVerificationController / ReviewVerificationController — named as in the task list.
+
+With the shared services connected (server.py sets shared), a new request is opened through RequestService (it
+gets a thread and an attachment group, and user admins are told), and every decision or resubmission goes through
+StatusChangeService (audited, the designer is told)."""
 from backend.entities.verification_request import VerificationRequest
 
 class SubmitVerificationController:
@@ -6,6 +10,7 @@ class SubmitVerificationController:
         self.companies = company_repo
         self.verifications = verification_repo
         self.uploads = upload_service
+        self.shared = None
 
     def view(self, user_id):
         """BF1 / task 3: the verification page shows the request status."""
@@ -26,19 +31,28 @@ class SubmitVerificationController:
         refs = [self.uploads.upload(d, "Verification", company.id, kind="document") for d in docs]
 
         rejected = [r for r in existing if r.status == "REJECTED"]
+        if rejected and self.shared is not None:
+            request = rejected[-1]      # AF2: resubmit the same request, through the shared status change
+            request.documents = refs
+            self.verifications.save(request)
+            return self.shared.status_change.change_status("VERIFICATION_REQUEST", request.id,
+                                                           VerificationRequest.STATUS_PENDING, user_id)
         if rejected:
             request = rejected[-1]      # AF2: resubmit the same request
             request.resubmit(refs)
-        else:
-            request = VerificationRequest(
-                request_id=self.verifications.next_reference(),
-                company_id=company.id, requested_by=user_id, documents=refs)
-        return self.verifications.save(request)   # BF4 submitted to the administrators; BF5 Pending Review
+            return self.verifications.save(request)
+        request = VerificationRequest(
+            request_id=self.verifications.next_reference(),
+            company_id=company.id, requested_by=user_id, documents=refs)
+        if self.shared is not None:
+            return self.shared.requests.open(request)   # BF4 submitted to the administrators; BF5 Pending Review
+        return self.verifications.save(request)
 
 class ReviewVerificationController:
     def __init__(self, verification_repo, company_repo):
         self.verifications = verification_repo
         self.companies = company_repo
+        self.shared = None
 
     def queue(self):
         """Request list for the administrators' workspace (rows in the prototype recordPage format)."""
@@ -52,6 +66,14 @@ class ReviewVerificationController:
         request = self.verifications.get(request_id)
         if request is None:
             raise ValueError("Verification request not found.")
+        if decision not in ("approve", "reject"):
+            raise ValueError("Decision must be approve or reject.")
+        if self.shared is not None:
+            if request.status != VerificationRequest.STATUS_PENDING:
+                raise ValueError("Only pending requests can be reviewed.")
+            status = VerificationRequest.STATUS_APPROVED if decision == "approve" else VerificationRequest.STATUS_REJECTED
+            return self.shared.status_change.change_status("VERIFICATION_REQUEST", request.id, status, reviewer,
+                                                           reason if decision == "reject" else None)
         if decision == "approve":
             request.approve(reviewer)
         elif decision == "reject":
