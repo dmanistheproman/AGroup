@@ -81,6 +81,12 @@ from backend.entities.activity_report import ActivityReport
 from backend.seed import seed_demo
 from backend.storage import SQLiteStore
 
+# ----- Customer -----
+from backend.repositories.favourite_repo import FavouriteRepository
+from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
+from backend.boundary.customer_routes import create_customer_blueprint
+from backend.entities.project_activity import ProjectActivity
+
 # ----- Helpdesk -----
 from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
 from backend.boundary.helpdesk_routes import create_helpdesk_blueprint
@@ -222,6 +228,10 @@ def create_app(registry=None, admin_provider=None, config=None):
 
     # ----- Platform Management -----
     app.register_blueprint(create_management_blueprint(build_management_controllers(store), store, login))
+
+    # ----- Customer -----
+    favourites = ManageFavouritesController(FavouriteRepository(store), shared.projects, ProjectActivity(store))
+    app.register_blueprint(create_customer_blueprint(favourites, login))
 
     # ----- Helpdesk -----
     merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)

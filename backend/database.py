@@ -220,6 +220,13 @@ CREATE TABLE IF NOT EXISTS internal_note (
     created_at TEXT NOT NULL,
     CHECK ((request_id IS NULL) <> (user_id IS NULL))
 );
+CREATE TABLE IF NOT EXISTS favourite (
+    favourite_id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    project_id INTEGER NOT NULL,
+    saved_at TEXT NOT NULL,
+    UNIQUE (customer_id, project_id)
+);
 CREATE INDEX IF NOT EXISTS message_by_thread ON message(thread_id, sent_at);
 CREATE INDEX IF NOT EXISTS payment_by_offer ON payment_milestone(offer_id, due_date);
 CREATE INDEX IF NOT EXISTS notification_by_recipient ON notification(recipient_id, created_at);
