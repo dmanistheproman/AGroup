@@ -12,6 +12,7 @@ from flask import Flask, session
 from backend.repositories.user_account_repo import UserAccountRepo, SEED_ACCOUNT_DATA
 from backend.controllers.shared.login_controller import LoginController
 from backend.boundary.auth_routes import create_auth_blueprint
+from backend.controllers.shared.account_service import AccountService
 
 # ----- Shared: support tickets, reports, notifications -----
 from backend.repositories.notification_repo import NotificationRepo, SEED_NOTIFICATION_DATA
@@ -75,7 +76,8 @@ def build_designer_controllers(upload_service):
     c.company_controller = UpdateCompanyProfileController(company_repo, upload_service)
     c.verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
     c.review_controller = ReviewVerificationController(verification_repo, company_repo)
-    c.potential_clients_controller = FindPotentialClientsController(CustomerRepo.from_data(SEED_CUSTOMER_DATA))
+    customer_repo = CustomerRepo.from_data(SEED_CUSTOMER_DATA)
+    c.potential_clients_controller = FindPotentialClientsController(customer_repo)
     c.submit_proposal_controller = SubmitProposalController(proposal_repo, upload_service)
     c.revise_proposal_controller = ReviseProposalController(proposal_repo, upload_service)
     c.submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
@@ -92,6 +94,7 @@ def build_designer_controllers(upload_service):
             if isinstance(q, dict) and q.get("status") == "ACCEPTED"
         ],
     )
+    c.customer_repo, c.company_repo = customer_repo, company_repo   # shared with AccountService (S-13)
     return c
 
 
@@ -107,7 +110,6 @@ def create_app(registry=None, admin_provider=None):
     # ----- Shared: login (X-03) -----
     user_accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
     login = LoginController(user_accounts, lambda: session)
-    app.register_blueprint(create_auth_blueprint(login))
     app.extensions['login'] = login   # for role guards in other blueprints
 
     # ----- Shared: support tickets, reports, notifications (S-07, S-15, S-19) -----
@@ -123,6 +125,10 @@ def create_app(registry=None, admin_provider=None):
 
     # ----- Interior Designer -----
     designer = build_designer_controllers(upload_service)
+
+    # ----- Shared: login and Create Account (X-03, S-13) -----
+    accounts = AccountService(user_accounts, designer.customer_repo, designer.company_repo)
+    app.register_blueprint(create_auth_blueprint(login, accounts))
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
 
     @app.get('/')

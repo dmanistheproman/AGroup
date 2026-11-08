@@ -28,6 +28,10 @@ class CustomerRepo:
     def all(self):
         return list(self.items.values())
 
+    def save(self, customer):
+        self.items[customer.id] = customer
+        return customer
+
     def get(self, customer_id):
         return self.items.get(customer_id)
 
