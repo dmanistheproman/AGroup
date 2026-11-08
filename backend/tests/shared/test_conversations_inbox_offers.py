@@ -171,3 +171,9 @@ def test_conversation_inbox_preferences_and_offers_through_the_api(app):
     assert customer.post("/api/offers/quotations/QT-101/accept").get_json()["quotation"]["status"] == "ACCEPTED"
     assert designer.post("/api/conversations", json={"company_id": "COM-CG"}).status_code == 403
     assert designer.get("/api/offers").status_code == 403
+
+
+def test_public_company_list_lets_customers_find_a_company(app):
+    companies = app.test_client().get("/api/companies").get_json()["companies"]
+    names = {c["name"]: c["id"] for c in companies}
+    assert names["Form & Field"] == "COM-FF" and "owner_id" not in companies[0]
