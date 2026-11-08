@@ -40,6 +40,14 @@ class PostMessageController:
         self.rules.notifications.mark_read_for_target(user.id, self.TARGET_THREAD, thread_id)
         return self.messages.find_by_thread(thread_id)
 
+    def message_for(self, user, message_id):
+        """One message, for someone who takes part in its thread (used to report it)."""
+        message = self.messages.get(message_id)
+        if message is None:
+            raise LookupError(f"Message {message_id} was not found.")
+        self._open(message.thread_id, user)
+        return message
+
     def _open(self, thread_id, user):
         thread = self.threads.get(thread_id)
         if thread is None:

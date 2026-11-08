@@ -18,6 +18,11 @@ class MessageRepo:
                                (message.id, thread_id, author_id, message.body, message.sent_at))
         return message
 
+    def get(self, message_id):
+        with self.store.transaction() as connection:
+            r = connection.execute("SELECT * FROM message WHERE message_id = ?", (message_id,)).fetchone()
+        return Message(r["message_id"], r["thread_id"], r["author_id"], r["body"], r["sent_at"]) if r else None
+
     def find_by_thread(self, thread_id):
         """Oldest first."""
         with self.store.transaction() as connection:

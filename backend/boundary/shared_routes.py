@@ -101,12 +101,14 @@ def create_shared_blueprint(shared):
         is_agent = user.role == UserAccount.ROLE_HELPDESK
         messages = shared.messages.list_messages(ticket.thread_id, user) if ticket.thread_id else []
         history = shared.ticket_lifecycle.history_of(ticket.id)
+        reported = shared.message_repo.get(ticket.related_message_id) if ticket.related_message_id else None
         names = {}
-        for person in [ticket.requester_id, ticket.handler_id] + [m.author_id for m in messages] +                 [e.actor_id for e in history]:
+        for person in [ticket.requester_id, ticket.handler_id] + [m.author_id for m in messages] +                 [e.actor_id for e in history] + ([reported.author_id] if reported else []):
             name_of(person, names)
         return jsonify(ticket=ticket.public_view(),
                        messages=[m.public_view() for m in messages],
                        history=[e.public_view() for e in history], names=names,
+                       reported_message=reported.public_view() if reported else None,
                        allowed_statuses=shared.ticket_lifecycle.allowed_statuses(ticket.id) if is_agent else [])
 
     def find_ticket(ticket_id):
@@ -164,6 +166,13 @@ def create_shared_blueprint(shared):
         ticket = shared.submit_ticket.submit_ticket(login.current_user(), SupportTicket.TYPE_REPORT_IDP,
                                                     data.get("reason"), related_project_id=project_id,
                                                     related_project_title=data.get("title"))
+        return jsonify(ticket=ticket.public_view()), 201
+
+    # ---- Report a message (ReportAction, S-15 / S-16) ----
+    @bp.post("/api/reports/messages/<message_id>")
+    @require_role(login, *REQUESTERS)
+    def report_message(message_id):
+        ticket = shared.submit_ticket.report_message(login.current_user(), message_id, body().get("reason"))
         return jsonify(ticket=ticket.public_view()), 201
 
     # ---- View Notifications (NotificationBell) ----

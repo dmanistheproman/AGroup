@@ -137,6 +137,8 @@
         ${project ? `<dt>Project</dt><dd>${esc(ticket.related_project_title || project)} (${esc(project)}) · <a href="index.html#project-${projectNumber}" target="_blank" rel="noopener">View project</a></dd>` : ''}
         ${ticket.merged_into_id ? `<dt>Merged into</dt><dd><button class="text-button" data-shared="open-ticket" data-id="${esc(ticket.merged_into_id)}">${esc(ticket.merged_into_id)}</button></dd>` : ''}
         ${ticket.resolution_note ? `<dt>Resolution</dt><dd>${esc(ticket.resolution_note)}</dd>` : ''}
+        ${page.data.reported_message ? `<dt>Reported message</dt><dd><blockquote class="reported-message">${esc(page.data.reported_message.body)}
+          <small>${esc(names[page.data.reported_message.author_id] || page.data.reported_message.author_id)} · ${time(page.data.reported_message.sent_at)}</small></blockquote></dd>` : ''}
         <dt>Details</dt><dd>${esc(ticket.details)}</dd></dl>
       <div class="record-actions">
         ${ticket.handler_id !== user.id && !readOnly ? `<button class="button outline" data-shared="claim">${icon('user-check')} Claim</button>` : ''}
@@ -199,7 +201,7 @@
       if (!stillHere()) return;
       const names = { [openConversation.customer_id]: openConversation.customer_name };
       thread = `<h2>${esc(openConversation.customer_name || openConversation.customer_id)}</h2>
-        ${R.messageThread(m.ok ? m.data.messages : [], me().id, names)}
+        ${R.messageThread(m.ok ? m.data.messages : [], me().id, names, { reportable: true })}
         <form class="reply-form" data-shared-form="conversation"><label class="visually-hidden" for="conv-body">Reply</label>
           <textarea id="conv-body" name="body" maxlength="2000" required placeholder="Write to the customer"></textarea>
           <button class="button" type="submit">${icon('send')} Send</button></form>`;

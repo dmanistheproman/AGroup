@@ -209,6 +209,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.message_repo = MessageRepo(store)
     shared.messages = PostMessageController(shared.threads, shared.message_repo, shared.rules)
     shared.messages.register_owner(shared.tickets.find_by_thread, staff_roles=(UserAccount.ROLE_HELPDESK,))
+    shared.submit_ticket.messages = shared.messages
     shared.note_repo = InternalNoteRepo(store)
     shared.notes = AddInternalNoteController(shared.note_repo, {"REQUEST": shared.requests.find,
                                                                "USER_ACCOUNT": user_accounts.get})

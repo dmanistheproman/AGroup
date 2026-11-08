@@ -86,12 +86,26 @@
       ${e.reason ? `<p>${esc(e.reason)}</p>` : ''}</li>`).join('')}</ol>`;
   }
 
-  function messageThread(messages, meId, names = {}) {
+  // reportable: show "Report" on other people's messages (S-15 report a message).
+  function messageThread(messages, meId, names = {}, { reportable = false } = {}) {
     if (!messages || !messages.length) return '<p class="small-note">No messages yet.</p>';
     return `<ol class="message-thread">${messages.map(m => `<li class="${m.author_id === meId ? 'mine' : ''}">
       <small>${esc(m.author_id === meId ? 'You' : (names[m.author_id] || m.author_id))} · ${time(m.sent_at)}</small>
-      <p>${esc(m.body)}</p></li>`).join('')}</ol>`;
+      <p>${esc(m.body)}</p>${reportable && m.author_id !== meId ? `<button type="button" class="text-button report-message"
+        data-report-message="${esc(m.id)}">${icon('flag')} Report</button>` : ''}</li>`).join('')}</ol>`;
   }
+
+  document.addEventListener('click', async event => {
+    const button = event.target.closest('[data-report-message]');
+    if (!button) return;
+    const reason = await confirmWithReason({ title: 'Report this message',
+      message: 'The helpdesk will see this message and your reason.', confirmLabel: 'Send report',
+      placeholder: 'For example: asks me to pay outside the platform.' });
+    if (reason === null) return;
+    const r = await call('POST', `/api/reports/messages/${encodeURIComponent(button.dataset.reportMessage)}`, { reason });
+    const say = text => (window.AG && window.AG.toast ? window.AG.toast(text) : alert(text));
+    say(r.ok ? `Report sent. Your reference is ${r.data.ticket.id}.` : (r.data.error || 'The report could not be sent.'));
+  });
 
   function notesPanel(notes, names = {}) {
     if (!notes || !notes.length) return '<p class="small-note">No internal notes yet.</p>';
