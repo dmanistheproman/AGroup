@@ -28,6 +28,14 @@ from backend.repositories.attachment_repo import AttachmentRepo
 from backend.controllers.shared.status_change_service import StatusChangeService
 from backend.controllers.shared.ticket_lifecycle import TicketLifecycle
 from backend.boundary.shared_routes import create_shared_blueprint
+from backend.repositories.message_repo import MessageRepo
+from backend.repositories.internal_note_repo import InternalNoteRepo
+from backend.controllers.shared.post_message_controller import PostMessageController
+from backend.controllers.shared.add_internal_note_controller import AddInternalNoteController
+from backend.controllers.shared.project_status_controller import ProjectStatusController
+from backend.entities.enquiry import Enquiry
+from backend.entities.user_account import UserAccount
+from backend.entities.verification_request import VerificationRequest
 
 # ----- Shared: categories and reports -----
 from backend.controllers.shared.category_lookup_controller import CategoryLookupController
@@ -120,6 +128,7 @@ def build_designer_controllers(upload_service, store):
         ],
     )
     c.customer_repo, c.company_repo = customer_repo, company_repo   # shared with AccountService (S-13)
+    c.enquiry_repo, c.verification_repo = enquiry_repo, verification_repo   # shared with RequestService (S-19)
     return c
 
 
@@ -168,17 +177,29 @@ def create_app(registry=None, admin_provider=None, config=None):
     login = LoginController(user_accounts, lambda: session)
     app.extensions['login'] = login   # for role guards in other blueprints
 
-    # ----- Shared: support tickets, reports, notifications, status changes (S-04, S-07, S-15, S-19) -----
-    notifications = NotificationService(NotificationRepo.from_data(SEED_NOTIFICATION_DATA, store))
-    support_tickets = SupportTicketRepo(store)
-    rules = NotificationRules(notifications, user_accounts, support_tickets)
-    requests = RequestService(support_tickets, rules, ThreadRepo(store), AttachmentRepo(store))
-    status_change = StatusChangeService(AuditLogRepo(store), rules)
-    ticket_lifecycle = TicketLifecycle(status_change, support_tickets)   # registers SUPPORT_TICKET
-    status_change.register("USER_ACCOUNT", user_accounts.get, user_accounts.save)
-    app.extensions['status_change'] = status_change   # for other roles' status changes
-    app.register_blueprint(create_shared_blueprint(login, SubmitTicketController(requests), requests, notifications,
-                                                   ticket_lifecycle, status_change))
+    # ----- Shared services (S-01 to S-22), offered to every role as app.extensions['shared'] -----
+    shared = SimpleNamespace(login=login, user_accounts=user_accounts, store=store)
+    shared.projects = ProjectRepo(store)
+    shared.notifications = NotificationService(NotificationRepo.from_data(SEED_NOTIFICATION_DATA, store))
+    shared.tickets = SupportTicketRepo(store)
+    shared.rules = NotificationRules(shared.notifications, user_accounts, shared.tickets, shared.projects)
+    shared.threads, shared.attachments = ThreadRepo(store), AttachmentRepo(store)
+    shared.requests = RequestService(shared.tickets, shared.rules, shared.threads, shared.attachments)
+    shared.submit_ticket = SubmitTicketController(shared.requests)
+    shared.status_change = StatusChangeService(AuditLogRepo(store), shared.rules)
+    shared.ticket_lifecycle = TicketLifecycle(shared.status_change, shared.tickets)   # registers SUPPORT_TICKET
+    shared.status_change.register("USER_ACCOUNT", user_accounts.get, user_accounts.save)
+    shared.project_status = ProjectStatusController(shared.status_change, shared.projects)   # registers PROJECT
+    shared.message_repo = MessageRepo(store)
+    shared.messages = PostMessageController(shared.threads, shared.message_repo, shared.rules)
+    shared.messages.register_owner(shared.tickets.find_by_thread, staff_roles=(UserAccount.ROLE_HELPDESK,))
+    shared.notes = AddInternalNoteController(InternalNoteRepo(store), {"REQUEST": shared.requests.find,
+                                                                      "USER_ACCOUNT": user_accounts.get})
+    shared.reports = ReportService(store)
+    shared.category_lookup = CategoryLookupController(store)
+    app.extensions['shared'] = shared
+    app.extensions['status_change'] = shared.status_change   # kept for code that already uses it
+    app.register_blueprint(create_shared_blueprint(shared))
 
     # ----- User Admin -----
     account_registry = registry if registry is not None else UnconnectedAccountRegistry()
@@ -190,12 +211,14 @@ def create_app(registry=None, admin_provider=None, config=None):
 
     # ----- Shared: login and Create Account (X-03, S-13) -----
     accounts = AccountService(user_accounts, designer.customer_repo, designer.company_repo)
+    shared.account_service = accounts
+    shared.requests.register(Enquiry, designer.enquiry_repo, "ENQUIRY")
+    shared.requests.register(VerificationRequest, designer.verification_repo, "VERIFICATION_REQUEST")
     app.register_blueprint(create_auth_blueprint(login, accounts))
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
 
     # ----- Shared: active categories and activity reports (S-06, S-10) -----
-    app.register_blueprint(create_report_blueprint(login, CategoryLookupController(store), ReportService(store),
-                                                   ProjectRepo(store)))
+    app.register_blueprint(create_report_blueprint(login, shared.category_lookup, shared.reports, shared.projects))
 
     # ----- Platform Management -----
     app.register_blueprint(create_management_blueprint(build_management_controllers(store), store, login))

@@ -69,6 +69,10 @@ class SupportTicketRepo:
     def all(self):
         return self._select("", ())
 
+    def find_by_thread(self, thread_id):
+        found = self._select("WHERE r.thread_id = ?", (thread_id,))
+        return found[0] if found else None
+
     def for_requester(self, user_id):
         """Newest first."""
         return self._select("WHERE r.requester_id = ?", (user_id,), "r.created_at DESC, r.request_id DESC")
