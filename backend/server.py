@@ -28,7 +28,9 @@ from backend.controllers.designer.quotation_controller import SubmitQuotationCon
 from backend.controllers.designer.review_controller import ListReviewsController
 from backend.controllers.designer.review_enquiry_controller import ReviewEnquiryController
 from backend.controllers.designer.payment_controller import PaymentController
-from backend.repositories.memory_repo import MemoryRepo, SEED_CATEGORIES, SEED_PROJECTS
+from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.category_repo import CategoryRepo
+from backend.repositories.project_activity_repo import ProjectActivityRepo
 from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 from backend.repositories.verification_repo import VerificationRepo
 from backend.repositories.customer_repo import CustomerRepo, SEED_CUSTOMER_DATA
@@ -40,16 +42,22 @@ from backend.repositories.payment_repo import payment_repo
 from backend.services.file_upload_service import FileUploadService
 from backend.services.credit_status_service import CreditStatusService
 from backend.controllers.designer.credit_status_controller import ViewCreditStatusController
-from backend.repositories.activity_repo import ActivityRepo, SEED_ACTIVITY_EVENTS
 from backend.controllers.designer.statistics_controller import ViewProjectStatisticsController
 from backend.boundary.designer_routes import create_designer_blueprint
+from backend.boundary.management_routes import create_management_blueprint
+from backend.controllers import management
+from backend.entities.project_category import ProjectCategory
+from backend.entities.interior_design_project import InteriorDesignProject
+from backend.entities.activity_report import ActivityReport
+from backend.seed import seed_demo
+from backend.storage import SQLiteStore
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT / 'frontend'
 UPLOAD_DIR = ROOT / 'backend' / 'uploads'
 
 
-def build_designer_controllers(upload_service):
+def build_designer_controllers(upload_service, store):
     """ID-01 … ID-13 wiring, moved from the ID branch's run.py."""
     company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA)
     verification_repo = VerificationRepo()
@@ -59,10 +67,10 @@ def build_designer_controllers(upload_service):
     enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA)
     quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA)
 
-    projects_repo = MemoryRepo(SEED_PROJECTS)
+    projects_repo = ProjectRepo(store)
 
     c = SimpleNamespace()
-    c.project_controller = ProjectController(projects_repo, MemoryRepo(SEED_CATEGORIES), upload_service)
+    c.project_controller = ProjectController(projects_repo, CategoryRepo(store), upload_service)
     c.company_controller = UpdateCompanyProfileController(company_repo, upload_service)
     c.verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
     c.review_controller = ReviewVerificationController(verification_repo, company_repo)
@@ -72,7 +80,7 @@ def build_designer_controllers(upload_service):
     c.submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
     c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10：需求审查（accept/decline/clarify）
     c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo))
-    c.statistics_controller = ViewProjectStatisticsController(ActivityRepo.from_data(SEED_ACTIVITY_EVENTS), projects_repo)
+    c.statistics_controller = ViewProjectStatisticsController(ProjectActivityRepo(store), projects_repo)
     c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
     # ---------- ID-09：付款进度（平台只记录不代收；里程碑属于已接受的报价） ----------
     c.payment_controller = PaymentController(
@@ -86,11 +94,42 @@ def build_designer_controllers(upload_service):
     return c
 
 
-def create_app(registry=None, admin_provider=None):
-    app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='')
+def build_management_controllers(store):
+    categories = ProjectCategory(store)
+    reports = ActivityReport(store)
+    projects = InteriorDesignProject(store)
+    return SimpleNamespace(
+        ViewCategoriesController=management.ViewCategoriesController(categories),
+        CreateCategoryController=management.CreateCategoryController(categories),
+        EditCategoryController=management.EditCategoryController(categories),
+        ArchiveCategoryController=management.ArchiveCategoryController(categories),
+        RestoreCategoryController=management.RestoreCategoryController(categories),
+        FeatureCategoryController=management.FeatureCategoryController(categories),
+        SearchCategoriesController=management.SearchCategoriesController(categories),
+        MergeCategoriesController=management.MergeCategoriesController(categories),
+        DeleteCategoryController=management.DeleteCategoryController(categories),
+        ViewDeletedCategoriesController=management.ViewDeletedCategoriesController(categories),
+        ViewCategoryUsageController=management.ViewCategoryUsageController(store),
+        ReviewCategoryProjectsController=management.ReviewCategoryProjectsController(projects),
+        ViewReportController=management.ViewReportController(reports),
+        FilterReportController=management.FilterReportController(reports),
+        CompareReportsController=management.CompareReportsController(reports),
+        ExportReportController=management.ExportReportController(reports),
+    )
+
+
+def create_app(registry=None, admin_provider=None, config=None):
+    app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='', instance_path=str(ROOT / 'instance'))
     # Signs the session cookie. Set AGROUP_SECRET_KEY to keep sessions across restarts.
     app.config.update(SECRET_KEY=os.environ.get('AGROUP_SECRET_KEY') or secrets.token_hex(32),
-                      SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax')
+                      SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Lax',
+                      DATABASE=os.environ.get('AGROUP_DATABASE') or str(ROOT / 'instance' / 'agroup.sqlite3'),
+                      SEED_DEMO=True)
+    app.config.update(config or {})
+    store = SQLiteStore(app.config['DATABASE'])
+    if app.config['SEED_DEMO']:
+        seed_demo(store)
+    app.extensions['management_store'] = store
 
     # ----- shared services -----
     upload_service = FileUploadService(upload_folder=str(UPLOAD_DIR))
@@ -107,8 +146,11 @@ def create_app(registry=None, admin_provider=None):
     app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider))
 
     # ----- Interior Designer -----
-    designer = build_designer_controllers(upload_service)
+    designer = build_designer_controllers(upload_service, store)
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
+
+    # ----- Platform Management -----
+    app.register_blueprint(create_management_blueprint(build_management_controllers(store), store, login))
 
     @app.get('/')
     def home():

@@ -27,16 +27,20 @@ class ProjectController:
             "id": project_id,
             "title": title,
             "description": description,
-            "category_id": data.get("category_id"),
+            "category_id": category["id"],
             "category_name": category.get("name"),
             "attachments": attachments,
             "status": "DRAFT",
+            "firm": data.get("firm", ""),
+            "owner_id": data.get("owner_id", ""),
+            "stage": data.get("stage", "Current project"),
         }
         return self.projects.save(project)
 
     def list_projects(self, user_id=""):
         """ID-03b：作品集列表。user_id 预留归属过滤（与 ID-04 同口径）。"""
-        return self.projects.all()
+        return [project for project in self.projects.all()
+                if not user_id or not project.get("owner_id") or project["owner_id"] == user_id]
 
     def delete(self, user_id, project_id, confirm_impact=False):
         """ID-03b 用例4。AF2：有客户浏览/收藏的项目，第一次调用只返回影响警告
@@ -44,6 +48,8 @@ class ProjectController:
         project = self.projects.get(project_id)
         if project is None:
             raise ValueError("Project not found. It may have been deleted already.")
+        if project.get("owner_id") and project["owner_id"] != user_id:
+            raise PermissionError("You can only delete projects from your own portfolio.")
         views = project.get("views", 0)
         favourites = project.get("favourites", 0)
         if (views or favourites) and not confirm_impact:
