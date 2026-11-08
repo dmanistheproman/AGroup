@@ -23,7 +23,14 @@ def test_new_notification_is_unread_and_can_be_marked_read():
 def test_public_view():
     n = Notification("N-1", "CUS-101", "TICKET_OPENED", "Text", "index.html", created_at="2026-11-08T00:00:00+00:00")
     assert n.public_view() == {"id": "N-1", "type": "TICKET_OPENED", "text": "Text", "link": "index.html",
-                               "read": False, "created_at": "2026-11-08T00:00:00+00:00"}
+                               "read": False, "created_at": "2026-11-08T00:00:00+00:00",
+                               "target_type": None, "target_id": None}
+
+
+def test_notification_can_point_at_a_record():
+    n = Notification("N-1", "CUS-101", "TICKET_OPENED", "Text", "index.html",
+                     target_type="SUPPORT_TICKET", target_id="TKT-1001")
+    assert (n.public_view()["target_type"], n.public_view()["target_id"]) == ("SUPPORT_TICKET", "TKT-1001")
 
 
 # ---- repository ----
@@ -81,3 +88,27 @@ def test_mark_all_read():
 def test_empty_list_for_a_user_without_notifications():
     service, _ = build()
     assert service.list_for("nobody") == [] and service.unread_count("nobody") == 0
+
+
+# ---- list options and clearing by record ----
+
+def test_list_unread_only_and_limit():
+    service, _ = build()
+    a = service.send("CUS-101", "A", "One", "")
+    service.send("CUS-101", "A", "Two", "")
+    service.send("CUS-101", "A", "Three", "")
+    service.mark_read(a.id, "CUS-101")
+    assert [n.text for n in service.list_for("CUS-101", unread_only=True)] == ["Three", "Two"]
+    assert [n.text for n in service.list_for("CUS-101", limit=2)] == ["Three", "Two"]
+
+
+def test_opening_a_record_clears_its_notifications():
+    # e.g. opening a message thread or a ticket marks every notification about it as read
+    service, _ = build()
+    service.send("CUS-101", "MESSAGE", "New message", "", target_type="THREAD", target_id="THR-1")
+    service.send("CUS-101", "MESSAGE", "Another message", "", target_type="THREAD", target_id="THR-1")
+    other = service.send("CUS-101", "MESSAGE", "Other thread", "", target_type="THREAD", target_id="THR-2")
+    service.send("user-form-field", "MESSAGE", "Not mine", "", target_type="THREAD", target_id="THR-1")
+    assert service.mark_read_for_target("CUS-101", "THREAD", "THR-1") == 2
+    assert service.unread_count("CUS-101") == 1 and not other.is_read
+    assert service.unread_count("user-form-field") == 1

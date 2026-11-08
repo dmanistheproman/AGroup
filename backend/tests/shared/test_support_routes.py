@@ -86,3 +86,18 @@ def test_mark_all_read():
     c = client("customer@demo.agroup")
     assert c.post("/api/notifications/read-all").get_json()["unread"] == 0
     assert c.get("/api/notifications").get_json()["unread"] == 0
+
+
+def test_notifications_unread_and_limit_query():
+    c = client("customer@demo.agroup")
+    for i in range(3):
+        c.post("/api/support/tickets", json={"type": "OTHER", "details": f"Request {i}"})
+    assert len(c.get("/api/notifications?limit=2").get_json()["items"]) == 2
+    first = c.get("/api/notifications").get_json()["items"][0]["id"]
+    c.post(f"/api/notifications/{first}/read")
+    unread = c.get("/api/notifications?unread=1").get_json()
+    assert all(not n["read"] for n in unread["items"]) and len(unread["items"]) == unread["unread"]
+
+
+def test_bad_limit_is_400():
+    assert client("customer@demo.agroup").get("/api/notifications?limit=abc").status_code == 400

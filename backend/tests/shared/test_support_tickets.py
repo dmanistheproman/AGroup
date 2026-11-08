@@ -124,3 +124,17 @@ def test_requester_sees_own_tickets_newest_first():
     controller.submit_ticket(accounts.get("user-form-field"), "OTHER", "Not the customer's")
     service = controller.requests
     assert [t.id for t in service.list_for_requester("CUS-101")] == [second.id, first.id]
+
+
+def test_ticket_notifications_point_at_the_ticket():
+    controller, accounts, _, notifications = build()
+    ticket = controller.submit_ticket(accounts.get("CUS-101"), "OTHER", "Hi")
+    for user in ("CUS-101", "user-helpdesk"):
+        n = notifications.list_for(user)[0]
+        assert (n.target_type, n.target_id) == ("SUPPORT_TICKET", ticket.id)
+
+
+def test_report_notification_has_its_own_type():
+    controller, accounts, _, notifications = build()
+    controller.submit_ticket(accounts.get("CUS-101"), "REPORT_IDP", "Copied", related_project_id="IDP-001")
+    assert notifications.list_for("user-helpdesk")[0].type == "NEW_REPORT"
