@@ -221,3 +221,17 @@ def test_project_status_route_checks_the_role(app):
     res = logged_in(app, "customer@demo.agroup").post("/api/projects/IDP-001/status", json={"status": "HIDDEN",
                                                                                          "reason": "x"})
     assert res.status_code == 403
+
+
+def test_queue_splits_active_and_done_tickets_and_groups_reports(app):
+    customer = logged_in(app, "customer@demo.agroup")
+    open_id = customer.post("/api/support/tickets", json={"type": "OTHER", "details": "Hi"}).get_json()["ticket"]["id"]
+    done_id = customer.post("/api/support/tickets", json={"type": "OTHER", "details": "Bye"}).get_json()["ticket"]["id"]
+    report_id = customer.post("/api/reports/projects/IDP-001", json={"reason": "Copied"}).get_json()["ticket"]["id"]
+    agent = logged_in(app, "helpdesk@demo.agroup")
+    agent.post(f"/api/support/tickets/{done_id}/status", json={"status": "RESOLVED", "reason": "Answered"})
+    ids = lambda q: {t["id"] for t in agent.get("/api/support/tickets?" + q).get_json()["items"]}   # noqa: E731
+    assert ids("scope=active") == {open_id, report_id}
+    assert ids("scope=done") == {done_id}
+    assert ids("type=REPORTS") == {report_id}
+    assert agent.get("/api/support/tickets?scope=later").status_code == 400
