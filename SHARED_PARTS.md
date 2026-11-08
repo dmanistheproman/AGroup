@@ -126,7 +126,7 @@ customer catalogue now hides projects that are not `PUBLISHED`.
 ## 6. Tests and CI
 
 - Write the failing test first and commit it with a message ending in `— red`, then the code ending in `— green`.
-- `scripts/smoke_test.py` checks the shared parts end to end (35 checks). CI runs it on the demo data and on a
+- `scripts/smoke_test.py` checks the shared parts end to end (38 checks). CI runs it on the demo data and on a
   generated test-data set.
 
 ## 7. Not built yet
