@@ -112,7 +112,7 @@ def build_designer_controllers(upload_service, store):
     # ---------- ID-05 / ID-06: design proposals — both controllers must share one repository ----------
     proposal_repo = ProposalRepo.from_data(SEED_PROPOSAL_DATA, store)
     # ---------- ID-07 / ID-08: quotations (attached to confirmed requests) and client reviews (own company only) ----------
-    enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA, store)
+    enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA, store, handler_id="user-form-field")   # Form & Field handles the seeds
     quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA, store)
 
     projects_repo = ProjectRepo(store)
