@@ -64,7 +64,9 @@ def create_shared_blueprint(shared):
     @require_role(login, UserAccount.ROLE_HELPDESK)
     def ticket_queue():
         args = request.args
-        rows = [t.public_view() for t in shared.tickets.all()]
+        names = {}
+        rows = [{**t.public_view(), "requester_name": name_of(t.requester_id, names),
+                 "handler_name": name_of(t.handler_id, names)} for t in shared.tickets.all()]
         scope = args.get("scope", "")
         if scope not in ("", "active", "done"):
             raise ValueError("scope must be active or done.")
@@ -84,14 +86,27 @@ def create_shared_blueprint(shared):
                                   sort_by="-created_at")
         return jsonify(query.run(rows, search_fields=("id", "details", "related_project_title")))
 
+    def name_of(user_id, cache):
+        """Display name of an account (cached per request)."""
+        if not user_id:
+            return None
+        if user_id not in cache:
+            account = shared.user_accounts.get(user_id)
+            cache[user_id] = account.name if account else user_id
+        return cache[user_id]
+
     # ---- Ticket page for requesters and agents (RecordPage, S-20) ----
     def ticket_page(ticket):
         user = login.current_user()
         is_agent = user.role == UserAccount.ROLE_HELPDESK
         messages = shared.messages.list_messages(ticket.thread_id, user) if ticket.thread_id else []
+        history = shared.ticket_lifecycle.history_of(ticket.id)
+        names = {}
+        for person in [ticket.requester_id, ticket.handler_id] + [m.author_id for m in messages] +                 [e.actor_id for e in history]:
+            name_of(person, names)
         return jsonify(ticket=ticket.public_view(),
                        messages=[m.public_view() for m in messages],
-                       history=[e.public_view() for e in shared.ticket_lifecycle.history_of(ticket.id)],
+                       history=[e.public_view() for e in history], names=names,
                        allowed_statuses=shared.ticket_lifecycle.allowed_statuses(ticket.id) if is_agent else [])
 
     def find_ticket(ticket_id):
