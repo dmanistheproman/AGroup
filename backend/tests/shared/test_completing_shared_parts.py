@@ -218,3 +218,48 @@ def test_folders_cannot_be_shared(app):
     customer = client_for(app, "customer@demo.agroup")
     folder = customer.post("/api/collections", json={"name": "Shortlist"}).get_json()["collection"]
     assert customer.post(f"/api/collections/{folder['id']}/share").status_code == 400
+
+
+# ---- S-07: the designer hears how a report about their project was decided ----
+
+def test_the_designer_is_told_how_a_report_about_their_project_ended(shared):
+    alex, agent = user(shared, "CUS-101"), user(shared, "user-helpdesk")
+    owner = shared.projects.get("IDP-001")["owner_id"]
+    report = shared.submit_ticket.submit_ticket(alex, "REPORT_IDP", "Photos look like another studio's.",
+                                                related_project_id="IDP-001", related_project_title="The quiet everyday")
+    shared.ticket_lifecycle.move_to(report.id, "RESOLVED", agent, "Checked: the photos are the studio's own.")
+    note = shared.notifications.list_for(owner)[0]
+    assert note.type == "REPORT_DECIDED" and "photos are the studio's own" in note.text
+    assert "Alex" not in note.text   # the reporter is not named
+
+
+# ---- S-14 / S-15: a designer's own support requests open in their portal ----
+
+def test_replies_to_a_designer_request_link_to_their_messages_page(shared):
+    designer, agent = user(shared, "user-form-field"), user(shared, "user-helpdesk")
+    ticket = shared.submit_ticket.submit_ticket(designer, "ACCOUNT", "Please update my company email.")
+    shared.messages.post_message(ticket.thread_id, agent, "Done. Anything else?")
+    note = shared.notifications.list_for("user-form-field")[0]
+    assert note.type == "NEW_MESSAGE" and note.link == "portal.html#designer/messages"
+    rows = shared.inbox.inbox_for(designer)["requests"]
+    assert ticket.id in [r["id"] for r in rows if r["kind"] == "SUPPORT_TICKET"]
+
+
+# ---- S-01: a sent design proposal has a message thread for the client and the designer ----
+
+def test_a_sent_proposal_has_a_thread_for_its_client_and_designer(app, shared, designer_side):
+    shared.requests.assign_handler("CUS-101", "user-form-field")
+    proposal = designer_side.submit_proposal_controller.create("user-form-field", {
+        "title": "Oak kitchen", "enquiry_id": "CUS-101", "description": "First idea."})
+    sent = designer_side.submit_proposal_controller.present("user-form-field", proposal["id"])
+    assert sent["thread_id"]
+    shared.messages.post_message(sent["thread_id"], user(shared, "CUS-101"), "Could the island be longer?")
+    note = shared.notifications.list_for("user-form-field")[0]
+    assert (note.type, note.target_id) == ("NEW_MESSAGE", sent["thread_id"])
+    shared.messages.post_message(sent["thread_id"], user(shared, "user-form-field"), "Yes, by 40 cm.")
+    assert shared.notifications.list_for("CUS-101")[0].type == "NEW_MESSAGE"
+    with pytest.raises(PermissionError):
+        shared.messages.list_messages(sent["thread_id"], user(shared, "user-common-ground"))
+    customer = client_for(app, "customer@demo.agroup")
+    offered = customer.get("/api/offers").get_json()["proposals"]
+    assert any(p["id"] == proposal["id"] and p["thread_id"] == sent["thread_id"] for p in offered)
