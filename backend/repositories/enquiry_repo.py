@@ -70,6 +70,10 @@ class EnquiryRepo:
     def all(self):
         return self._select("", ())
 
+    def find_by_thread(self, thread_id):
+        found = self._select("WHERE r.thread_id = ?", (thread_id,))
+        return found[0] if found else None
+
     def _select(self, where, args):
         with self.store.transaction() as connection:
             rows = connection.execute(f"SELECT * FROM request r JOIN enquiry e ON e.request_id = r.request_id "
@@ -83,6 +87,8 @@ class EnquiryRepo:
                                   status=row["status"], questions=questions)
                 enquiry.decided_at, enquiry.decision_reason = row["decided_at"], row["decision_reason"]
                 enquiry.created_at = row["created_at"]
+                enquiry.requester_id, enquiry.handler_id = row["requester_id"], row["handler_id"]
+                enquiry.attach(row["thread_id"], row["attachment_group_id"])
                 enquiries.append(enquiry)
         return enquiries
 

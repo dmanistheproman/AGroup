@@ -115,9 +115,13 @@ def main():
     parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", DEFAULT_PORT)))
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--page", choices=PAGES, default="index")
+    parser.add_argument("--database", help="SQLite file to use, e.g. instance/test-data.sqlite3 "
+                                           "(made by scripts/generate_data.py); default instance/agroup.sqlite3")
     args = parser.parse_args()
 
     ensure_venv()
+    if args.database:
+        os.environ["AGROUP_DATABASE"] = str(Path(args.database).resolve())
 
     # Lets the User Admin demo actions work from this machine only
     # (the backend accepts it for requests from 127.0.0.1 / ::1).
@@ -130,6 +134,7 @@ def main():
     print()
     print(f"  Customer site : {base}{PAGES['index']}")
     print(f"  Staff portal  : {base}{PAGES['portal']}")
+    print(f"  Database      : {os.environ.get('AGROUP_DATABASE') or ROOT / 'instance' / 'agroup.sqlite3'}")
     print("  Press Ctrl+C to stop.")
     print()
 

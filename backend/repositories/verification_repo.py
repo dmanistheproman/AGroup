@@ -51,6 +51,13 @@ class VerificationRepo:
         with self.store.transaction() as connection:
             rows = connection.execute(f"SELECT * FROM request r JOIN verification_request v "
                                       f"ON v.request_id = r.request_id {where} ORDER BY r.request_id", args).fetchall()
-        return [VerificationRequest(row["request_id"], row["company_id"], row["requested_by"],
-                                    json.loads(row["documents"]), row["status"], row["rejection_reason"],
-                                    row["created_at"], row["reviewed_by"]) for row in rows]
+        return [self._request(row) for row in rows]
+
+    @staticmethod
+    def _request(row):
+        request = VerificationRequest(row["request_id"], row["company_id"], row["requested_by"],
+                                      json.loads(row["documents"]), row["status"], row["rejection_reason"],
+                                      row["created_at"], row["reviewed_by"])
+        request.requester_id, request.handler_id = row["requester_id"], row["handler_id"]
+        request.attach(row["thread_id"], row["attachment_group_id"])
+        return request

@@ -35,13 +35,16 @@ class SupportTicket(Request):
     TRANSITIONS = {
         TicketStatus.OPEN: {TicketStatus.AWAITING_INFO, TicketStatus.ESCALATED, TicketStatus.RESOLVED,
                             TicketStatus.MERGED},
-        TicketStatus.AWAITING_INFO: {TicketStatus.OPEN, TicketStatus.ESCALATED, TicketStatus.RESOLVED},
-        TicketStatus.ESCALATED: {TicketStatus.AWAITING_INFO, TicketStatus.RESOLVED},
+        TicketStatus.AWAITING_INFO: {TicketStatus.OPEN, TicketStatus.ESCALATED, TicketStatus.RESOLVED,
+                                     TicketStatus.MERGED},
+        TicketStatus.ESCALATED: {TicketStatus.AWAITING_INFO, TicketStatus.RESOLVED, TicketStatus.MERGED},
         TicketStatus.RESOLVED: {TicketStatus.CLOSED, TicketStatus.OPEN},
     }
     # Asking for information, escalating, resolving and merging each need a reason for the requester.
     REASON_REQUIRED = frozenset({TicketStatus.AWAITING_INFO, TicketStatus.ESCALATED, TicketStatus.RESOLVED,
                                  TicketStatus.MERGED})
+    # Nobody can post to a merged or closed ticket; its history stays readable.
+    READ_ONLY_STATUSES = frozenset({TicketStatus.MERGED, TicketStatus.CLOSED})
 
     PRIORITY_LOW = "LOW"
     PRIORITY_NORMAL = "NORMAL"
@@ -71,6 +74,10 @@ class SupportTicket(Request):
         self.thread_id = thread_id
         self.attachment_group_id = attachment_group_id
 
+    def is_duplicate_of(self, other):
+        """HD-05: duplicates come from the same requester about the same IDP."""
+        return (self.requester_id, self.related_project_id) == (other.requester_id, other.related_project_id)
+
     def is_report(self):
         return self.ticket_type in self.REPORT_TYPES
 
@@ -84,4 +91,5 @@ class SupportTicket(Request):
                 "related_project_id": self.related_project_id,
                 "related_project_title": self.related_project_title,
                 "handler_id": self.handler_id, "resolution_note": self.resolution_note,
+                "thread_id": self.thread_id, "merged_into_id": self.merged_into_id,
                 "created_at": self.created_at}

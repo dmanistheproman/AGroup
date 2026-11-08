@@ -66,3 +66,32 @@ All repositories and controllers are created once in `server.py` (`create_app()`
 
 - Comments, docstrings and messages are in English.
 - Messages shown to users are full sentences, for example "Enter your email and password."
+
+## 8. Shared services
+
+Every shared part is built once in `server.py` and offered as `app.extensions["shared"]`. In a route, use `current_app.extensions["shared"].<name>`; in `server.py`, pass `shared.<name>` to your controller.
+
+| Name | What it does |
+|---|---|
+| `login` | `current_user()`; use with `@require_role` |
+| `user_accounts`, `account_service` | Accounts; `account_service.create_account(name, email, password, role)` (S-13) |
+| `notifications` | `send(recipient_id, type, text, link, target_type, target_id)`, `list_for`, `mark_read_for_target` (S-07) |
+| `status_change` | `change_status(type, id, new_status, actor_id, reason)`, `history_of(type, id)` (S-04). Registered types: `SUPPORT_TICKET`, `USER_ACCOUNT`, `PROJECT` |
+| `requests` | `open(request)` creates the thread and attachment group; `assign_handler`, `find` (S-19). Registered: support tickets, `Enquiry`, `VerificationRequest` |
+| `tickets`, `ticket_lifecycle`, `submit_ticket` | Support tickets and their status moves (S-15) |
+| `messages` | `post_message(thread_id, user, body)`, `list_messages(thread_id, user)` (S-01); `register_owner(find_by_thread, staff_roles)` for a new kind of thread |
+| `notes` | `add_note(target_type, target_id, author, text)`, `list_notes(...)`; targets `REQUEST`, `USER_ACCOUNT`; staff only (S-02) |
+| `project_status` | `change(user, project_id, status, reason)`: designers publish / unpublish their own projects, the helpdesk hides / restores (S-04, S-17) |
+| `projects`, `category_lookup`, `reports` | Project records, active categories (S-10), activity reports and CSV (S-06) |
+| `threads`, `attachments` | Threads and attachment groups (S-01, S-03) |
+| `conversations` | `start_conversation(customer, company_id)`, `list_conversations(user)`: private customer–designer conversations; post with `messages` (S-16) |
+| `inbox` | `inbox_for(user)`: the user's requests and conversations with unread counts (S-14) |
+| `preferences` | `list_for(customer)`, `update(customer, event_type, is_enabled)`; notification rules respect them (C-12) |
+| `offers` | `offers_for(customer)`, `accept`, `request_adjustment`, `give_feedback`: the client's answer to quotations and proposals (S-21) |
+| `uploads`, `upload_failures` | `FileUploadService` logs refused files with the logged-in user; `upload_failures.all()` is the HD-08 log (S-03) |
+
+For form checks, `ValidationRules` (`controllers/shared/validation_rules.py`: `required`, `max_length`, `is_email`, `is_unique_email`, `is_unique_name`) is what `require_text` / `require_email` and `AccountService` use (S-12).
+
+For lists, `PagedQuery.create(keyword, filters, page, page_size, sort_by).run(rows, search_fields)` (`entities/paged_query.py`) returns `{items, total, page, page_size, pages}` (S-05).
+
+Shared routes (`boundary/shared_routes.py`): `/api/support/tickets` (queue, `?status=&type=&handler=me|none&q=&page=`), `/api/support/tickets/<id>` (page with messages and history), `/<id>/assign`, `/<id>/status`, `/api/support/tickets/merge` (HD-05), `/api/projects/<id>/status`, `/api/threads/<id>/messages`, `/api/notes/<type>/<id>`, `/api/history/<type>/<id>`, `/api/conversations`, `/api/inbox`, `/api/notification-preferences`, `/api/offers` (customers), `/api/uploads/failures` (helpdesk), `/api/notifications`, `/api/favourites` (customers), `/api/categories`, `/api/reports/activity`.

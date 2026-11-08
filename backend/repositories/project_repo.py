@@ -82,6 +82,16 @@ class ProjectRepo:
         except sqlite3.IntegrityError as error:
             raise ValueError("This project reference already exists. Refresh and try again.") from error
 
+    def update_status(self, reference, status):
+        """Save a new project status (S-04 / S-17); StatusChangeService checks the change first."""
+        project_id = self.database_id(reference)
+        with self.store.transaction(write=True) as connection:
+            row = connection.execute("SELECT details FROM projects WHERE id = ?", (project_id,)).fetchone()
+            if row is None:
+                raise LookupError(f"Project {reference} was not found.")
+            details = {**json.loads(row["details"]), "status": str(status)}
+            connection.execute("UPDATE projects SET details = ? WHERE id = ?", (json.dumps(details), project_id))
+
     def delete(self, reference):
         with self.store.transaction(write=True) as connection:
             project_id = self.database_id(reference)

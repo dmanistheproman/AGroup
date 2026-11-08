@@ -71,11 +71,22 @@ try:
 except (ValueError, KeyError, TypeError):
     ticket_id = "TKT-0000"
 check("Customer is notified (S-07)", "GET", "/api/notifications", 200, contains=ticket_id)
+try:
+    thread_id = json.loads(text)["ticket"]["thread_id"]
+except (ValueError, KeyError, TypeError):
+    thread_id = "THR-0000"
+check("Customer writes to the helpdesk (S-01)", "POST", f"/api/threads/{thread_id}/messages", 201,
+      body={"body": "Smoke test message."})
+check("Customer saves a project (C-04)", "POST", "/api/favourites", 200, body={"project_id": 1}, contains="IDP-001")
 check("Customers cannot read reports", "GET", "/api/reports/activity", 403)
 check("Customer logs out", "POST", "/api/auth/logout", 200)
 check("Helpdesk agent logs in", "POST", "/api/auth/login", 200,
       body={"email": "helpdesk@demo.agroup", "password": "demo"}, contains='"HELPDESK"')
 check("Helpdesk is notified of the ticket", "GET", "/api/notifications", 200, contains="NEW_TICKET")
+check("Helpdesk ticket queue (S-05, S-15)", "GET", "/api/support/tickets?status=OPEN", 200, contains=ticket_id)
+check("Helpdesk claims the ticket", "POST", f"/api/support/tickets/{ticket_id}/assign", 200, contains="user-helpdesk")
+check("Helpdesk adds an internal note (S-02)", "POST", f"/api/notes/REQUEST/{ticket_id}", 201,
+      body={"text": "Smoke test note."})
 check("Status change needs a reason (S-04)", "POST", f"/api/support/tickets/{ticket_id}/status", 400,
       body={"status": "AWAITING_INFO"})
 check("Helpdesk asks for information (S-04)", "POST", f"/api/support/tickets/{ticket_id}/status", 200,

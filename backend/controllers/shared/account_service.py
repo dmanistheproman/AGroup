@@ -3,15 +3,12 @@
 Used by customer self-registration (C-01) and by User Admins creating accounts (UA-03).
 Creates the UserAccount and, for the role, the CustomerProfile or DesignerCompany.
 """
-import re
-
 from werkzeug.security import generate_password_hash
 
+from backend.controllers.shared.validation_rules import ValidationRules
 from backend.entities.customer_profile import CustomerProfile
 from backend.entities.designer_company import DesignerCompany
 from backend.entities.user_account import UserAccount
-
-EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class FieldError(ValueError):
@@ -30,17 +27,19 @@ class AccountService:
         self.accounts = account_repo
         self.customers = customer_repo
         self.companies = company_repo
+        self.rules = ValidationRules(account_repo)
 
     def create_account(self, name, email, password, role):
         name = (name or "").strip()
         email = (email or "").strip().lower()
-        if not name:
+        rules = self.rules
+        if not rules.required(name):
             raise FieldError("name", "Enter your name.")
-        if len(name) > 70:
+        if not rules.max_length(name, 70):
             raise FieldError("name", "Keep the name within 70 characters.")
-        if not email:
+        if not rules.required(email):
             raise FieldError("email", "Enter your email address.")
-        if len(email) > 120 or not EMAIL_RE.match(email):
+        if not rules.max_length(email, 120) or not rules.is_email(email):
             raise FieldError("email", "Enter a valid email address, for example name@example.com.")
         if not password:
             raise FieldError("password", "Enter a password.")
@@ -50,7 +49,7 @@ class AccountService:
             raise FieldError("password", f"Keep the password within {self.MAX_PASSWORD} characters.")
         if role not in UserAccount.ROLES:
             raise FieldError("role", "Choose a role for the account.")
-        if self.accounts.find_by_email(email):
+        if not rules.is_unique_email(email):
             raise FieldError("email", "This email is already registered. Try logging in instead.")
 
         account = UserAccount(self._next_account_id(role), name, email, self._hash_password(password), role)

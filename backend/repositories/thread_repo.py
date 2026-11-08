@@ -16,6 +16,12 @@ class ThreadRepo:
                                (thread.id, int(thread.is_unanswered), thread.created_at))
         return thread
 
+    def save(self, thread):
+        with self.store.transaction(write=True) as connection:
+            connection.execute("UPDATE thread SET is_unanswered = ? WHERE thread_id = ?",
+                               (int(bool(thread.is_unanswered)), thread.id))
+        return thread
+
     def get(self, thread_id):
         with self.store.transaction() as connection:
             row = connection.execute("SELECT * FROM thread WHERE thread_id = ?", (thread_id,)).fetchone()

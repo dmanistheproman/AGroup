@@ -204,6 +204,52 @@ CREATE TABLE IF NOT EXISTS review (
     comment TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS message (
+    message_id TEXT PRIMARY KEY,
+    thread_id TEXT NOT NULL REFERENCES thread(thread_id),
+    author_id TEXT NOT NULL,
+    body TEXT NOT NULL,
+    sent_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS internal_note (
+    note_id TEXT PRIMARY KEY,
+    author_id TEXT NOT NULL,
+    request_id TEXT,
+    user_id TEXT,
+    text TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    CHECK ((request_id IS NULL) <> (user_id IS NULL))
+);
+CREATE TABLE IF NOT EXISTS favourite (
+    favourite_id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    project_id INTEGER NOT NULL,
+    saved_at TEXT NOT NULL,
+    UNIQUE (customer_id, project_id)
+);
+CREATE TABLE IF NOT EXISTS conversation (
+    conversation_id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    thread_id TEXT NOT NULL UNIQUE REFERENCES thread(thread_id),
+    last_message_at TEXT,
+    UNIQUE (customer_id, company_id)
+);
+CREATE TABLE IF NOT EXISTS notification_preference (
+    customer_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    is_enabled INTEGER NOT NULL,
+    PRIMARY KEY (customer_id, event_type)
+);
+CREATE TABLE IF NOT EXISTS upload_failure (
+    failure_id TEXT PRIMARY KEY,
+    user_id TEXT,
+    project_id TEXT,
+    file_name TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    occurred_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS message_by_thread ON message(thread_id, sent_at);
 CREATE INDEX IF NOT EXISTS payment_by_offer ON payment_milestone(offer_id, due_date);
 CREATE INDEX IF NOT EXISTS notification_by_recipient ON notification(recipient_id, created_at);
 CREATE INDEX IF NOT EXISTS request_by_requester ON request(requester_id, created_at);
