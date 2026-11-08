@@ -50,7 +50,7 @@ Log in at `/login.html`. Every demo account uses the password `demo`.
 | `admin@demo.agroup` | User Admin |
 | `manager@demo.agroup` | Platform Manager |
 
-The portal shows only the workspace of the logged-in role (customers use the customer website). The Interior Designer workspace, Platform Management workspace and User Admin company-verification screen use server data and require the matching login. The Helpdesk ticket screens (queue, resolved, complaints, upload diagnostics) and the designer Messages page use server data too; a few other portal screens still use browser demonstrations. Customers have an inbox at `/inbox.html` (requests, messages, offers, notification preferences).
+The portal shows only the workspace of the logged-in role (customers use the customer website). The Interior Designer workspace, Platform Management workspace and User Admin company-verification screen use server data and require the matching login. The Helpdesk ticket screens (queue, resolved, complaints, upload diagnostics) and the designer Messages page use server data too; a few other portal screens still use browser demonstrations. Customers have an inbox at `/inbox.html` (requests, messages, offers, notification preferences). The shared interface components are shown at `/ui-kit.html`.
 
 ## Test data
 

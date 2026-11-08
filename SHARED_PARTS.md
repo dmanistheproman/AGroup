@@ -51,9 +51,12 @@ Ready (backend and API):
 | Inbox (S-14) | `GET /api/inbox` |
 | Notification preferences (C-12) | `GET/PUT /api/notification-preferences {event_type, is_enabled}` |
 | Answer offers (S-21) | `GET /api/offers`, `POST /api/offers/quotations/<id>/accept`, `/adjustment {note}`, `POST /api/offers/proposals/<id>/feedback {feedback}` |
+| Request page: a ticket, enquiry or verification request with its messages and progress (S-20) | `GET /api/requests/<id>` (requester or handler only) |
 
-Pages: `inbox.html` (Requests, Messages, Offers, Preferences tabs; the account menu links to it), folders on the
-Saved page, "Message designer" in a company's page.
+Pages: `inbox.html` (Requests, Messages, Offers, Preferences tabs; the account menu links to it; every request opens
+on one record page, enquiries with their thread), folders on the Saved page, "Message designer" in a company's page.
+Notified about: enquiry decisions and answers (`ENQUIRY_UPDATE`), quotations and proposals sent (`OFFER_SENT`),
+payment reminders (`PAYMENT_REMINDER`); each can be turned off in Preferences.
 Open: submitting an enquiry (C-06) should create it with `shared.requests.open(Enquiry(...))`; the moodboard page
 still keeps its board in the browser (a `MOODBOARD` collection is ready on the server).
 
@@ -65,13 +68,18 @@ Ready:
 | Publish / unpublish own project (ID-03) | `POST /api/projects/<IDP-xxx>/status {status: PUBLISHED or UNPUBLISHED}` |
 | Conversations with customers (S-16, ID-11) | `GET /api/conversations`, `GET/POST /api/threads/<thread_id>/messages` |
 | Inbox | `GET /api/inbox` (enquiries, verification requests, tickets, conversations) |
-| Told when the helpdesk hides a project | notification `PROJECT_HIDDEN` / `PROJECT_RESTORED` |
+| Enquiry thread with the client (S-01) | `GET /api/requests/<enquiry_id>` (creates the thread if missing), then `/api/threads/<thread_id>/messages` |
+| Proposal for an enquiry (S-21) | `POST /api/proposals` with `enquiry_id`: the client name comes from the enquiry and the client sees it in their inbox |
+| Notifications | `NEW_ENQUIRY`, `OFFER_ANSWERED` (accepted, changes asked, proposal feedback), `VERIFICATION_STATUS`, `PROJECT_HIDDEN` / `PROJECT_RESTORED`, `NEW_MESSAGE` |
 
 All ID records are stored in SQLite; controllers must call `save()` after changing an entity.
-Pages: **Messages** in the portal (private conversations, with Report on customer messages).
-Open: portal buttons for publish / unpublish. Proposals record only `client_name`, so the
-customer side matches proposals by name; adding the enquiry to a proposal would fix that. Quotations do not record
-the designer, so the designer is not notified when a customer accepts.
+Status changes of enquiries (accept / decline), verification requests (approve / reject / resubmit), quotations (send,
+revised after changes) and proposals (send) now go through `StatusChangeService`, so they are audited and the other
+side is notified. The designer who first answers an enquiry becomes its handler; a clarification request is also posted
+in the enquiry's thread; a payment reminder reaches the client when the client has an account.
+Pages: **Messages** in the portal (private conversations and enquiry threads, with Report on customer messages).
+Open: portal buttons for publish / unpublish; an enquiry picker in the proposal form (the API already takes
+`enquiry_id`).
 
 ### Helpdesk Agent
 Ready:
@@ -95,7 +103,9 @@ history, reported message) opens from any list. **Verification recommendations**
 ### User Admin
 Ready: `USER_ACCOUNT` is registered in `StatusChangeService` (suspend / reactivate with a reason, audited);
 `GET /api/history/USER_ACCOUNT/<id>` (UA-11); notes on accounts `GET/POST /api/notes/USER_ACCOUNT/<id>` (UA-10);
-`shared.account_service.create_account(name, email, password, role)` for UA-03.
+`shared.account_service.create_account(name, email, password, role)` for UA-03. Verification decisions
+(`POST /api/admin/verifications/<id>/review`) are audited as `VERIFICATION_REQUEST`, and user admins get
+`NEW_VERIFICATION` when a company submits or resubmits.
 Open: `UserAccountRepo` already implements the UA-01 contract (`find_by_id`, `commit_suspension`, which also writes
 the audit log). The app still passes `UnconnectedAccountRegistry` by default; passing `user_accounts` as the registry
 in `create_app` connects suspension to real accounts.
@@ -113,6 +123,9 @@ customer catalogue now hides projects that are not `PUBLISHED`.
 | Project | DRAFT → PUBLISHED ⇄ UNPUBLISHED; PUBLISHED → HIDDEN\* → PUBLISHED |
 | User account | ACTIVE ⇄ SUSPENDED\* (both ways) |
 | Quotation | DRAFT → WAITING_CLIENT_CONFIRMATION → ACCEPTED, ADJUSTMENT_REQUESTED\*, EXPIRED; ADJUSTMENT_REQUESTED → WAITING |
+| Design proposal | DRAFT → UNDER_REVIEW → CONFIRMED (a revision keeps UNDER_REVIEW with a new version) |
+| Enquiry | AWAITING_REPLY → CONFIRMED, DECLINED\*; CONFIRMED → COMPLETED |
+| Verification request | PENDING_REVIEW → APPROVED, REJECTED\*; REJECTED → PENDING_REVIEW (resubmitted) |
 
 ## 5. Data
 
@@ -126,7 +139,7 @@ customer catalogue now hides projects that are not `PUBLISHED`.
 ## 6. Tests and CI
 
 - Write the failing test first and commit it with a message ending in `— red`, then the code ending in `— green`.
-- `scripts/smoke_test.py` checks the shared parts end to end (38 checks). CI runs it on the demo data and on a
+- `scripts/smoke_test.py` checks the shared parts end to end (39 checks). CI runs it on the demo data and on a
   generated test-data set.
 
 ## 7. Not built yet
@@ -134,5 +147,19 @@ customer catalogue now hides projects that are not `PUBLISHED`.
 - Moodboard on the server (C-11): the API holds `MOODBOARD` collections, the page still uses the browser.
 - Ticket feedback (HD-13), verification recommendations (HD-12).
 
-Shared front-end components you can reuse are in `frontend/js/records.js` (`AGroupRecords.statusBadge`,
-`confirmWithReason`, `historyTimeline`, `messageThread`, `notesPanel`, `call`) with styles in `css/records.css`.
+## 8. Shared front-end components
+
+Open **`/ui-kit.html`** to see each one working. Include `js/records.js` and `js/ui.js` (and `css/records.css`,
+`css/ui.css`); the portal already does.
+
+| Part | Call |
+|---|---|
+| Status badge, reason dialog, history, messages, notes (S-01, S-02, S-04) | `AGroupRecords.statusBadge`, `confirmWithReason`, `historyTimeline`, `messageThread`, `notesPanel`, `call` |
+| List page (S-05) | `AGroupUI.toolbar`, `table`, `pager`, `listPage`, `state('loading' \| 'empty' \| 'error')` |
+| Upload widget (S-03) | `AGroupUI.uploadWidget({kind: 'image' \| 'document'})`, `checkFiles(input)`, `send(url, formData, onProgress)` |
+| Period selector and trend chart (S-06) | `AGroupUI.periodSelector()`, `periodQuery(form)`, `trendChart(rows, series)` with `GET /api/reports/activity` |
+| Project card and gallery (S-08) | `AGroupUI.projectCard(project)`, `imageGallery(images)` |
+| Category picker (S-10) | `AGroupUI.loadCategories()`, `categoryPicker(categories, {multiple})` |
+| Rating (S-11) | `AGroupUI.ratingInput`, `ratingDisplay(average, count)`, `ratingForm()` |
+| Form view (S-12) | `AGroupUI.formView.submit(form, method, url, body)`: field errors from `{error, field}`, busy button, success message |
+| Record page (S-20) | `AGroupUI.recordPage({eyebrow, title, status, details, actions, sections})` |

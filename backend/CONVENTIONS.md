@@ -37,7 +37,7 @@ All repositories and controllers are created once in `server.py` (`create_app()`
 
 - Method names follow the class and sequence diagrams, for example `LoginController.login(email, password)`.
 - Validate input with `services/validators.py` (`require_text`, `require_email`).
-- **Change a status** through `StatusChangeService` (`controllers/shared/status_change_service.py`). It checks the transition, requires a reason where needed, writes the audit log and notifies. The entity class declares `TRANSITIONS = {from: {to, ...}}` and `REASON_REQUIRED = {to, ...}`; register the record type once in `server.py` (`status_change.register("SUPPORT_TICKET", repo.get, repo.save)`), then call `status_change.change_status(type, id, new_status, actor_id, reason)`. `app.extensions["status_change"]` holds the shared instance.
+- **Change a status** through `StatusChangeService` (`controllers/shared/status_change_service.py`). It checks the transition, requires a reason where needed, writes the audit log and notifies. The entity class declares `TRANSITIONS = {from: {to, ...}}` and `REASON_REQUIRED = {to, ...}`; register the record type once in `server.py` (`status_change.register("SUPPORT_TICKET", repo.get, repo.save)`), then call `status_change.change_status(type, id, new_status, actor_id, reason)`. Front-end parts shared by every page are in `frontend/js/records.js` and `frontend/js/ui.js` (see `/ui-kit.html`). `app.extensions["status_change"]` holds the shared instance.
 - Signal failures by raising exceptions, not by returning error values:
 
 | Exception | Meaning | HTTP status |
@@ -76,7 +76,7 @@ Every shared part is built once in `server.py` and offered as `app.extensions["s
 | `login` | `current_user()`; use with `@require_role` |
 | `user_accounts`, `account_service` | Accounts; `account_service.create_account(name, email, password, role)` (S-13) |
 | `notifications` | `send(recipient_id, type, text, link, target_type, target_id)`, `list_for`, `mark_read_for_target` (S-07) |
-| `status_change` | `change_status(type, id, new_status, actor_id, reason)`, `history_of(type, id)` (S-04). Registered types: `SUPPORT_TICKET`, `USER_ACCOUNT`, `PROJECT` |
+| `status_change` | `change_status(type, id, new_status, actor_id, reason)`, `history_of(type, id)` (S-04). Registered types: `SUPPORT_TICKET`, `USER_ACCOUNT`, `PROJECT`, `QUOTATION`, `DESIGN_PROPOSAL`, `ENQUIRY`, `VERIFICATION_REQUEST`. A record whose change sets more than the status gives itself `apply_status(status, reason, actor_id)` |
 | `requests` | `open(request)` creates the thread and attachment group; `assign_handler`, `find` (S-19). Registered: support tickets, `Enquiry`, `VerificationRequest` |
 | `tickets`, `ticket_lifecycle`, `submit_ticket` | Support tickets and their status moves (S-15) |
 | `messages` | `post_message(thread_id, user, body)`, `list_messages(thread_id, user)` (S-01); `register_owner(find_by_thread, staff_roles)` for a new kind of thread |
@@ -96,4 +96,4 @@ For form checks, `ValidationRules` (`controllers/shared/validation_rules.py`: `r
 
 For lists, `PagedQuery.create(keyword, filters, page, page_size, sort_by).run(rows, search_fields)` (`entities/paged_query.py`) returns `{items, total, page, page_size, pages}` (S-05).
 
-Shared routes (`boundary/shared_routes.py`): `/api/support/tickets` (queue, `?status=&type=&handler=me|none&q=&page=`), `/api/support/tickets/<id>` (page with messages and history), `/<id>/assign`, `/<id>/status`, `/api/support/tickets/merge` (HD-05), `/api/projects/<id>/status`, `/api/threads/<id>/messages`, `/api/notes/<type>/<id>`, `/api/history/<type>/<id>`, `/api/conversations`, `/api/companies`, `/api/reports/messages/<id>`, `/api/collections` (customers), `/api/inbox`, `/api/notification-preferences`, `/api/offers` (customers), `/api/uploads/failures` (helpdesk), `/api/notifications`, `/api/favourites` (customers), `/api/categories`, `/api/reports/activity`.
+Shared routes (`boundary/shared_routes.py`): `/api/support/tickets` (queue, `?status=&type=&handler=me|none&q=&page=`), `/api/support/tickets/<id>` (page with messages and history), `/<id>/assign`, `/<id>/status`, `/api/support/tickets/merge` (HD-05), `/api/projects/<id>/status`, `/api/threads/<id>/messages`, `/api/notes/<type>/<id>`, `/api/history/<type>/<id>`, `/api/requests/<id>`, `/api/conversations`, `/api/companies`, `/api/reports/messages/<id>`, `/api/collections` (customers), `/api/inbox`, `/api/notification-preferences`, `/api/offers` (customers), `/api/uploads/failures` (helpdesk), `/api/notifications`, `/api/favourites` (customers), `/api/categories`, `/api/reports/activity`.
