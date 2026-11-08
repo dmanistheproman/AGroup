@@ -12,6 +12,7 @@ from backend.entities.user_account import UserAccount
 from backend.entities.project_category import ProjectCategory
 from backend.entities.interior_design_project import InteriorDesignProject
 from backend.entities.project_activity import ProjectActivity
+from backend.entities.project import Project
 from backend.entities.activity_report import ActivityReport
 from backend.entities.report_period import Period
 from backend.services.management_rules import BusinessError, SINGAPORE
@@ -166,7 +167,7 @@ def create_management_blueprint(c, store, login):
     @bp.get("/api/catalog")
     def catalog():
         projects = InteriorDesignProject(store).list_by_category()["projects"]
-        projects = [project for project in projects if project.get("status", "PUBLISHED") == "PUBLISHED"]
+        projects = Project.visible_to_customers(projects)
         return jsonify(projects=projects, categories=ProjectCategory(store).list_all(status="Active"))
 
     @bp.post("/api/activity")

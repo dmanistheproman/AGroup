@@ -67,6 +67,15 @@ def test_visible_to_customers_filters_a_list_of_records():
     assert [r["id"] for r in Project.visible_to_customers(records)] == [1]
 
 
+def test_unknown_phase_text_is_read_as_no_phase():
+    assert Project.from_record({**SEEDED, "stage": "Ongoing"}).phase is None
+
+
+def test_records_that_are_not_valid_projects_are_not_shown_to_customers():
+    records = [SEEDED, {**SEEDED, "id": 2, "status": "LOST"}, {**SEEDED, "id": 3, "title": ""}]
+    assert [r["id"] for r in Project.visible_to_customers(records)] == [1]
+
+
 def test_project_lifecycle_for_status_changes():
     assert Project.TRANSITIONS[ProjectStatus.DRAFT] == {ProjectStatus.PUBLISHED}
     assert ProjectStatus.HIDDEN in Project.TRANSITIONS[ProjectStatus.PUBLISHED]

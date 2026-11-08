@@ -26,6 +26,11 @@ from backend.controllers.shared.status_change_service import StatusChangeService
 from backend.controllers.shared.ticket_lifecycle import TicketLifecycle
 from backend.boundary.shared_routes import create_shared_blueprint
 
+# ----- Shared: categories and reports -----
+from backend.controllers.shared.category_lookup_controller import CategoryLookupController
+from backend.controllers.shared.report_service import ReportService
+from backend.boundary.report_routes import create_report_blueprint
+
 # ----- User Admin -----
 from backend.repositories.account_repo import UnconnectedAccountRegistry
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController
@@ -178,6 +183,10 @@ def create_app(registry=None, admin_provider=None, config=None):
     accounts = AccountService(user_accounts, designer.customer_repo, designer.company_repo)
     app.register_blueprint(create_auth_blueprint(login, accounts))
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
+
+    # ----- Shared: active categories and activity reports (S-06, S-10) -----
+    app.register_blueprint(create_report_blueprint(login, CategoryLookupController(store), ReportService(store),
+                                                   ProjectRepo(store)))
 
     # ----- Platform Management -----
     app.register_blueprint(create_management_blueprint(build_management_controllers(store), store, login))

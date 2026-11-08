@@ -107,8 +107,8 @@ def test_export_csv_has_period_rows_totals_and_is_safe_for_spreadsheets(store):
     text = service.export_csv(report)
     assert text.startswith("﻿")
     rows = list(csv.reader(io.StringIO(text.lstrip("﻿"))))
-    assert ["Group", "Views", "Favourites", "Enquiries"] in rows
-    assert ["Total", "2", "1", "1"] in rows
+    assert ["Group", "Label", "Views", "Favourites", "Enquiries"] in rows
+    assert ["Total", "", "2", "1", "1"] in rows
     labels = [r[1] for r in rows if r and r[0] == "IDP-002"]
     assert labels == ["'=HYPERLINK(\"x\")"]
 
