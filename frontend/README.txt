@@ -23,7 +23,7 @@ and the four role-specific workspaces. It is not a deployed application.
 Screens backed by the Python/Flask backend call /api/... routes; the rest are
 browser-local wireframes. Firestore, authentication and access control are not
 implemented yet.
-The portal role selector changes the preview; it is not an access-control system.
+The portal shows only the workspace of the logged-in role (demo accounts, password "demo").
 
 Firms, projects, ratings, records, prices, documents and analytics are fictional.
 Photos are illustrative and do not represent the fictional firms' actual work.
@@ -52,7 +52,7 @@ CUSTOMER WEBSITE
 
 BACKEND PORTAL WIREFRAME
 -----------------------
-Use the PREVIEW AS selector in the sidebar.
+Log in with a demo account; the sidebar shows that role's workspace.
 
 User Admin:
 Overview; company verification; escalated tickets; listing/review moderation;
@@ -119,12 +119,20 @@ css/styles.css   Customer styling and common components.
 css/portal.css   Monochrome portal wireframe styling.
 js/suspend-account.js  User Admin suspension form and API call.
 login.html       Log in page; calls POST /api/auth/login (demo accounts, password "demo").
+register.html    Create an account (customers); calls POST /api/auth/register, errors shown beside each field.
+js/register.js   Registration form checks and server call.
 js/login.js      Login form checks, server login and demo account buttons.
 js/account.js    Server session (/api/auth/me) with a local copy, and the header account menu.
 css/login.css    Login page layout.
 css/account.css  Header avatar and dropdown menu.
 js/icons.js      AGroupIcons.icon(name): Lucide icon markup.
 css/icons.css    Icon size and colour (follows the text).
+notifications.html     Notifications page: all notifications, All / Unread, mark all read.
+js/notifications.js    Header notification bell (latest 5, unread count, link to the page).
+js/notifications-page.js  Notifications page list.
+js/support.js          Contact Support form and Report button (opens a helpdesk ticket).
+css/support.css        Notification bell and support dialog.
+css/notifications.css  Notifications page layout.
 assets/icons/    Lucide icons (lucide.svg, ISC LICENSE); build with scripts/build_icons.py.
 assets/          Local illustrative interior photographs.
 

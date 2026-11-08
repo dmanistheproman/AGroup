@@ -9,9 +9,30 @@ from types import SimpleNamespace
 from flask import Flask, session
 
 # ----- Shared: login -----
+from backend.database import install_schema
 from backend.repositories.user_account_repo import UserAccountRepo, SEED_ACCOUNT_DATA
 from backend.controllers.shared.login_controller import LoginController
 from backend.boundary.auth_routes import create_auth_blueprint
+from backend.controllers.shared.account_service import AccountService
+
+# ----- Shared: support tickets, reports, notifications -----
+from backend.repositories.notification_repo import NotificationRepo, SEED_NOTIFICATION_DATA
+from backend.repositories.support_ticket_repo import SupportTicketRepo
+from backend.controllers.shared.notification_service import NotificationService
+from backend.controllers.shared.notification_rules import NotificationRules
+from backend.controllers.shared.request_service import RequestService
+from backend.controllers.shared.submit_ticket_controller import SubmitTicketController
+from backend.repositories.audit_log_repo import AuditLogRepo
+from backend.repositories.thread_repo import ThreadRepo
+from backend.repositories.attachment_repo import AttachmentRepo
+from backend.controllers.shared.status_change_service import StatusChangeService
+from backend.controllers.shared.ticket_lifecycle import TicketLifecycle
+from backend.boundary.shared_routes import create_shared_blueprint
+
+# ----- Shared: categories and reports -----
+from backend.controllers.shared.category_lookup_controller import CategoryLookupController
+from backend.controllers.shared.report_service import ReportService
+from backend.boundary.report_routes import create_report_blueprint
 
 # ----- User Admin -----
 from backend.repositories.account_repo import UnconnectedAccountRegistry
@@ -38,7 +59,7 @@ from backend.repositories.proposal_repo import ProposalRepo, SEED_PROPOSAL_DATA
 from backend.repositories.enquiry_repo import EnquiryRepo, SEED_ENQUIRY_DATA
 from backend.repositories.quotation_repo import QuotationRepo, SEED_QUOTATION_DATA
 from backend.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
-from backend.repositories.payment_repo import payment_repo
+from backend.repositories.payment_repo import PaymentRepo
 from backend.services.file_upload_service import FileUploadService
 from backend.services.credit_status_service import CreditStatusService
 from backend.controllers.designer.credit_status_controller import ViewCreditStatusController
@@ -59,30 +80,32 @@ UPLOAD_DIR = ROOT / 'backend' / 'uploads'
 
 def build_designer_controllers(upload_service, store):
     """ID-01 … ID-13 wiring, moved from the ID branch's run.py."""
-    company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA)
-    verification_repo = VerificationRepo()
-    # ---------- ID-05 / ID-06：设计提案 — 两个控制器必须共享同一仓库实例 ----------
-    proposal_repo = ProposalRepo.from_data(SEED_PROPOSAL_DATA)
-    # ---------- ID-07 / ID-08：报价（附加于已确认的请求）与客户评价（限本公司） ----------
-    enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA)
-    quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA)
+    company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA, store)
+    verification_repo = VerificationRepo(store)
+    # ---------- ID-05 / ID-06: design proposals — both controllers must share one repository ----------
+    proposal_repo = ProposalRepo.from_data(SEED_PROPOSAL_DATA, store)
+    # ---------- ID-07 / ID-08: quotations (attached to confirmed requests) and client reviews (own company only) ----------
+    enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA, store)
+    quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA, store)
 
     projects_repo = ProjectRepo(store)
+    payment_repo = PaymentRepo(store)
 
     c = SimpleNamespace()
     c.project_controller = ProjectController(projects_repo, CategoryRepo(store), upload_service)
     c.company_controller = UpdateCompanyProfileController(company_repo, upload_service)
     c.verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
     c.review_controller = ReviewVerificationController(verification_repo, company_repo)
-    c.potential_clients_controller = FindPotentialClientsController(CustomerRepo.from_data(SEED_CUSTOMER_DATA))
+    customer_repo = CustomerRepo.from_data(SEED_CUSTOMER_DATA, store)
+    c.potential_clients_controller = FindPotentialClientsController(customer_repo)
     c.submit_proposal_controller = SubmitProposalController(proposal_repo, upload_service)
     c.revise_proposal_controller = ReviseProposalController(proposal_repo, upload_service)
     c.submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
-    c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10：需求审查（accept/decline/clarify）
+    c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10: requirement review (accept/decline/clarify)
     c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo))
     c.statistics_controller = ViewProjectStatisticsController(ProjectActivityRepo(store), projects_repo)
-    c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
-    # ---------- ID-09：付款进度（平台只记录不代收；里程碑属于已接受的报价） ----------
+    c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store))
+    # ---------- ID-09: payment progress (the platform records payments but never collects them; milestones belong to accepted quotations) ----------
     c.payment_controller = PaymentController(
         payment_repo,
         company_repo,
@@ -91,6 +114,7 @@ def build_designer_controllers(upload_service, store):
             if isinstance(q, dict) and q.get("status") == "ACCEPTED"
         ],
     )
+    c.customer_repo, c.company_repo = customer_repo, company_repo   # shared with AccountService (S-13)
     return c
 
 
@@ -126,7 +150,7 @@ def create_app(registry=None, admin_provider=None, config=None):
                       DATABASE=os.environ.get('AGROUP_DATABASE') or str(ROOT / 'instance' / 'agroup.sqlite3'),
                       SEED_DEMO=True)
     app.config.update(config or {})
-    store = SQLiteStore(app.config['DATABASE'])
+    store = install_schema(SQLiteStore(app.config['DATABASE']))   # adds the shared-part tables (database.py)
     if app.config['SEED_DEMO']:
         seed_demo(store)
     app.extensions['management_store'] = store
@@ -135,10 +159,21 @@ def create_app(registry=None, admin_provider=None, config=None):
     upload_service = FileUploadService(upload_folder=str(UPLOAD_DIR))
 
     # ----- Shared: login (X-03) -----
-    user_accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    user_accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
     login = LoginController(user_accounts, lambda: session)
-    app.register_blueprint(create_auth_blueprint(login))
     app.extensions['login'] = login   # for role guards in other blueprints
+
+    # ----- Shared: support tickets, reports, notifications, status changes (S-04, S-07, S-15, S-19) -----
+    notifications = NotificationService(NotificationRepo.from_data(SEED_NOTIFICATION_DATA, store))
+    support_tickets = SupportTicketRepo(store)
+    rules = NotificationRules(notifications, user_accounts, support_tickets)
+    requests = RequestService(support_tickets, rules, ThreadRepo(store), AttachmentRepo(store))
+    status_change = StatusChangeService(AuditLogRepo(store), rules)
+    ticket_lifecycle = TicketLifecycle(status_change, support_tickets)   # registers SUPPORT_TICKET
+    status_change.register("USER_ACCOUNT", user_accounts.get, user_accounts.save)
+    app.extensions['status_change'] = status_change   # for other roles' status changes
+    app.register_blueprint(create_shared_blueprint(login, SubmitTicketController(requests), requests, notifications,
+                                                   ticket_lifecycle, status_change))
 
     # ----- User Admin -----
     account_registry = registry if registry is not None else UnconnectedAccountRegistry()
@@ -147,7 +182,15 @@ def create_app(registry=None, admin_provider=None, config=None):
 
     # ----- Interior Designer -----
     designer = build_designer_controllers(upload_service, store)
+
+    # ----- Shared: login and Create Account (X-03, S-13) -----
+    accounts = AccountService(user_accounts, designer.customer_repo, designer.company_repo)
+    app.register_blueprint(create_auth_blueprint(login, accounts))
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
+
+    # ----- Shared: active categories and activity reports (S-06, S-10) -----
+    app.register_blueprint(create_report_blueprint(login, CategoryLookupController(store), ReportService(store),
+                                                   ProjectRepo(store)))
 
     # ----- Platform Management -----
     app.register_blueprint(create_management_blueprint(build_management_controllers(store), store, login))

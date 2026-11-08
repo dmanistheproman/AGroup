@@ -51,7 +51,7 @@ def create_designer_blueprint(c, upload_dir, login):
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
-    # ---------- ID-03b：历史项目列表与删除 ----------
+    # ---------- ID-03b: portfolio list and delete ----------
     @bp.route("/api/projects", methods=["GET"])
     def api_list_projects():
         return jsonify(c.project_controller.list_projects(current_user_id()))
@@ -133,7 +133,7 @@ def create_designer_blueprint(c, upload_dir, login):
     # ---------- ID-04 ----------
     @bp.route("/api/potential-clients", methods=["GET"])
     def api_potential_clients():
-        styles = request.args.getlist("style")   # 多风格：重复的 style 参数
+        styles = request.args.getlist("style")   # several styles: repeated style parameters
         return jsonify(c.potential_clients_controller.find(current_user_id(), styles))
 
     # ---------- ID-05 / ID-06 ----------
@@ -167,7 +167,7 @@ def create_designer_blueprint(c, upload_dir, login):
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
-    # ---------- ID-07 / ID-08：报价与评价端点（无文件上传；ValueError → 400） ----------
+    # ---------- ID-07 / ID-08: quotation and review endpoints (no file upload; ValueError → 400) ----------
     @bp.route("/api/quotations", methods=["GET", "POST"])
     def api_quotations():
         if request.method == "GET":
@@ -213,7 +213,7 @@ def create_designer_blueprint(c, upload_dir, login):
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
-    # ---------- ID-09：付款进度端点 ----------
+    # ---------- ID-09: payment progress endpoints ----------
     @bp.route("/api/payment-progress")
     def api_payment_progress():
         try:
@@ -245,7 +245,7 @@ def create_designer_blueprint(c, upload_dir, login):
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
-    # ---------- ID-10：客户设计需求审查 ----------
+    # ---------- ID-10: review a client's design requirements ----------
     @bp.route("/api/enquiries")
     def api_enquiries():
         return jsonify(c.review_enquiry_controller.list_for(current_user_id()))
@@ -268,7 +268,7 @@ def create_designer_blueprint(c, upload_dir, login):
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
-    # ---------- ID-11: 客户问题回复与标记 ----------
+    # ---------- ID-11: reply to and flag client questions ----------
     @bp.route("/api/enquiries/<enquiry_id>/questions/<question_id>/reply", methods=["POST"])
     def api_reply_question(enquiry_id, question_id):
         try:
@@ -287,7 +287,7 @@ def create_designer_blueprint(c, upload_dir, login):
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
-    # ---------- ID-12：客户信用状态（仅平台内数据；仅对发过请求的客户） ----------
+    # ---------- ID-12: client credit status (platform data only; only for clients who sent a request) ----------
     @bp.route("/api/credit-status")
     def api_credit_status():
         try:
@@ -296,7 +296,7 @@ def create_designer_blueprint(c, upload_dir, login):
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
-    # ---------- ID-13：IDP 统计（事件仅种子；lifetime 与近期分列） ----------
+    # ---------- ID-13: IDP statistics (seeded events; lifetime and recent counts shown separately) ----------
     @bp.route("/api/statistics")
     def api_statistics():
         try:

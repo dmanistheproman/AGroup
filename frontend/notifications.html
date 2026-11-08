@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Your AGroup notifications.">
+<title>AGroup — Notifications</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/icons.css">
+<link rel="stylesheet" href="css/account.css">
+<link rel="stylesheet" href="css/support.css">
+<link rel="stylesheet" href="css/notifications.css">
+<script src="js/icons.js" defer></script>
+<script src="js/account.js" defer></script>
+<script src="js/notifications.js" defer></script>
+<script src="js/support.js" defer></script>
+<script src="js/notifications-page.js" defer></script>
+</head>
+<body>
+<div class="demo-bar">AGroup student prototype <span>Sample accounts · demo actions only</span></div>
+
+<header class="site-header">
+  <a class="brand" href="index.html" aria-label="AGroup home"><span class="brand-mark">A</span>AGroup<span class="brand-dot">.</span></a>
+  <a class="text-button notification-back" id="back-link" href="index.html"></a>
+  <div class="header-actions" data-account-slot></div>
+</header>
+
+<main class="section notification-page">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">YOUR UPDATES</p>
+      <h2>Notifications.</h2>
+      <p>Replies, requests and changes that need your attention, newest first.</p>
+    </div>
+  </div>
+
+  <div class="notification-toolbar" hidden>
+    <div class="notification-tabs" role="tablist" aria-label="Show">
+      <button type="button" role="tab" data-filter="all" aria-selected="true">All <span data-count="all">0</span></button>
+      <button type="button" role="tab" data-filter="unread" aria-selected="false">Unread <span data-count="unread">0</span></button>
+    </div>
+    <button type="button" class="button outline small" data-page-action="read-all"></button>
+  </div>
+
+  <ul class="notification-cards" aria-live="polite"><li class="notification-empty">Loading…</li></ul>
+</main>
+
+<footer>
+  <a class="brand" href="index.html"><span class="brand-mark">A</span>AGroup.</a>
+  <p>Spaces to inspire. People to make them happen.</p>
+  <small>Academic prototype. All firms, prices, reviews and project details are fictional. Photos are illustrative.</small>
+</footer>
+</body>
+</html>

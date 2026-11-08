@@ -1,4 +1,6 @@
-"""<<entity>> 仓库 — ReviewRepo；reviews_for_company() 是 C-07 与 ID-08 共用的查询（shared: rating）。"""
+"""<<repository>> ReviewRepo — Review records in the review table.
+reviews_for_company() is the query C-07 and ID-08 share (shared rating, S-11)."""
+from backend.database import store_or_memory
 from backend.entities.review import Review
 
 SEED_REVIEW_DATA = [
@@ -10,17 +12,30 @@ SEED_REVIEW_DATA = [
      "date": "2026-10-28"},
     {"review_id": "REV-903", "customer": "Priya Nair", "company": "Common Ground",
      "rating": 5, "comment": "Great handling of a tight timeline.",
-     "date": "2026-11-02"},   # 他公司样本 —— 证明"限本公司"过滤真实生效
+     "date": "2026-11-02"},   # another company's review: shows the "own company only" filter works
 ]
 
+
 class ReviewRepo:
-    def __init__(self, reviews=None):
-        self.items = {r.id: r for r in (reviews or [])}
+    def __init__(self, store=None):
+        self.store = store_or_memory(store)
 
     @classmethod
-    def from_data(cls, rows):
-        return cls([Review(**row) for row in rows])
+    def from_data(cls, rows, store=None):
+        """Add the seed reviews that are missing."""
+        repo = cls(store)
+        with repo.store.transaction(write=True) as connection:
+            for row in rows:
+                r = Review(**row)
+                connection.execute("INSERT OR IGNORE INTO review(review_id, customer, company, score, comment, "
+                                   "created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                                   (r.id, r.customer, r.company, r.rating, r.comment or "", r.date))
+        return repo
 
     def reviews_for_company(self, company):
-        """C-07 共享查询：某公司的全部评价（公开主页与设计师评价页复用）。"""
-        return [r for r in self.items.values() if r.company == company]
+        """C-07 shared query: every review of one company (public profile and the designer's reviews page)."""
+        with self.store.transaction() as connection:
+            rows = connection.execute("SELECT * FROM review WHERE company = ? ORDER BY created_at, review_id",
+                                      (company,)).fetchall()
+        return [Review(row["review_id"], row["customer"], row["company"], row["score"], row["comment"],
+                       row["created_at"]) for row in rows]

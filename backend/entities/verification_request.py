@@ -1,7 +1,8 @@
-"""<<entity>> VerificationRequest — 共享认证请求；documents 为共享附件引用列表。"""
+"""<<entity>> VerificationRequest — a shared verification request; documents is a list of shared attachment references."""
 import time
+from backend.entities.request import Request
 
-class VerificationRequest:
+class VerificationRequest(Request):
     def __init__(self, request_id, company_id, requested_by, documents=None,
                  status="PENDING_REVIEW", rejection_reason=None, submitted_at=None, reviewed_by=None):
         self.id = request_id

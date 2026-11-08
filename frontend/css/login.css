@@ -11,3 +11,8 @@
 .demo-account-list button{border:1px solid var(--line);background:var(--white);border-radius:30px;padding:7px 13px;font-size:12px;color:var(--ink);cursor:pointer}
 .demo-account-list button:hover,.demo-account-list button:focus-visible{border-color:var(--olive);color:var(--olive)}
 @media(max-width:700px){.login-hero .hero-image{height:260px}}
+/* Create Account form: error shown beside each field (S-13). */
+.field-error{color:#8e2d20;font-size:12px;font-weight:400;letter-spacing:0;min-height:0}
+.field-error:empty{display:none}
+input[aria-invalid]{border-color:#8e2d20}
+.register-note{margin-top:22px}

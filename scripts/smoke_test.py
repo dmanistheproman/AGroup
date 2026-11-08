@@ -2,13 +2,17 @@
 
     python scripts/smoke_test.py http://127.0.0.1:8000
 
-Checks that the pages load, protected routes refuse anonymous users, and a demo designer
-can log in, read their data and log out. Standard library only. Exit code 1 on any failure.
+Checks that the pages load, protected routes refuse anonymous users, a demo designer can log in,
+read their data and log out, and the shared parts work end to end: a new customer registers and
+contacts support, the helpdesk is notified and moves the ticket with a reason (audit history),
+and the Platform Manager reads and exports an activity report.
+Standard library only. Exit code 1 on any failure.
 """
 import http.cookiejar
 import json
 import os
 import sys
+import uuid
 import urllib.error
 import urllib.request
 
@@ -53,6 +57,39 @@ check("Designer reads own company", "GET", "/api/company", 200, contains="Form &
 check("Designer reads statistics (ID-13)", "GET", "/api/statistics", 200)
 check("Designer logs out", "POST", "/api/auth/logout", 200)
 check("Session ended after logout", "GET", "/api/auth/me", 401)
+
+# ----- shared parts -----
+check("Catalogue lists projects (S-09)", "GET", "/api/catalog", 200, contains='"projects"')
+check("Active categories (S-10)", "GET", "/api/categories", 200, contains="Japandi")
+email = f"smoke-{uuid.uuid4().hex[:8]}@example.com"
+check("New customer registers (S-13)", "POST", "/api/auth/register", 201,
+      body={"name": "Smoke Test", "email": email, "password": "smoke-test-1"}, contains='"CUSTOMER"')
+text = check("Customer contacts support (S-15)", "POST", "/api/support/tickets", 201,
+             body={"type": "TECHNICAL", "details": "Smoke test request."}, contains='"OPEN"')
+try:
+    ticket_id = json.loads(text)["ticket"]["id"]
+except (ValueError, KeyError, TypeError):
+    ticket_id = "TKT-0000"
+check("Customer is notified (S-07)", "GET", "/api/notifications", 200, contains=ticket_id)
+check("Customers cannot read reports", "GET", "/api/reports/activity", 403)
+check("Customer logs out", "POST", "/api/auth/logout", 200)
+check("Helpdesk agent logs in", "POST", "/api/auth/login", 200,
+      body={"email": "helpdesk@demo.agroup", "password": "demo"}, contains='"HELPDESK"')
+check("Helpdesk is notified of the ticket", "GET", "/api/notifications", 200, contains="NEW_TICKET")
+check("Status change needs a reason (S-04)", "POST", f"/api/support/tickets/{ticket_id}/status", 400,
+      body={"status": "AWAITING_INFO"})
+check("Helpdesk asks for information (S-04)", "POST", f"/api/support/tickets/{ticket_id}/status", 200,
+      body={"status": "AWAITING_INFO", "reason": "Which browser do you use?"}, contains='"AWAITING_INFO"')
+check("Audit history is recorded (S-04)", "GET", f"/api/history/SUPPORT_TICKET/{ticket_id}", 200,
+      contains="Which browser do you use?")
+check("Helpdesk logs out", "POST", "/api/auth/logout", 200)
+check("Platform Manager logs in", "POST", "/api/auth/login", 200,
+      body={"email": "manager@demo.agroup", "password": "demo"}, contains='"PLATFORM_MANAGER"')
+check("Weekly report by category (S-06)", "GET", "/api/reports/activity?period=weekly&group_by=category", 200,
+      contains='"rows"')
+check("Report CSV export (S-06)", "GET", "/api/reports/activity?period=monthly&group_by=project&format=csv", 200,
+      contains="AGroup activity report")
+check("Platform Manager logs out", "POST", "/api/auth/logout", 200)
 
 failed = [r for r in results if not r[0]]
 summary = os.environ.get("GITHUB_STEP_SUMMARY")

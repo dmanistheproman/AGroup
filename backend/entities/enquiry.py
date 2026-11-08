@@ -1,13 +1,14 @@
-"""<<entity>> Enquiry — C-06 共享请求的最小共享面（ID-07 需要附加于一个 C-06 请求）。
-仅实体与确认语义；客户表单 / SubmitEnquiryController / ENQUIRY 事件仍是 C-06 的任务。"""
+"""<<entity>> Enquiry — the smallest shared part of the C-06 request (ID-07 needs a C-06 request to attach to).
+Entity and confirmation rules only; the client form, SubmitEnquiryController and the ENQUIRY event are still C-06 tasks."""
 from datetime import date
+from backend.entities.request import Request
 
 
-class Enquiry:
+class Enquiry(Request):
     STATUS_AWAITING_REPLY = "AWAITING_REPLY"
-    STATUS_CONFIRMED = "CONFIRMED"   # 需求已确认 —— UC7 报价的前提
-    STATUS_DECLINED = "DECLINED"     # ID-10：设计师拒绝合作 —— 决策终局（AF1）
-    STATUS_COMPLETED = "COMPLETED"  # ID-12 信用链：已完成协作（C-07 将来正规化转换）
+    STATUS_CONFIRMED = "CONFIRMED"   # requirements confirmed — needed before a UC7 quotation
+    STATUS_DECLINED = "DECLINED"     # ID-10: the designer declines to collaborate — the decision is final (AF1)
+    STATUS_COMPLETED = "COMPLETED"  # ID-12 credit: collaboration completed (C-07 will make this a proper transition)
 
     def __init__(self, enquiry_id, client_name, requirements, budget, status=None, questions=None):
         self.id = enquiry_id
@@ -29,7 +30,7 @@ class Enquiry:
         return self.status == self.STATUS_CONFIRMED
 
     def confirm(self):
-        """ID-10 任务1：接受合作（accept 转换）—— 打开 ID-07 的报价闸门。"""
+        """ID-10 task 1: accept the collaboration (accept transition) — opens the ID-07 quotation step."""
         if self.status != self.STATUS_AWAITING_REPLY:
             raise ValueError("Requirements already reviewed — the decision is final.")
         self.status = self.STATUS_CONFIRMED
@@ -37,7 +38,7 @@ class Enquiry:
         return self
 
     def decline(self, reason):
-        """ID-10 任务1：拒绝合作（decline 转换）—— 理由必填，决策终局。"""
+        """ID-10 task 1: decline the collaboration (decline transition) — a reason is required and the decision is final."""
         if self.status != self.STATUS_AWAITING_REPLY:
             raise ValueError("Requirements already reviewed — the decision is final.")
         reason = (reason or "").strip()

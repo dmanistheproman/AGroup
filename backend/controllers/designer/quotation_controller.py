@@ -1,5 +1,5 @@
-"""<<control>> SubmitQuotationController（ID-07 任务 2）— 为已确认需求的 C-06 请求创建/发送/修订报价。
-响应形状契约：create 返回包裹视图 {"quotation": …}；present/revise 返回裸视图（与 proposals 同口径，已用测试钉死）。"""
+"""<<control>> SubmitQuotationController (ID-07 task 2) — create, send and revise quotations for C-06 requests with confirmed requirements.
+Response shape contract: create returns a wrapped view {"quotation": …}; present/revise return the bare view (same as proposals, fixed by tests)."""
 import datetime
 from backend.entities.quotation import Quotation
 from backend.services.validators import require_text
@@ -42,7 +42,7 @@ class SubmitQuotationController:
                 "revision_note": q.revision_note}
 
     def create(self, user_id, data):
-        """UC7 BF1-3：为已确认需求的请求起草报价（确认需求随报价快照保存）。"""
+        """UC7 BF1-3: draft a quotation for a request with confirmed requirements (the confirmed requirements are saved with it)."""
         enquiry = self.enquiries.get((data.get("enquiry_id") or "").strip())
         if enquiry is None:
             raise ValueError("Enquiry not found — a quotation must attach to a client request.")
@@ -61,7 +61,7 @@ class SubmitQuotationController:
         return self._view(quotation)
 
     def list_for(self, user_id, today=None):
-        # user_id 预留归属过滤（与 ID-04/05 同口径）；读取时惰性执行到期检查（任务 3）
+        # user_id is kept for filtering by owner (same rule as ID-04/05); expiry is checked lazily on read (task 3)
         self.quotations.expire_due(today)
         return [self._view(q) for q in self.quotations.all()]
 
@@ -70,10 +70,11 @@ class SubmitQuotationController:
         if quotation is None:
             raise ValueError("Quotation not found.")
         quotation.send()
+        self.quotations.save(quotation)
         return self._view(quotation)
 
     def revise(self, user_id, quotation_id, data):
-        # 先惰性到期：已过有效期却仍在等待确认的报价不能修订（须重新报价）
+        # Expire first: a quotation past its validity date that still awaits confirmation cannot be revised (quote again)
         self.quotations.expire_due()
         quotation = self.quotations.get(quotation_id)
         if quotation is None:
@@ -85,4 +86,5 @@ class SubmitQuotationController:
             valid_until=_iso_date(data.get("valid_until")),
             payment_schedule=_schedule(data.get("payment_schedule")),
             note=(data.get("note") or "").strip() or None)
+        self.quotations.save(quotation)
         return self._view(quotation)

@@ -7,11 +7,11 @@ class FakeUploadService:
         return "uploads/{}/{}".format(owner_id, (file.get("filename") or "x.jpg"))
 
 def build():
-    projects = MemoryRepo(SEED_PROJECTS)          # 与 run.py 相同的种子
+    projects = MemoryRepo(SEED_PROJECTS)          # same seeds as run.py
     return (ProjectController(projects, MemoryRepo(SEED_CATEGORIES), FakeUploadService()),
             projects)
 
-# ---- BF3-6：无客户活动的项目，一次确认即删除 ----
+# ---- BF3-6: a project with no client activity is deleted after one confirmation ----
 def test_delete_draft_project_without_activity():
     controller, projects = build()
     out = controller.delete("user-form-field", "IDP-026")
@@ -22,13 +22,13 @@ def test_delete_returns_deleted_title():
     controller, _ = build()
     assert controller.delete("user-form-field", "IDP-026")["title"] == "A home in progress"
 
-# ---- AF2：有客户浏览/收藏 → 第一次调用要求二次确认，项目保留 ----
+# ---- AF2: client views/favourites → the first call asks for a second confirmation and keeps the project ----
 def test_viewed_project_requires_second_confirmation():
     controller, projects = build()
     out = controller.delete("user-form-field", "IDP-001")   # 486 views / 74 favourites
     assert out["requires_confirmation"] is True
     assert "486" in out["impact"]
-    assert projects.get("IDP-001") is not None              # AF2 前半：项目仍在
+    assert projects.get("IDP-001") is not None              # AF2 first half: the project is still there
 
 def test_second_call_with_confirm_impact_deletes():
     controller, projects = build()
@@ -44,13 +44,13 @@ def test_favourited_project_also_requires_confirmation():
                    "attachments": [], "status": "PUBLISHED"})
     assert controller.delete("user-form-field", "IDP-TEMP")["requires_confirmation"] is True
 
-# ---- 不存在的项目 ----
+# ---- A project that does not exist ----
 def test_delete_missing_project_raises():
     controller, _ = build()
     with pytest.raises(ValueError, match="not found"):
         controller.delete("user-form-field", "IDP-999")
 
-# ---- 回归护栏：create() 行为与原有键集不变 ----
+# ---- Regression guard: create() behaviour and the original keys are unchanged ----
 def test_create_still_returns_original_keys():
     controller, _ = build()
     p = controller.create({"title": "T", "description": "D", "category_id": "cat-japandi", "images": []})

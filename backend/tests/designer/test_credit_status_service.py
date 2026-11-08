@@ -24,15 +24,21 @@ QROWS = [
      "valid_until": "2026-12-01", "payment_schedule": "schedule", "status": "ACCEPTED"},
 ]
 
+def _paid(repo, milestone_id, paid_date):
+    milestone = repo.get(milestone_id)
+    milestone.mark_paid(paid_date)
+    repo.save(milestone)
+
+
 def _payments():
     repo = PaymentRepo()
     a = repo.create_for_quotation("QT-301", [{"name": "M1", "amount": 1000, "due_date": "2026-10-01"}])[0]
     b = repo.create_for_quotation("QT-302", [{"name": "Late", "amount": 1000, "due_date": "2026-09-20"},
                                              {"name": "Overdue", "amount": 2000, "due_date": "2026-11-05"}])
     c = repo.create_for_quotation("QT-303", [{"name": "OnTime", "amount": 3000, "due_date": "2026-10-10"}])[0]
-    repo.get(a.id).mark_paid("2026-10-02")      # paid after due date → late
-    repo.get(b[0].id).mark_paid("2026-10-02")   # late
-    repo.get(c.id).mark_paid("2026-10-01")      # on time
+    _paid(repo, a.id, "2026-10-02")      # paid after due date → late
+    _paid(repo, b[0].id, "2026-10-02")   # late
+    _paid(repo, c.id, "2026-10-01")      # on time
 
     return repo
 

@@ -1,7 +1,12 @@
-"""<<entity>> 仓库 — ProposalRepo（shared: offers；接 Firestore 前的内存替身）。
-注意：ID-05 与 ID-06 的控制器必须共享同一个 ProposalRepo 实例。"""
+"""<<repository>> ProposalRepo — DesignProposal records (shared offers, S-21).
+
+Stored as the ER diagram's offer base row plus a design_proposal row.
+The ID-05 and ID-06 controllers share one ProposalRepo.
+"""
+import json
+
+from backend.database import exists, next_number, save_offer, store_or_memory
 from backend.entities.design_proposal import DesignProposal
-import re
 
 SEED_PROPOSAL_DATA = [
     {"proposal_id": "PROP-801", "client_name": "Alex Tan", "title": "Concept proposal",
@@ -17,27 +22,63 @@ SEED_PROPOSAL_DATA = [
      "status": "DRAFT", "version": 1},
 ]
 
+OFFER_TYPE = "DESIGN_PROPOSAL"
+
+
 class ProposalRepo:
-    def __init__(self, proposals=None):
-        self.items = {p.id: p for p in (proposals or [])}
+    PREFIX = "PROP-"
+    FIRST_NUMBER = 801
+
+    def __init__(self, store=None):
+        self.store = store_or_memory(store)
 
     @classmethod
-    def from_data(cls, rows):
-        return cls([DesignProposal(**row) for row in rows])
+    def from_data(cls, rows, store=None):
+        """Add the seed proposals that are missing; stored proposals keep their changes."""
+        repo = cls(store)
+        for row in rows:
+            with repo.store.transaction() as connection:
+                if exists(connection, "offer", "offer_id", row["proposal_id"]):
+                    continue
+            repo.save(DesignProposal(**row))
+        return repo
 
     def get(self, proposal_id):
-        return self.items.get(proposal_id)
+        found = self._select("WHERE o.offer_id = ?", (proposal_id,))
+        return found[0] if found else None
 
     def save(self, proposal):
-        self.items[proposal.id] = proposal
+        with self.store.transaction(write=True) as connection:
+            save_offer(connection, proposal, OFFER_TYPE)
+            connection.execute("""
+                INSERT INTO design_proposal(offer_id, client_name, title, design_description, attachments, feedback,
+                                            feedback_history, revision_note)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(offer_id) DO UPDATE SET client_name = excluded.client_name, title = excluded.title,
+                    design_description = excluded.design_description, attachments = excluded.attachments,
+                    feedback = excluded.feedback, feedback_history = excluded.feedback_history,
+                    revision_note = excluded.revision_note
+            """, (proposal.id, proposal.client_name, proposal.title, proposal.description,
+                  json.dumps(proposal.attachments), proposal.feedback, json.dumps(proposal.feedback_history),
+                  proposal.revision_note))
         return proposal
 
     def all(self):
-        return list(self.items.values())
+        return self._select("", ())
 
     def next_reference(self):
-        """续接种子序号：取现有 PROP-<数字> 引用的最大值 +1（空仓回退 PROP-801）。"""
-        nums = [int(m.group(1)) for key in self.items
-                for m in [re.match(r"PROP-(\d+)$", key)] if m]
-        return "PROP-{}".format((max(nums) if nums else 800) + 1)
+        """Next proposal number, continuing after the seeds (PROP-801 when empty)."""
+        with self.store.transaction(write=True) as connection:
+            number = next_number(connection, "design_proposal", "offer", "offer_id", self.PREFIX,
+                                 first=self.FIRST_NUMBER)
+        return f"{self.PREFIX}{number}"
 
+    def _select(self, where, args):
+        with self.store.transaction() as connection:
+            rows = connection.execute(f"SELECT * FROM offer o JOIN design_proposal p ON p.offer_id = o.offer_id "
+                                      f"{where} ORDER BY o.offer_id", args).fetchall()
+        return [DesignProposal(row["offer_id"], row["client_name"], row["title"], row["design_description"],
+                               attachments=json.loads(row["attachments"]), status=row["status"],
+                               version=row["revision"], feedback=row["feedback"],
+                               feedback_history=json.loads(row["feedback_history"]),
+                               revision_note=row["revision_note"]) for row in rows]

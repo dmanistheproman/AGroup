@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Create your AGroup account to save projects and contact interior designers.">
+<title>AGroup — Create an account</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/login.css">
+<link rel="stylesheet" href="css/icons.css">
+<script src="js/account.js" defer></script>
+<script src="js/register.js" defer></script>
+</head>
+<body>
+<div class="demo-bar">AGroup student prototype <span>Sample accounts · demo actions only</span></div>
+
+<header class="site-header">
+  <a class="brand" href="index.html" aria-label="AGroup home"><span class="brand-mark">A</span>AGroup<span class="brand-dot">.</span></a>
+  <div class="header-actions"><a class="text-button" href="index.html"><svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/lucide.svg#arrow-left"></use></svg> Back to website</a></div>
+</header>
+
+<main>
+  <section class="hero login-hero">
+    <div class="hero-copy login-panel">
+      <p class="eyebrow">JOIN AGROUP</p>
+      <h2>Create your account.</h2>
+      <p class="login-intro">Save the projects you love, build a moodboard and talk to interior designers in one place.</p>
+
+      <form id="register-form" class="form-stack" novalidate>
+        <label>NAME
+          <input name="name" autocomplete="name" maxlength="70" placeholder="Your name" required>
+          <small class="field-error" data-error-for="name" aria-live="polite"></small>
+        </label>
+        <label>EMAIL
+          <input name="email" type="email" autocomplete="email" maxlength="120" placeholder="you@example.com" required>
+          <small class="field-error" data-error-for="email" aria-live="polite"></small>
+        </label>
+        <label>PASSWORD
+          <input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="128" placeholder="At least 8 characters" required>
+          <small class="field-error" data-error-for="password" aria-live="polite"></small>
+        </label>
+        <label>CONFIRM PASSWORD
+          <input name="confirm" type="password" autocomplete="new-password" placeholder="Type it again" required>
+          <small class="field-error" data-error-for="confirm" aria-live="polite"></small>
+        </label>
+        <p id="register-error" class="inline-error" role="alert" aria-live="polite" hidden></p>
+        <div class="login-actions">
+          <button class="button" type="submit">Create account <svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/lucide.svg#arrow-up-right"></use></svg></button>
+          <a class="text-button underlined" href="login.html">I already have an account</a>
+        </div>
+      </form>
+      <p class="hint register-note">Accounts for interior designers and platform staff are created by a User Admin.</p>
+    </div>
+
+    <div class="hero-image">
+      <img src="assets/kitchen.jpg" alt="Dining area with a black table, a staircase and an open kitchen behind">
+      <div class="photo-label"><span>START HERE</span><strong>Find what feels like you.</strong><small>Interior inspiration · illustrative photograph</small></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <a class="brand" href="index.html"><span class="brand-mark">A</span>AGroup.</a>
+  <p>Spaces to inspire. People to make them happen.</p>
+  <small>Academic prototype. All firms, prices, reviews and project details are fictional. Photos are illustrative.</small>
+</footer>
+</body>
+</html>

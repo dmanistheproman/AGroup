@@ -1,5 +1,5 @@
-"""ID-05 边界回归：HTTP 层真实 multipart 上传——单元测试的 fake 说不出的那类缝隙。
-本测试走真实 FileUploadService，会在 uploads/Proposal/ 下写一个小文件，测完即删。"""
+"""ID-05 boundary regression: a real multipart upload through HTTP — the kind of gap a unit-test fake cannot show.
+This test uses the real FileUploadService and writes a small file under uploads/Proposal/, deleted afterwards."""
 import io
 import os
 

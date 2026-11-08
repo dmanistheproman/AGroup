@@ -1,22 +1,56 @@
-"""<<entity>> 仓库 — VerificationRepo（接 Firestore 前的内存替身）。"""
-import re
+"""<<repository>> VerificationRepo — VerificationRequest records (ID-02).
+
+Stored as the ER diagram's request base row plus a verification_request row.
+"""
+import json
+
+from backend.database import next_number, save_request, store_or_memory
+from backend.entities.verification_request import VerificationRequest
+
+REQUEST_TYPE = "VERIFICATION"
+
 
 class VerificationRepo:
-    def __init__(self, requests=None):
-        self.items = {r.id: r for r in (requests or [])}
+    PREFIX = "VER-"
+
+    def __init__(self, store=None):
+        self.store = store_or_memory(store)
+
     def get(self, request_id):
-        return self.items.get(request_id)
+        found = self._select("WHERE r.request_id = ?", (request_id,))
+        return found[0] if found else None
+
     def save(self, request):
-        self.items[request.id] = request
+        with self.store.transaction(write=True) as connection:
+            save_request(connection, request, REQUEST_TYPE, request.submitted_at)
+            connection.execute("""
+                INSERT INTO verification_request(request_id, company_id, requested_by, documents, rejection_reason,
+                                                 reviewed_by)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(request_id) DO UPDATE SET documents = excluded.documents,
+                    rejection_reason = excluded.rejection_reason, reviewed_by = excluded.reviewed_by
+            """, (request.id, request.company_id, request.requested_by, json.dumps(request.documents),
+                  request.rejection_reason, request.reviewed_by))
+            # A resubmitted request has a new submission time.
+            connection.execute("UPDATE request SET created_at = ? WHERE request_id = ?",
+                               (request.submitted_at, request.id))
         return request
+
     def all(self):
-        return list(self.items.values())
+        return self._select("", ())
+
     def for_company(self, company_id):
-        return [r for r in self.items.values() if r.company_id == company_id]
+        return self._select("WHERE v.company_id = ?", (company_id,))
 
     def next_reference(self):
-        """生成下一个请求号：取现有 VER-<数字> 的最大值 +1（空仓从 VER-001 起）。"""
-        nums = [int(m.group(1)) for key in self.items
-                for m in [re.match(r"VER-(\d+)$", key)] if m]
-        return "VER-{:03d}".format((max(nums) if nums else 0) + 1)
+        """Next request number, VER-001 onwards."""
+        with self.store.transaction(write=True) as connection:
+            return f"{self.PREFIX}{next_number(connection, 'verification', 'request', 'request_id', self.PREFIX):03d}"
 
+    def _select(self, where, args):
+        with self.store.transaction() as connection:
+            rows = connection.execute(f"SELECT * FROM request r JOIN verification_request v "
+                                      f"ON v.request_id = r.request_id {where} ORDER BY r.request_id", args).fetchall()
+        return [VerificationRequest(row["request_id"], row["company_id"], row["requested_by"],
+                                    json.loads(row["documents"]), row["status"], row["rejection_reason"],
+                                    row["created_at"], row["reviewed_by"]) for row in rows]

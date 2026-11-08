@@ -1,5 +1,5 @@
-"""<<control>> ViewCreditStatusController — ID-12 任务2。
-仅对给设计师发过请求的客户开放；user_id 预留归属校验（与 ID-04/07 同口径：原型阶段要求非空）。"""
+"""<<control>> ViewCreditStatusController — ID-12 task 2.
+Only for clients who sent the designer a request; user_id is kept for the ownership check (same rule as ID-04/07: required in the prototype)."""
 class ViewCreditStatusController:
     def __init__(self, credit_service):
         self._service = credit_service

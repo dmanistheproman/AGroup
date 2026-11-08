@@ -1,16 +1,22 @@
 """Boundary: HTTP routes for logging in and out (X-03)."""
 from flask import Blueprint, jsonify, request
 
+from backend.controllers.shared.account_service import FieldError
 from backend.controllers.shared.login_controller import AuthenticationError
+from backend.entities.user_account import UserAccount
 
 
-def create_auth_blueprint(login):
+def create_auth_blueprint(login, account_service=None):
     bp = Blueprint("auth", __name__)
 
     # ---- error mapping (see backend/CONVENTIONS.md) ----
     @bp.errorhandler(ValueError)
     def bad_request(err):
         return jsonify(error=str(err)), 400
+
+    @bp.errorhandler(FieldError)
+    def field_error(err):
+        return jsonify(error=str(err), field=err.field), 400
 
     @bp.errorhandler(AuthenticationError)
     def unauthenticated(err):
@@ -28,6 +34,17 @@ def create_auth_blueprint(login):
             raise ValueError("Expected a JSON request body.")
         account = login.login(data.get("email"), data.get("password"))
         return jsonify(user=account.public_view())
+
+    @bp.post("/api/auth/register")
+    def register():
+        """Customer self-registration (C-01 through S-13). The role is always Customer here."""
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            raise ValueError("Expected a JSON request body.")
+        account = account_service.create_account(data.get("name"), data.get("email"), data.get("password"),
+                                                 UserAccount.ROLE_CUSTOMER)
+        login.login(account.email, data.get("password"))   # start the session straight away
+        return jsonify(user=account.public_view()), 201
 
     @bp.post("/api/auth/logout")
     def log_out():

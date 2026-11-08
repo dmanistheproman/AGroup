@@ -68,6 +68,17 @@
     }
   }
 
+  // Create Account (S-13): customer self-registration; the server logs the new customer in.
+  async function register(name, email, password) {
+    try {
+      const r = await call('POST', '/api/auth/register', { name, email, password });
+      if (!r.ok) return { error: r.data.error || 'The account could not be created. Please try again.', field: r.data.field };
+      return { user: remember(r.data.user) };
+    } catch {
+      return { error: 'Cannot reach the server. Start it with python run.py and try again.' };
+    }
+  }
+
   async function signOut() {
     try { await call('POST', '/api/auth/logout'); } catch { /* still clear the local copy */ }
     remember(null);
@@ -107,18 +118,26 @@
     }
     const role = ROLES[user.role] || ROLES.customer;
     const staff = user.role !== 'customer';
+    const canContactSupport = user.role === 'customer' || user.role === 'designer';
     slot.innerHTML = `
+      <div class="account-bar">
+      <div data-notification-bell></div>
       <div class="account-menu">
         <button class="account-avatar" type="button" aria-haspopup="true" aria-expanded="false"
                 aria-label="Account menu for ${esc(user.name)}">${esc(initials(user.name))}</button>
         <div class="account-dropdown" role="menu">
           <div class="account-who"><strong>${esc(user.name)}</strong><small>${esc(role.label)}</small></div>
+          ${staff ? `
+          <a role="menuitem" href="${esc(role.home)}">${icon('layout-dashboard')}My workspace</a>
+          <a role="menuitem" href="index.html">${icon('house')}Customer website</a>` : `
           <button type="button" role="menuitem" data-action="profile">${icon('user')}My space</button>
           <button type="button" role="menuitem" data-action="inquiries">${icon('inbox')}My enquiries</button>
-          <button type="button" role="menuitem" data-action="preferences">${icon('bell')}Notification preferences</button>
-          ${staff ? `<a role="menuitem" href="${esc(role.home)}">${icon('layout-dashboard')}My workspace</a>` : ''}
+          <button type="button" role="menuitem" data-action="preferences">${icon('settings')}Notification preferences</button>`}
+          <a role="menuitem" href="notifications.html">${icon('bell')}Notifications<span class="menu-count" data-notification-count hidden></span></a>
+          ${canContactSupport ? `<button type="button" role="menuitem" data-support="contact">${icon('life-buoy')}Contact support</button>` : ''}
           <button type="button" role="menuitem" data-account="logout">${icon('log-out')}Log out</button>
         </div>
+      </div>
       </div>`;
 
     const menu = slot.querySelector('.account-menu');
@@ -128,23 +147,29 @@
     toggle.addEventListener('click', () => setOpen(!menu.classList.contains('open')));
     menu.addEventListener('click', async event => {
       if (event.target.closest('[role="menuitem"]')) setOpen(false);
-      if (event.target.closest('[data-account="logout"]')) { await signOut(); renderAll(); }
+      if (event.target.closest('[data-account="logout"]')) { await signOut(); renderAll(); reroutePortal(); }
     });
     menu.addEventListener('keydown', event => { if (event.key === 'Escape') { setOpen(false); toggle.focus(); } });
     document.addEventListener('click', event => { if (!menu.contains(event.target)) setOpen(false); });
   }
 
-  function renderAll() {
-    document.querySelectorAll('[data-account-slot]').forEach(renderMenu);
+  // The portal shows the workspace of the logged-in role: redraw it when the session changes.
+  function reroutePortal() {
+    if (document.querySelector('#portal-nav')) window.dispatchEvent(new HashChangeEvent('hashchange'));
   }
 
-  window.AGroupAccount = { current, userId, signIn, signOut, sync, homeFor, DEMO_ACCOUNTS };
+  function renderAll() {
+    document.querySelectorAll('[data-account-slot]').forEach(renderMenu);
+    document.dispatchEvent(new CustomEvent('agroup:account-rendered'));   // lets the notification bell redraw
+  }
+
+  window.AGroupAccount = { current, userId, signIn, register, signOut, sync, homeFor, DEMO_ACCOUNTS };
 
   document.addEventListener('DOMContentLoaded', async () => {
     renderAll();                                   // draw from the local copy first
     if (await sync()) {                            // then follow the server session
       renderAll();
-      if (document.querySelector('#portal-nav')) window.dispatchEvent(new HashChangeEvent('hashchange'));
+      reroutePortal();
     }
   });
 })();

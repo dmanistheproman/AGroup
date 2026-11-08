@@ -4,7 +4,7 @@ from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 from backend.repositories.verification_repo import VerificationRepo
 
 class FakeUploadService:
-    """与真实 FileUploadService 同接口的测试替身（含 kind 参数）。"""
+    """Test double with the same interface as the real FileUploadService (including the kind parameter)."""
     def upload(self, file, owner_type, owner_id, kind="image"):
         name = (file.get("filename") or "").lower()
         if kind == "document":
@@ -58,20 +58,20 @@ def test_submit_requires_documents():
     with pytest.raises(ValueError, match="at least one"):
         submit.submit("user-form-field", {"documents": []})
 
-# ---- ownership（复用 ID-01 重构出的 resolve_for_owner）----
+# ---- Ownership (reuses resolve_for_owner, refactored out of ID-01) ----
 def test_rejects_submission_for_another_company():
     submit, _ = build()
     with pytest.raises(PermissionError, match="own"):
         submit.submit("user-form-field", {"company_id": "COM-CG", "documents": docs("license.pdf")})
 
-# ---- 业务规则：同时只能有一个待审请求 ----
+# ---- Business rule: only one pending request at a time ----
 def test_blocks_second_pending_request():
     submit, _ = build()
     submit.submit("user-form-field", {"documents": docs("license.pdf")})
     with pytest.raises(ValueError, match="already pending"):
         submit.submit("user-form-field", {"documents": docs("license2.pdf")})
 
-# ---- 管理员审核 ----
+# ---- Administrator review ----
 def test_review_approve_changes_status():
     submit, review = build()
     r = submit.submit("user-form-field", {"documents": docs("license.pdf")})
@@ -89,7 +89,7 @@ def test_rejected_request_keeps_reason():
     out = review.review(r.id, "reject", reason="License expired")
     assert out.status == "REJECTED" and out.rejection_reason == "License expired"
 
-# ---- AF2：重新提交 ----
+# ---- AF2: resubmit ----
 def test_resubmit_after_rejection_returns_to_pending():
     submit, review = build()
     r = submit.submit("user-form-field", {"documents": docs("license.pdf")})
@@ -98,7 +98,7 @@ def test_resubmit_after_rejection_returns_to_pending():
     assert again.id == r.id and again.status == "PENDING_REVIEW"
     assert again.rejection_reason is None
 
-# ---- 管理员队列（含公司名，供原型表格直接显示）----
+# ---- Administrator queue (with the company name, so the prototype table can show it directly) ----
 def test_admin_queue_includes_company_name():
     submit, review = build()
     r = submit.submit("user-form-field", {"documents": docs("license.pdf")})

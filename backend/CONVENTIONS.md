@@ -17,15 +17,19 @@ All repositories and controllers are created once in `server.py` (`create_app()`
 ## 2. Entities
 
 - A plain class. The identifier attribute is `self.id`.
-- Statuses and roles are class constants with UPPER_CASE string values, for example `STATUS_ACTIVE = "ACTIVE"`.
+- Statuses and roles are class constants with UPPER_CASE string values, for example `STATUS_ACTIVE = "ACTIVE"`. Shared value sets are in `entities/enums.py` (`AccountRole`, `ProjectStatus`, `TicketStatus`, `OfferStatus`, ...); their members compare equal to the plain strings.
+- Requests (`Enquiry`, `SupportTicket`, `VerificationRequest`) extend `entities/request.py`; offers (`DesignProposal`, `Quotation`) extend `entities/offer.py`.
 - Rules that change the entity's state are methods on the entity. For example, `send()` raises `ValueError` if the change is not allowed.
 - `public_view()` returns the dict that may be sent to the browser. It never includes secrets such as password hashes.
 - IDs are strings with a readable prefix, for example `CUS-101` or `QT-101`. Dates are ISO strings (`YYYY-MM-DD`, or ISO timestamps in UTC).
 
 ## 3. Repositories
 
-- In-memory for now. Store data as `self.items = {id: entity}`.
-- `from_data(rows)` is a classmethod that builds a fresh repository from plain rows (`SEED_*` constants), so each test gets its own data.
+- Records are stored in SQLite. Tables are created in `database.py` (`install_schema`) with the ER diagram's table and column names; projects, categories and activity are in `storage.py`.
+- A repository takes the store in its constructor, `XRepo(store)`, and runs each read or write in `store.transaction()` (`write=True` for writes). Without a store it uses a private in-memory database (`MemoryStore`), so each test gets its own data.
+- `from_data(rows, store=None)` is a classmethod that adds the seed rows (`SEED_*` constants) that are missing; stored records keep their changes.
+- `get()` returns a new entity object each time. After changing an entity, call `save(entity)`, or the change is lost.
+- New readable IDs come from `database.next_number(...)` inside a write transaction, so two requests never get the same ID.
 - Methods: `get(id)` returns the entity or `None`, `save(entity)` returns it, `all()` returns a list, plus named queries such as `find_by_email(email)`.
 - Only repositories store or read data. A later switch to a database changes repositories only.
 
@@ -33,6 +37,7 @@ All repositories and controllers are created once in `server.py` (`create_app()`
 
 - Method names follow the class and sequence diagrams, for example `LoginController.login(email, password)`.
 - Validate input with `services/validators.py` (`require_text`, `require_email`).
+- **Change a status** through `StatusChangeService` (`controllers/shared/status_change_service.py`). It checks the transition, requires a reason where needed, writes the audit log and notifies. The entity class declares `TRANSITIONS = {from: {to, ...}}` and `REASON_REQUIRED = {to, ...}`; register the record type once in `server.py` (`status_change.register("SUPPORT_TICKET", repo.get, repo.save)`), then call `status_change.change_status(type, id, new_status, actor_id, reason)`. `app.extensions["status_change"]` holds the shared instance.
 - Signal failures by raising exceptions, not by returning error values:
 
 | Exception | Meaning | HTTP status |
