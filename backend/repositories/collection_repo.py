@@ -82,6 +82,11 @@ class CollectionRepo:
             connection.executemany("UPDATE collection_item SET sort_order = ? WHERE item_id = ?",
                                    [(order, item_id) for order, item_id in enumerate(item_ids)])
 
+    def remove_project_everywhere(self, project_reference):
+        """A deleted project leaves every folder and moodboard (ID-03)."""
+        with self.store.transaction(write=True) as connection:
+            connection.execute("DELETE FROM collection_item WHERE project_id = ?", (_number(project_reference),))
+
     def remove_project_for_customer(self, customer_id, project_reference):
         with self.store.transaction(write=True) as connection:
             connection.execute("DELETE FROM collection_item WHERE project_id = ? AND collection_id IN "

@@ -151,6 +151,14 @@ def build_designer_controllers(upload_service, store):
     return c
 
 
+def _remove_deleted_project(store, reference):
+    """ID-03: a deleted project leaves every customer's favourites, folders and moodboards."""
+    from backend.repositories.collection_repo import CollectionRepo
+    from backend.repositories.favourite_repo import FavouriteRepository
+    FavouriteRepository(store).remove_project_everywhere(reference)
+    CollectionRepo(store).remove_project_everywhere(reference)
+
+
 def _with_parties(rules, proposal):
     """A proposal knows its client and designer through the enquiry it answers (S-21)."""
     if proposal is not None:
@@ -169,6 +177,8 @@ def _connect_designer_records(shared, designer):
     shared.messages.register_owner(designer.enquiry_repo.find_by_thread)
     shared.messages.register_owner(lambda thread_id: _with_parties(rules, designer.proposal_repo.find_by_thread(thread_id)))
     designer.submit_proposal_controller.threads = shared.threads
+    designer.project_controller.attachments = shared.attachments
+    designer.project_controller.on_delete = lambda reference: _remove_deleted_project(shared.store, reference)
     shared.messages.register_owner(designer.verification_repo.find_by_thread, staff_roles=(UserAccount.ROLE_USER_ADMIN,))
     designer.review_enquiry_controller.connect(shared)
     designer.verification_controller.shared = designer.review_controller.shared = shared

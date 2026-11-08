@@ -33,7 +33,7 @@ def test_category_status_and_project_phase_use_the_text_already_in_the_database(
 
 
 def test_project_status_lists_every_status_of_the_project_model():
-    assert [s.value for s in ProjectStatus] == ["DRAFT", "PUBLISHED", "UNPUBLISHED", "HIDDEN"]
+    assert [s.value for s in ProjectStatus] == ["DRAFT", "PUBLISHED", "UNPUBLISHED", "HIDDEN", "DELETED"]
 
 
 def test_user_account_constants_are_the_shared_enumerations():

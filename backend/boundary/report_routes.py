@@ -43,7 +43,7 @@ def create_report_blueprint(login, category_lookup, report_service, project_repo
             filters["category_id"] = args["category_id"]
         user = login.current_user()
         if user.role == UserAccount.ROLE_DESIGNER:
-            filters["project_ids"] = [p["id"] for p in project_repo.all() if p["owner_id"] == user.id]
+            filters["project_ids"] = [p["id"] for p in project_repo.all(include_deleted=True) if p["owner_id"] == user.id]
         report = report_service.aggregate(period, args.get("group_by", "total"), filters)
         if args.get("format") == "csv":
             name = f"agroup-activity-{period.kind}-{period.start_date}.csv"

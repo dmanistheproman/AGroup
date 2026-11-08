@@ -26,6 +26,7 @@ class ProjectStatus(StrEnum):
     PUBLISHED = "PUBLISHED"
     UNPUBLISHED = "UNPUBLISHED"
     HIDDEN = "HIDDEN"          # hidden by the helpdesk after a report (HD-09)
+    DELETED = "DELETED"        # deleted by its owner (ID-03); the record stays so its history stays in reports
 
 
 class ProjectPhase(StrEnum):

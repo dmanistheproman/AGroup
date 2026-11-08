@@ -40,15 +40,47 @@ class ProjectRepo:
             "views": counts.get("VIEW", 0), "favourites": counts.get("FAVOURITE_ADD", 0),
         }
 
+    @staticmethod
+    def _deleted(row):
+        return json.loads(row["details"]).get("status") == "DELETED"
+
     def get(self, reference):
+        """A project, or None when it does not exist or its owner deleted it."""
         with self.store.transaction() as connection:
             row = connection.execute("SELECT * FROM projects WHERE id = ?", (self.database_id(reference),)).fetchone()
-            return self._view(connection, row) if row else None
+            return self._view(connection, row) if row and not self._deleted(row) else None
 
-    def all(self):
+    def all(self, include_deleted=False):
+        """Projects in ID order; deleted ones only when asked (reports keep their history)."""
         with self.store.transaction() as connection:
             return [self._view(connection, row)
-                    for row in connection.execute("SELECT * FROM projects ORDER BY id")]
+                    for row in connection.execute("SELECT * FROM projects ORDER BY id")
+                    if include_deleted or not self._deleted(row)]
+
+    def update(self, project):
+        """ID-03 edit: save new details, title and main category; the status and history stay."""
+        project_id = self.database_id(project["id"])
+        try:
+            with self.store.transaction(write=True) as connection:
+                row = connection.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+                if row is None or self._deleted(row):
+                    raise LookupError(f"Project {project['id']} was not found.")
+                category = ProjectCategory.find_by_id(connection, project["category_id"])
+                if category["status"] != "Active":
+                    raise ValueError("Selected category is not active. Please choose an active category.")
+                old = json.loads(row["details"])
+                details = {**old, **project, "primary_category_id": category["id"], "style": category["name"],
+                           "summary": project.get("description", old.get("summary", ""))}
+                if old.get("primary_category_id") and old["primary_category_id"] != category["id"]:
+                    connection.execute("DELETE FROM assignments WHERE project_id = ? AND category_id = ?",
+                                       (project_id, old["primary_category_id"]))
+                ProjectCategoryAssignment.assign(connection, project_id, category["id"])
+                connection.execute("UPDATE projects SET title = ?, details = ? WHERE id = ?",
+                                   (project.get("title", row["title"]), json.dumps(details), project_id))
+                return self._view(connection, connection.execute("SELECT * FROM projects WHERE id = ?",
+                                                                 (project_id,)).fetchone())
+        except BusinessError as error:
+            raise ValueError(str(error)) from error
 
     def next_reference(self, prefix):
         # Reserve each reference under the write lock so concurrent uploads use distinct IDs.
@@ -93,13 +125,15 @@ class ProjectRepo:
             connection.execute("UPDATE projects SET details = ? WHERE id = ?", (json.dumps(details), project_id))
 
     def delete(self, reference):
+        """ID-03: the project leaves every list and its categories; the record and its activity stay, so views and
+        favourites still count in statistics and reports."""
         with self.store.transaction(write=True) as connection:
             project_id = self.database_id(reference)
             row = connection.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
-            if row is None:
+            if row is None or self._deleted(row):
                 return None
             project = self._view(connection, row)
-            connection.execute("DELETE FROM activities WHERE project_id = ?", (project_id,))
+            details = {**json.loads(row["details"]), "status": "DELETED", "deleted_at": timestamp()}
+            connection.execute("UPDATE projects SET details = ? WHERE id = ?", (json.dumps(details), project_id))
             connection.execute("DELETE FROM assignments WHERE project_id = ?", (project_id,))
-            connection.execute("DELETE FROM projects WHERE id = ?", (project_id,))
             return project
