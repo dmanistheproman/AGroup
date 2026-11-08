@@ -1,7 +1,8 @@
 /* Shared workspace pages in the portal, on the real APIs (S-01, S-02, S-04, S-05, S-15, S-16, S-20, HD-05, HD-08, HD-09).
    portal.js asks SharedWorkspace.handles(role, section) and calls render(role, section) for:
      helpdesk: overview, tickets (active queue), resolved, complaints (reports), uploads (failed uploads)
-     designer: messages (private conversations, enquiry and proposal threads, and their own support requests)
+     designer: messages (private conversations, enquiry and proposal threads, and their own support requests),
+               projects (the project portfolio, js/project-portfolio.js)
    The ticket page opens in the portal's #modal. Buttons use data-shared (portal.js owns data-action). */
 (() => {
   'use strict';
@@ -9,7 +10,7 @@
   const R = window.AGroupRecords;
   const UI = window.AGroupUI;   // ListPage parts (S-05): state, pager, listPage
   const { esc, icon, statusBadge } = R;
-  const HANDLED = { helpdesk: ['overview', 'tickets', 'resolved', 'complaints', 'uploads'], designer: ['messages'] };
+  const HANDLED = { helpdesk: ['overview', 'tickets', 'resolved', 'complaints', 'uploads'], designer: ['messages', 'projects'] };
   const ACTIVE = ['OPEN', 'AWAITING_INFO', 'ESCALATED'];
   const DONE = ['RESOLVED', 'CLOSED', 'MERGED'];
   const TYPES = { ACCOUNT: 'Account', TECHNICAL: 'Technical problem', PROJECT: 'Project or listing', OTHER: 'Other',
@@ -45,6 +46,7 @@
       return ticketList(stillHere);
     }
     if (role === 'designer' && section === 'messages') return messages(stillHere);
+    if (role === 'designer' && section === 'projects') return window.ProjectPortfolio.render(main(), stillHere);   // ID-03
   }
 
   // ---------- Helpdesk overview ----------

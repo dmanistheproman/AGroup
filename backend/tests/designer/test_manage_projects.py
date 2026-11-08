@@ -121,3 +121,13 @@ def test_deleting_leaves_favourites_and_folders_but_keeps_the_history(app):
     with closing(sqlite3.connect(app.config.get("DATABASE") or app.extensions["shared"].store.filename)) as connection:
         kept = connection.execute("SELECT COUNT(*) FROM activities WHERE project_id = ?", (number,)).fetchone()[0]
     assert kept >= 1   # the FAVOURITE_ADD (and UNFAVOURITE) events stay for reports
+
+
+def test_a_form_without_new_images_or_optional_details_is_accepted(app):
+    designer = client_for(app, "designer@demo.agroup")
+    project = create(designer).get_json()["project"]
+    edited = designer.patch(f"/api/projects/{project['id']}", data={
+        "title": "Plain", "description": "No extras.", "category_id": "CAT-01", "materials": "", "estimated_cost": "",
+        "location": "", "home_type": "", "area": "", "images": (io.BytesIO(b""), "")}, content_type="multipart/form-data")
+    assert edited.status_code == 200, edited.get_json()
+    assert edited.get_json()["project"]["materials"] == "" and edited.get_json()["project"]["price"] == 48000

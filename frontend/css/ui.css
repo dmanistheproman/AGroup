@@ -105,3 +105,14 @@
 .review-list li{border-top:1px solid var(--line);padding-top:10px;font-size:13px}
 .review-list b{color:#c08a2b;letter-spacing:1px;font-weight:400}
 .review-list p{margin:4px 0}
+
+/* ID-03 project portfolio (js/project-portfolio.js) */
+.portfolio-title{display:flex;gap:12px;align-items:center}
+.portfolio-title img{width:64px;height:46px;object-fit:cover;border-radius:4px;background:#e4e5de}
+.portfolio-title small{display:block}
+.portfolio-actions{display:flex;gap:12px;flex-wrap:wrap;white-space:nowrap}
+.portfolio-label{font-size:11px;font-weight:600;display:block;margin-bottom:8px}
+.portfolio-images{display:flex;gap:10px;flex-wrap:wrap}
+.portfolio-images figure{margin:0;display:grid;gap:4px;justify-items:start}
+.portfolio-images img{width:110px;height:78px;object-fit:cover;border-radius:4px}
+.portfolio-images figcaption{font-size:11px;color:var(--olive);font-weight:600}

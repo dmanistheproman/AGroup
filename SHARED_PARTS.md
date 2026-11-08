@@ -72,6 +72,9 @@ Ready:
 
 | Feature | API |
 |---|---|
+| Create and edit own projects with the details customers see (ID-03) | `POST /api/projects`, `PATCH /api/projects/<IDP-xxx>` (multipart: title, description, category_id, stage, materials, estimated_cost, location, home_type, area, images) |
+| Choose the primary image (ID-03) | `POST /api/projects/<IDP-xxx>/primary-image {image}` |
+| Delete own project (ID-03) | `DELETE /api/projects/<IDP-xxx>?confirm_impact=true`: it leaves customers' favourites, folders and moodboards; its activity stays for reports |
 | Publish / unpublish own project (ID-03) | `POST /api/projects/<IDP-xxx>/status {status: PUBLISHED or UNPUBLISHED}` |
 | Conversations with customers (S-16, ID-11) | `GET /api/conversations`, `GET/POST /api/threads/<thread_id>/messages` |
 | Inbox | `GET /api/inbox` (enquiries, verification requests, tickets, conversations) |
@@ -94,7 +97,10 @@ Pages: **Messages** in the portal is the designer's inbox (S-14): private conver
 progress, and the rating form once closed); Report on customer messages. The proposal form has an optional enquiry
 field. A resolved report about one of their projects is announced to them (`REPORT_DECIDED`, the reporter is not
 named).
-Open: portal buttons for publish / unpublish.
+**Project portfolio** in the portal (`js/project-portfolio.js`, built from the shared components): the designer's
+projects with their real status and client activity, search and status filter, new / edit form with materials,
+estimated cost, location, home type, area and images (choose the primary one), publish / unpublish and delete with an
+impact check. A published project appears in the customer catalogue with its primary photo.
 
 ### Helpdesk Agent
 Ready:
@@ -166,8 +172,6 @@ databases are updated on start).
 ## 7. Not built yet
 
 - Verification recommendations (HD-12), submitting an enquiry from the customer site (C-06).
-- Projects keep their `image` field for the catalogue; their uploaded images are attachments too, but the catalogue
-  does not read them yet.
 
 ## 8. Shared front-end components
 

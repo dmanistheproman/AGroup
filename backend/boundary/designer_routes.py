@@ -37,7 +37,7 @@ def create_designer_blueprint(c, upload_dir, login):
     @bp.route("/api/projects", methods=["POST"])
     def api_create_project():
         try:
-            images = [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images")]
+            images = [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images") if f.filename]
             project = c.project_controller.create({
                 "title": request.form.get("title", ""),
                 "description": request.form.get("description", ""),
@@ -60,7 +60,7 @@ def create_designer_blueprint(c, upload_dir, login):
     @bp.route("/api/projects/<project_id>", methods=["PATCH"])
     def api_update_project(project_id):
         try:
-            images = [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images")]
+            images = [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images") if f.filename]
             project = c.project_controller.update(current_user_id(), project_id, {
                 "title": request.form.get("title", ""), "description": request.form.get("description", ""),
                 "category_id": request.form.get("category_id", ""), "stage": request.form.get("stage"),

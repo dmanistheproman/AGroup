@@ -13,8 +13,8 @@ MAX_COST = 10_000_000
 def _details(data):
     """The optional C-03 details, checked the same way for create and edit."""
     details = {}
-    if data.get("materials") is not None:
-        details["materials"] = require_text(data.get("materials"), "Materials", 500)
+    if data.get("materials") is not None:   # an empty field clears the detail
+        details["materials"] = require_text(data["materials"], "Materials", 500) if data["materials"].strip() else ""
     cost = str(data.get("estimated_cost") or "").strip().replace(",", "")
     if cost:
         if not cost.isdigit() or not 0 < int(cost) <= MAX_COST:
@@ -23,7 +23,7 @@ def _details(data):
     for field, key, label, limit in (("location", "location", "Location", 60), ("home_type", "type", "Home type", 30),
                                      ("area", "area", "Area", 20)):
         if data.get(field) is not None:
-            details[key] = require_text(data.get(field), label, limit)
+            details[key] = require_text(data[field], label, limit) if data[field].strip() else ""
     return details
 
 
