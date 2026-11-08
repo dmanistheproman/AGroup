@@ -151,6 +151,13 @@ def build_designer_controllers(upload_service, store):
     return c
 
 
+def _with_parties(rules, proposal):
+    """A proposal knows its client and designer through the enquiry it answers (S-21)."""
+    if proposal is not None:
+        proposal.participants = rules.offer_parties(proposal)
+    return proposal
+
+
 def _connect_designer_records(shared, designer):
     """Enquiries, verification requests and offers use the shared status change, notifications and threads
     (S-01, S-04, S-07, S-19, S-21)."""
@@ -160,6 +167,8 @@ def _connect_designer_records(shared, designer):
     rules.enquiries, rules.verifications = designer.enquiry_repo, designer.verification_repo
     rules.quotations, rules.proposals, rules.companies = designer.quotation_repo, designer.proposal_repo, designer.company_repo
     shared.messages.register_owner(designer.enquiry_repo.find_by_thread)
+    shared.messages.register_owner(lambda thread_id: _with_parties(rules, designer.proposal_repo.find_by_thread(thread_id)))
+    designer.submit_proposal_controller.threads = shared.threads
     shared.messages.register_owner(designer.verification_repo.find_by_thread, staff_roles=(UserAccount.ROLE_USER_ADMIN,))
     designer.review_enquiry_controller.connect(shared)
     designer.verification_controller.shared = designer.review_controller.shared = shared

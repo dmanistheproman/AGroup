@@ -334,7 +334,9 @@ def save_offer(connection, offer, offer_type, request_id=None):
                           revision, status, sent_at, answered_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(offer_id) DO UPDATE SET request_id = excluded.request_id, revision = excluded.revision,
-            status = excluded.status, sent_at = excluded.sent_at, answered_at = excluded.answered_at
+            status = excluded.status, sent_at = excluded.sent_at, answered_at = excluded.answered_at,
+            thread_id = COALESCE(excluded.thread_id, offer.thread_id),
+            attachment_group_id = COALESCE(excluded.attachment_group_id, offer.attachment_group_id)
     """, (offer.id, request_id if request_id is not None else offer.request_id, offer.previous_offer_id,
           offer.thread_id, offer.attachment_group_id, offer_type, getattr(offer, "version", offer.revision),
           offer.status, offer.sent_at, offer.answered_at))

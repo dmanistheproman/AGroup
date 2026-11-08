@@ -3,8 +3,9 @@
     on_status_changed    support tickets (opened, moved, reopened), projects (hidden, restored),
                          enquiries (decided), verification requests (opened, decided) and offers (sent, answered)
     on_handler_assigned  a designer is told about a new enquiry they handle
-    on_message_posted    a new message in a ticket's, an enquiry's or a private conversation's thread goes to the
-                         other side
+    on_message_posted    a new message in a ticket's, an enquiry's, a proposal's or a private conversation's thread
+                         goes to the other side
+    a resolved report tells the reported project's designer the outcome (the reporter is not named)
     on_payment_reminder  the customer is reminded about a payment milestone (ID-09)
     on_payment_overdue   an overdue milestone is announced once to the customer and the designer
     closing a ticket invites the requester to rate the help (HD-13); completing an enquiry invites a review (C-07)
@@ -68,12 +69,23 @@ class NotificationRules:
                        f"Your request {ticket.id} is closed. How did we do? Rate the help you received.",
                        f"inbox.html#requests/{ticket.id}", *self._target(ticket))
             return
+        if new_status == ticket.STATUS_RESOLVED and ticket.is_report():
+            self._report_decided(ticket, reason)
         if new_status == ticket.STATUS_OPEN:
             text = f"Your request {ticket.id} has been reopened."
         else:
             text = f"Your request {ticket.id} is now {self._words(new_status)}."
         self._send(ticket.requester_id, "TICKET_STATUS", self._with(text, reason),
                    self._requester_link(ticket), *self._target(ticket))
+
+    def _report_decided(self, ticket, reason):
+        """S-07 / UA-12: the designer whose project was reported hears the outcome; the reporter is not named."""
+        project = self.projects.get(ticket.related_project_id) if self.projects is not None and ticket.related_project_id else None
+        if project is None or not project.get("owner_id"):
+            return
+        self._send(project["owner_id"], "REPORT_DECIDED",
+                   self._with(f'A report about your project "{project["title"]}" has been reviewed.', reason),
+                   "portal.html#designer/projects", self.TARGET_PROJECT, ticket.related_project_id)
 
     def _project_changed(self, project_id, new_status, from_status, reason, target_type):
         project = self.projects.get(project_id) if self.projects is not None else None
@@ -154,6 +166,19 @@ class NotificationRules:
             else:
                 recipient, link = enquiry.handler_id, "portal.html#designer/messages"
                 text = f"New message from {enquiry.client_name} about enquiry {enquiry.id}: {preview}"
+            if recipient and recipient != author_id:
+                self._send(recipient, "NEW_MESSAGE", text, link, self.TARGET_THREAD, thread_id)
+            return
+        proposal = self.proposals.find_by_thread(thread_id) if self.proposals is not None and \
+            hasattr(self.proposals, "find_by_thread") else None
+        if proposal is not None:
+            customer, designer = self.offer_parties(proposal)
+            if author_id == designer:
+                recipient, link = customer, CUSTOMER_OFFERS
+                text = f"New message from {self._designer_name(author_id)} about {proposal.title}: {preview}"
+            else:
+                recipient, link = designer, "portal.html#designer/messages"
+                text = f"New message from {proposal.client_name} about {proposal.title}: {preview}"
             if recipient and recipient != author_id:
                 self._send(recipient, "NEW_MESSAGE", text, link, self.TARGET_THREAD, thread_id)
             return
@@ -265,4 +290,4 @@ class NotificationRules:
 
     @staticmethod
     def _requester_link(ticket):
-        return "portal.html#designer/overview" if ticket.requester_type == UserAccount.ROLE_DESIGNER else "inbox.html#requests"
+        return "portal.html#designer/messages" if ticket.requester_type == UserAccount.ROLE_DESIGNER else "inbox.html#requests"

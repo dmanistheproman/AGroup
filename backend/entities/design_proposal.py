@@ -27,6 +27,10 @@ class DesignProposal(Offer):
         self.feedback_history = list(feedback_history or [])
         self.revision_note = revision_note
 
+    def participant_ids(self):
+        """The client and the designer, when known (set by the shared services from the enquiry it answers)."""
+        return tuple(p for p in getattr(self, "participants", ()) if p)
+
     def is_draft(self):
         return self.status == self.STATUS_DRAFT
 
@@ -59,7 +63,8 @@ class DesignProposal(Offer):
 
     def public_view(self):
         """Client-side view of the shared offer (reused by C-06): leaves out the feedback history and other designer-side details."""
-        return {"id": self.id, "request_id": self.request_id, "client_name": self.client_name, "title": self.title,
+        return {"id": self.id, "request_id": self.request_id, "thread_id": self.thread_id,
+                "client_name": self.client_name, "title": self.title,
                 "description": self.description, "attachments": list(self.attachments),
                 "status": self.status, "version": self.version,
                 "revision_note": self.revision_note}

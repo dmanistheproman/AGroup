@@ -5,7 +5,7 @@ from backend.services.validators import require_text
 
 def _view(p):
     """Designer view: adds feedback and history to the client-side public_view."""
-    return {"id": p.id, "request_id": p.request_id, "client_name": p.client_name, "title": p.title,
+    return {"id": p.id, "request_id": p.request_id, "thread_id": p.thread_id, "client_name": p.client_name, "title": p.title,
             "description": p.description, "status": p.status, "version": p.version,
             "attachments": list(p.attachments), "feedback": p.feedback,
             "feedback_history": list(p.feedback_history), "revision_note": p.revision_note}
@@ -16,6 +16,7 @@ class SubmitProposalController:
         self.uploads = upload_service
         self.enquiries = None       # EnquiryRepo, set in server.py: a proposal can answer an enquiry (S-21)
         self.status_change = None   # StatusChangeService (S-04), set in server.py: sending is audited and notified
+        self.threads = None         # ThreadRepo (S-01), set in server.py: a sent proposal gets a message thread
 
     def list_for(self, user_id):
         # user_id is kept for filtering by owner (same rule as ID-04)
@@ -56,6 +57,9 @@ class SubmitProposalController:
         if self.status_change is not None:
             if not proposal.is_draft():
                 raise ValueError("Proposal has already been sent to the client.")
+            if self.threads is not None and not proposal.thread_id:
+                proposal.thread_id = self.threads.create().id
+                self.proposals.save(proposal)
             self.status_change.change_status("DESIGN_PROPOSAL", proposal.id, DesignProposal.STATUS_UNDER_REVIEW,
                                              user_id)
             return _view(self.proposals.get(proposal.id))
