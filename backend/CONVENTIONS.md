@@ -25,8 +25,11 @@ All repositories and controllers are created once in `server.py` (`create_app()`
 
 ## 3. Repositories
 
-- In-memory for now. Store data as `self.items = {id: entity}`.
-- `from_data(rows)` is a classmethod that builds a fresh repository from plain rows (`SEED_*` constants), so each test gets its own data.
+- Records are stored in SQLite. Tables are created in `database.py` (`install_schema`) with the ER diagram's table and column names; projects, categories and activity are in `storage.py`.
+- A repository takes the store in its constructor, `XRepo(store)`, and runs each read or write in `store.transaction()` (`write=True` for writes). Without a store it uses a private in-memory database (`MemoryStore`), so each test gets its own data.
+- `from_data(rows, store=None)` is a classmethod that adds the seed rows (`SEED_*` constants) that are missing; stored records keep their changes.
+- `get()` returns a new entity object each time. After changing an entity, call `save(entity)`, or the change is lost.
+- New readable IDs come from `database.next_number(...)` inside a write transaction, so two requests never get the same ID.
 - Methods: `get(id)` returns the entity or `None`, `save(entity)` returns it, `all()` returns a list, plus named queries such as `find_by_email(email)`.
 - Only repositories store or read data. A later switch to a database changes repositories only.
 

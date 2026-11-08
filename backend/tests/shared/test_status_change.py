@@ -25,7 +25,8 @@ class SpyRules:
 
 
 def build_service():
-    tickets = SupportTicketRepo([SupportTicket("TKT-1001", "CUS-101", "CUSTOMER", "TECHNICAL", "Broken page")])
+    tickets = SupportTicketRepo()
+    tickets.save(SupportTicket("TKT-1001", "CUS-101", "CUSTOMER", "TECHNICAL", "Broken page"))
     rules = SpyRules()
     service = StatusChangeService(AuditLogRepo(), rules)
     service.register(TICKET, tickets.get, tickets.save)
@@ -132,7 +133,7 @@ def build_lifecycle():
 
 def test_helpdesk_agent_moves_a_ticket_and_the_requester_is_told_why():
     lifecycle, ticket, accounts, notifications = build_lifecycle()
-    lifecycle.move_to(ticket.id, "AWAITING_INFO", accounts.get("user-helpdesk"), "Which browser do you use?")
+    ticket = lifecycle.move_to(ticket.id, "AWAITING_INFO", accounts.get("user-helpdesk"), "Which browser do you use?")
     assert ticket.status == "AWAITING_INFO"
     latest = notifications.list_for("CUS-101")[0]
     assert latest.type == "TICKET_STATUS" and "awaiting info" in latest.text
@@ -141,13 +142,13 @@ def test_helpdesk_agent_moves_a_ticket_and_the_requester_is_told_why():
 
 def test_first_agent_to_act_becomes_the_handler():
     lifecycle, ticket, accounts, _ = build_lifecycle()
-    lifecycle.move_to(ticket.id, "ESCALATED", accounts.get("user-helpdesk"), "Platform bug")
+    ticket = lifecycle.move_to(ticket.id, "ESCALATED", accounts.get("user-helpdesk"), "Platform bug")
     assert ticket.handler_id == "user-helpdesk"
 
 
 def test_resolving_keeps_the_reason_as_the_resolution_note():
     lifecycle, ticket, accounts, _ = build_lifecycle()
-    lifecycle.move_to(ticket.id, "RESOLVED", accounts.get("user-helpdesk"), "Cache cleared; gallery loads.")
+    ticket = lifecycle.move_to(ticket.id, "RESOLVED", accounts.get("user-helpdesk"), "Cache cleared; gallery loads.")
     assert ticket.resolution_note == "Cache cleared; gallery loads."
 
 

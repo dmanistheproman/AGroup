@@ -40,7 +40,7 @@ def test_customer_opens_a_support_request():
     assert ticket.id == "TKT-1001"
     assert ticket.requester_id == "CUS-101" and ticket.requester_type == "CUSTOMER"
     assert ticket.details == "The gallery does not load."
-    assert tickets.get("TKT-1001") is ticket
+    assert tickets.get("TKT-1001").details == ticket.details
 
 
 def test_designer_can_open_a_support_request():

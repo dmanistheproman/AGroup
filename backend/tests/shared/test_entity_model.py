@@ -141,7 +141,7 @@ def test_thread_repo_creates_numbered_threads():
     threads = ThreadRepo()
     first, second = threads.create(), threads.create()
     assert isinstance(first, Thread) and (first.id, second.id) == ("THR-0001", "THR-0002")
-    assert threads.get("THR-0002") is second
+    assert threads.get("THR-0002").id == second.id
 
 
 def test_attachment_group_holds_ordered_files_and_the_first_is_primary():
@@ -154,7 +154,7 @@ def test_attachment_group_holds_ordered_files_and_the_first_is_primary():
     assert isinstance(a, Attachment)
     assert [x.file_name for x in repo.for_group(group.id)] == ["living.jpg", "kitchen.jpg"]
     assert a.is_primary and not b.is_primary and (a.sort_order, b.sort_order) == (0, 1)
-    assert repo.primary_of(group.id) is a
+    assert repo.primary_of(group.id).id == a.id
 
 
 def test_set_primary_moves_the_primary_flag():
@@ -163,7 +163,7 @@ def test_set_primary_moves_the_primary_flag():
     a = repo.add(group.id, "u", "a.jpg", "p/a.jpg")
     b = repo.add(group.id, "u", "b.jpg", "p/b.jpg")
     repo.set_primary(group.id, b.id)
-    assert b.is_primary and not a.is_primary
+    assert [x.is_primary for x in repo.for_group(group.id)] == [False, True]
 
 
 def test_adding_to_an_unknown_group_is_refused():

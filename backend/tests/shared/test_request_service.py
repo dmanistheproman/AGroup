@@ -28,7 +28,7 @@ def test_open_creates_a_thread_and_an_attachment_group_for_the_request():
     saved = service.open(ticket())
     assert saved.thread_id == "THR-0001" and threads.get("THR-0001") is not None
     assert saved.attachment_group_id == "AG-0001" and attachments.get_group("AG-0001") is not None
-    assert tickets.get("TKT-1001") is saved
+    assert tickets.get("TKT-1001").thread_id == saved.thread_id
 
 
 def test_request_service_still_works_without_explicit_thread_and_attachment_stores():

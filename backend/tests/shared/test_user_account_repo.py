@@ -1,6 +1,7 @@
 """UserAccountRepo: demo accounts, lookup by email, and the UA-01 account contract."""
 from datetime import datetime, timezone
 
+from backend.repositories.audit_log_repo import AuditLogRepo
 from backend.entities.account import AdminAction, SuspensionRecord
 from backend.entities.user_account import UserAccount
 from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
@@ -38,12 +39,14 @@ def test_save_then_get():
     repo = build()
     account = UserAccount.create("USR-777", "New User", "new@example.com", "pw", UserAccount.ROLE_CUSTOMER)
     repo.save(account)
-    assert repo.get("USR-777") is account
+    assert repo.get("USR-777").email == account.email
 
 
 def test_each_build_has_independent_data():
     first, second = build(), build()
-    first.get("CUS-101").status = UserAccount.STATUS_SUSPENDED
+    account = first.get("CUS-101")
+    account.status = UserAccount.STATUS_SUSPENDED
+    first.save(account)
     assert second.get("CUS-101").status == UserAccount.STATUS_ACTIVE
 
 
@@ -65,12 +68,15 @@ def test_commit_suspension_suspends_an_active_account_and_keeps_records():
     record, action = records("CUS-101")
     assert repo.commit_suspension("CUS-101", record, action) is True
     assert repo.get("CUS-101").status == UserAccount.STATUS_SUSPENDED
-    assert repo.suspensions == [record] and repo.admin_actions == [action]
+    [entry] = AuditLogRepo(repo.store).find_by_target("USER_ACCOUNT", "CUS-101")
+    assert (entry.actor_id, entry.reason, entry.to_status) == ("user-admin", "Spam", "SUSPENDED")
 
 
 def test_commit_suspension_returns_false_if_not_active_and_saves_nothing():
     repo = build()
-    repo.get("CUS-101").status = UserAccount.STATUS_SUSPENDED
+    account = repo.get("CUS-101")
+    account.status = UserAccount.STATUS_SUSPENDED
+    repo.save(account)
     record, action = records("CUS-101")
     assert repo.commit_suspension("CUS-101", record, action) is False
-    assert repo.suspensions == [] and repo.admin_actions == []
+    assert AuditLogRepo(repo.store).find_by_target("USER_ACCOUNT", "CUS-101") == []

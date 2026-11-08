@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from flask import Flask, session
 
 # ----- Shared: login -----
+from backend.database import install_schema
 from backend.repositories.user_account_repo import UserAccountRepo, SEED_ACCOUNT_DATA
 from backend.controllers.shared.login_controller import LoginController
 from backend.boundary.auth_routes import create_auth_blueprint
@@ -22,6 +23,8 @@ from backend.controllers.shared.notification_rules import NotificationRules
 from backend.controllers.shared.request_service import RequestService
 from backend.controllers.shared.submit_ticket_controller import SubmitTicketController
 from backend.repositories.audit_log_repo import AuditLogRepo
+from backend.repositories.thread_repo import ThreadRepo
+from backend.repositories.attachment_repo import AttachmentRepo
 from backend.controllers.shared.status_change_service import StatusChangeService
 from backend.controllers.shared.ticket_lifecycle import TicketLifecycle
 from backend.boundary.shared_routes import create_shared_blueprint
@@ -146,7 +149,7 @@ def create_app(registry=None, admin_provider=None, config=None):
                       DATABASE=os.environ.get('AGROUP_DATABASE') or str(ROOT / 'instance' / 'agroup.sqlite3'),
                       SEED_DEMO=True)
     app.config.update(config or {})
-    store = SQLiteStore(app.config['DATABASE'])
+    store = install_schema(SQLiteStore(app.config['DATABASE']))   # adds the shared-part tables (database.py)
     if app.config['SEED_DEMO']:
         seed_demo(store)
     app.extensions['management_store'] = store
@@ -155,16 +158,16 @@ def create_app(registry=None, admin_provider=None, config=None):
     upload_service = FileUploadService(upload_folder=str(UPLOAD_DIR))
 
     # ----- Shared: login (X-03) -----
-    user_accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    user_accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
     login = LoginController(user_accounts, lambda: session)
     app.extensions['login'] = login   # for role guards in other blueprints
 
     # ----- Shared: support tickets, reports, notifications, status changes (S-04, S-07, S-15, S-19) -----
-    notifications = NotificationService(NotificationRepo.from_data(SEED_NOTIFICATION_DATA))
-    support_tickets = SupportTicketRepo()
+    notifications = NotificationService(NotificationRepo.from_data(SEED_NOTIFICATION_DATA, store))
+    support_tickets = SupportTicketRepo(store)
     rules = NotificationRules(notifications, user_accounts, support_tickets)
-    requests = RequestService(support_tickets, rules)
-    status_change = StatusChangeService(AuditLogRepo(), rules)
+    requests = RequestService(support_tickets, rules, ThreadRepo(store), AttachmentRepo(store))
+    status_change = StatusChangeService(AuditLogRepo(store), rules)
     ticket_lifecycle = TicketLifecycle(status_change, support_tickets)   # registers SUPPORT_TICKET
     status_change.register("USER_ACCOUNT", user_accounts.get, user_accounts.save)
     app.extensions['status_change'] = status_change   # for other roles' status changes

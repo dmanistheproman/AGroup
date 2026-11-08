@@ -47,7 +47,9 @@ def test_missing_email_or_password_is_a_validation_error(email, password):
 
 def test_suspended_account_cannot_log_in():
     login, repo, session = build()
-    repo.get("CUS-101").status = UserAccount.STATUS_SUSPENDED
+    account = repo.get("CUS-101")
+    account.status = UserAccount.STATUS_SUSPENDED
+    repo.save(account)
     with pytest.raises(PermissionError, match="suspended"):
         login.login("customer@demo.agroup", "demo")
     assert session == {}
@@ -71,7 +73,9 @@ def test_suspension_ends_an_existing_session():
     # UA-01: "A suspended user cannot log in or keep using an existing session."
     login, repo, session = build()
     login.login("customer@demo.agroup", "demo")
-    repo.get("CUS-101").status = UserAccount.STATUS_SUSPENDED
+    account = repo.get("CUS-101")
+    account.status = UserAccount.STATUS_SUSPENDED
+    repo.save(account)
     assert login.current_user() is None
     assert LoginController.SESSION_KEY not in session
 

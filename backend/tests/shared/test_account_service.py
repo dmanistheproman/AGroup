@@ -27,7 +27,7 @@ def test_customer_account_is_saved_with_a_hashed_password():
     service, accounts, _, _ = build()
     account = create(service)
     assert account.role == UserAccount.ROLE_CUSTOMER and account.is_active()
-    assert accounts.find_by_email("jamie@example.com") is account
+    assert accounts.find_by_email("jamie@example.com").id == account.id
     assert account.password_hash != "long enough" and account.verify_password("long enough")
 
 
