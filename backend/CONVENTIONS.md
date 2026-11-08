@@ -17,7 +17,8 @@ All repositories and controllers are created once in `server.py` (`create_app()`
 ## 2. Entities
 
 - A plain class. The identifier attribute is `self.id`.
-- Statuses and roles are class constants with UPPER_CASE string values, for example `STATUS_ACTIVE = "ACTIVE"`.
+- Statuses and roles are class constants with UPPER_CASE string values, for example `STATUS_ACTIVE = "ACTIVE"`. Shared value sets are in `entities/enums.py` (`AccountRole`, `ProjectStatus`, `TicketStatus`, `OfferStatus`, ...); their members compare equal to the plain strings.
+- Requests (`Enquiry`, `SupportTicket`, `VerificationRequest`) extend `entities/request.py`; offers (`DesignProposal`, `Quotation`) extend `entities/offer.py`.
 - Rules that change the entity's state are methods on the entity. For example, `send()` raises `ValueError` if the change is not allowed.
 - `public_view()` returns the dict that may be sent to the browser. It never includes secrets such as password hashes.
 - IDs are strings with a readable prefix, for example `CUS-101` or `QT-101`. Dates are ISO strings (`YYYY-MM-DD`, or ISO timestamps in UTC).
@@ -33,6 +34,7 @@ All repositories and controllers are created once in `server.py` (`create_app()`
 
 - Method names follow the class and sequence diagrams, for example `LoginController.login(email, password)`.
 - Validate input with `services/validators.py` (`require_text`, `require_email`).
+- **Change a status** through `StatusChangeService` (`controllers/shared/status_change_service.py`). It checks the transition, requires a reason where needed, writes the audit log and notifies. The entity class declares `TRANSITIONS = {from: {to, ...}}` and `REASON_REQUIRED = {to, ...}`; register the record type once in `server.py` (`status_change.register("SUPPORT_TICKET", repo.get, repo.save)`), then call `status_change.change_status(type, id, new_status, actor_id, reason)`. `app.extensions["status_change"]` holds the shared instance.
 - Signal failures by raising exceptions, not by returning error values:
 
 | Exception | Meaning | HTTP status |
