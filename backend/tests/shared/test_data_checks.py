@@ -84,3 +84,12 @@ def test_a_folder_holds_only_saved_projects_of_its_owner(database, tmp_path):
                                          "SELECT 'CI-99999', collection_id, 9999, 'PROJECT' FROM collection "
                                          "WHERE kind = 'FOLDER' LIMIT 1")
     assert any("folder" in p.lower() for p in check_database(broken))
+
+
+@pytest.mark.parametrize("target_type, change", [("ENQUIRY", "'DECLINED', 'CONFIRMED'"),
+                                                 ("VERIFICATION_REQUEST", "'APPROVED', 'REJECTED'"),
+                                                 ("DESIGN_PROPOSAL", "'UNDER_REVIEW', 'DRAFT'")])
+def test_enquiry_verification_and_proposal_changes_follow_their_lifecycles(database, tmp_path, target_type, change):
+    broken = corrupt(database, tmp_path, f"INSERT INTO audit_log VALUES ('LOG-99998', 'user-admin', '{target_type}', "
+                                         f"'X-1', 'STATUS_CHANGED', {change}, 'test', '2026-11-08T00:00:00')")
+    assert any(target_type in p and "not an allowed change" in p for p in check_database(broken))

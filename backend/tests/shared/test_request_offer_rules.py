@@ -191,3 +191,86 @@ def test_customers_choose_enquiry_offer_and_payment_updates(shared):
     assert {"ENQUIRY_UPDATE", "OFFER_SENT", "PAYMENT_REMINDER"} <= set(types)
     shared.preferences.update(user(shared, "CUS-101"), "OFFER_SENT", False)
     assert shared.rules.notify("CUS-101", "OFFER_SENT", "x") is None
+
+
+# ---- more paths: resubmission, other request pages, revisions, records without an account ----
+
+def test_a_rejected_verification_goes_back_to_review_when_resubmitted(shared, designer_side):
+    designer_side.verification_controller.uploads = SimpleNamespace(
+        upload=lambda file, owner_type, owner_id, kind="image": f"uploads/{owner_id}/{file['filename']}")
+    first = designer_side.verification_controller.submit("user-form-field", {"documents": [{"filename": "a.pdf"}]})
+    designer_side.review_controller.review(first.id, "reject", "Blurred scan.", reviewer="user-admin")
+    again = designer_side.verification_controller.submit("user-form-field", {"documents": [{"filename": "b.pdf"}]})
+    assert (again.id, again.status, again.documents) == (first.id, "PENDING_REVIEW", ["uploads/COM-FF/b.pdf"])
+    assert [h.to_status for h in shared.status_change.history_of("VERIFICATION_REQUEST", first.id)] == \
+        ["REJECTED", "PENDING_REVIEW"]
+    assert kinds(shared, "user-admin").count("NEW_VERIFICATION") == 2
+
+
+def test_the_request_page_shows_a_verification_request_to_its_designer_only(app, shared, designer_side):
+    request = shared.requests.open(VerificationRequest(designer_side.verification_repo.next_reference(), "COM-FF",
+                                                       "user-form-field", ["uploads/COM-FF/licence.pdf"]))
+    owner, other = app.test_client(), app.test_client()
+    login(owner, "designer@demo.agroup")
+    login(other, "commonground@demo.agroup")
+    page = owner.get(f"/api/requests/{request.id}").get_json()
+    assert page["request"]["kind"] == "VERIFICATION_REQUEST" and page["request"]["documents"]
+    assert other.get(f"/api/requests/{request.id}").status_code == 403
+
+
+def test_the_request_page_also_opens_support_tickets(app, shared):
+    client = app.test_client()
+    login(client, "customer@demo.agroup")
+    ticket = client.post("/api/support/tickets", json={"type": "OTHER", "details": "Where is my invoice?"}).get_json()
+    page = client.get(f"/api/requests/{ticket['ticket']['id']}").get_json()
+    assert page["ticket"]["id"] == ticket["ticket"]["id"] and "messages" in page
+    assert client.get("/api/requests/REQ-404").status_code == 404
+
+
+def test_revising_a_waiting_quotation_keeps_its_status_without_a_new_audit_entry(shared, designer_side):
+    shared.requests.assign_handler("CUS-101", "user-form-field")
+    q = designer_side.submit_quotation_controller.create("user-form-field", {
+        "enquiry_id": "CUS-101", "design_fee": 3000, "material_cost": 20000, "construction_fee": 15000,
+        "valid_until": "2099-01-01", "payment_schedule": "30/40/30"})
+    designer_side.submit_quotation_controller.present("user-form-field", q["id"])
+    revised = designer_side.submit_quotation_controller.revise("user-form-field", q["id"], {
+        "design_fee": 2500, "material_cost": 20000, "construction_fee": 15000, "valid_until": "2099-01-01",
+        "payment_schedule": "30/40/30"})
+    assert (revised["status"], revised["version"]) == ("WAITING_CLIENT_CONFIRMATION", 2)
+    assert len(shared.status_change.history_of("QUOTATION", q["id"])) == 1
+    with pytest.raises(ValueError):
+        designer_side.submit_quotation_controller.present("user-form-field", q["id"])
+
+
+def test_a_revised_proposal_is_announced_to_the_customer(shared, designer_side):
+    shared.requests.assign_handler("CUS-101", "user-form-field")
+    proposal = designer_side.submit_proposal_controller.create("user-form-field", {
+        "title": "Oak kitchen", "enquiry_id": "CUS-101", "description": "First idea."})
+    designer_side.submit_proposal_controller.present("user-form-field", proposal["id"])
+    designer_side.revise_proposal_controller.revise("user-form-field", proposal["id"], {"description": "Second idea."})
+    sent = [n.text for n in shared.notifications.list_for("CUS-101") if n.type == "OFFER_SENT"]
+    assert len(sent) == 2 and "version 2" in sent[0]
+
+
+def test_a_proposal_for_an_unknown_enquiry_is_refused(designer_side):
+    with pytest.raises(ValueError):
+        designer_side.submit_proposal_controller.create("user-form-field", {
+            "title": "Oak kitchen", "enquiry_id": "CUS-404", "description": "First idea."})
+
+
+def test_records_naming_a_customer_without_an_account_change_without_notifying(shared, designer_side):
+    before = len(shared.notifications.list_for("user-form-field"))
+    result = designer_side.review_enquiry_controller.review("CUS-102", "user-form-field", "accept")   # Casey Lim
+    assert result["enquiry"]["status"] == "CONFIRMED"
+    assert shared.notifications.list_for("CUS-102") == []
+    assert len(shared.notifications.list_for("user-form-field")) == before
+
+
+def test_turning_off_offer_updates_stops_them(shared, designer_side):
+    shared.preferences.update(user(shared, "CUS-101"), "OFFER_SENT", False)
+    shared.requests.assign_handler("CUS-101", "user-form-field")
+    q = designer_side.submit_quotation_controller.create("user-form-field", {
+        "enquiry_id": "CUS-101", "design_fee": 1, "material_cost": 1, "construction_fee": 1,
+        "valid_until": "2099-01-01", "payment_schedule": "all at once"})
+    designer_side.submit_quotation_controller.present("user-form-field", q["id"])
+    assert "OFFER_SENT" not in kinds(shared, "CUS-101")
