@@ -1,11 +1,12 @@
-"""Boundary: HTTP routes for the Customer role — C-04 favourites. The customer comes from the login session."""
+"""Boundary: HTTP routes for the Customer role — C-04 favourites and S-22 folders.
+The customer comes from the login session."""
 from flask import Blueprint, jsonify, request
 
 from backend.boundary.auth_guard import role_error
 from backend.entities.user_account import UserAccount
 
 
-def create_customer_blueprint(favourites_ctrl, login):
+def create_customer_blueprint(favourites_ctrl, login, collections=None):
     bp = Blueprint("customer", __name__)
 
     @bp.before_request
@@ -18,7 +19,11 @@ def create_customer_blueprint(favourites_ctrl, login):
 
     @bp.errorhandler(LookupError)
     def not_found(err):
-        return jsonify(error=str(err)), 404
+        return jsonify(error=str(err).strip("'\"")), 404
+
+    @bp.errorhandler(PermissionError)
+    def forbidden(err):
+        return jsonify(error=str(err)), 403
 
     def customer_id():
         return login.current_user().id
@@ -35,5 +40,53 @@ def create_customer_blueprint(favourites_ctrl, login):
     @bp.delete("/api/favourites/<project_id>")
     def remove_favourite(project_id):
         return jsonify(favourites_ctrl.remove_favourite(customer_id(), project_id))
+
+    # ---- S-22 collections: folders that organise favourites ----
+    def collection_view(collection):
+        return collection.public_view(collections.items(login.current_user(), collection.id))
+
+    def body():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            raise ValueError("Expected a JSON request body.")
+        return data
+
+    @bp.get("/api/collections")
+    def list_collections():
+        user = login.current_user()
+        return jsonify(collections=[collection_view(c) for c in collections.list_for(user)])
+
+    @bp.post("/api/collections")
+    def create_collection():
+        data = body()
+        collection = collections.create(login.current_user(), data.get("name"), data.get("kind", "FOLDER"))
+        return jsonify(collection=collection_view(collection)), 201
+
+    @bp.patch("/api/collections/<collection_id>")
+    def rename_collection(collection_id):
+        collection = collections.rename(login.current_user(), collection_id, body().get("name"))
+        return jsonify(collection=collection_view(collection))
+
+    @bp.delete("/api/collections/<collection_id>")
+    def delete_collection(collection_id):
+        collections.delete(login.current_user(), collection_id)
+        return jsonify(deleted=collection_id)
+
+    @bp.post("/api/collections/<collection_id>/items")
+    def add_collection_item(collection_id):
+        data = body()
+        item = collections.add_item(login.current_user(), collection_id, data.get("item_type", "PROJECT"),
+                                    project_id=data.get("project_id"), colour=data.get("colour"), note=data.get("note"))
+        return jsonify(item=item.public_view()), 201
+
+    @bp.delete("/api/collections/<collection_id>/items/<item_id>")
+    def remove_collection_item(collection_id, item_id):
+        collections.remove_item(login.current_user(), collection_id, item_id)
+        return jsonify(deleted=item_id)
+
+    @bp.put("/api/collections/<collection_id>/order")
+    def reorder_collection(collection_id):
+        collections.reorder(login.current_user(), collection_id, body().get("item_ids"))
+        return jsonify(collection=collection_view(collections.collections.get(collection_id)))
 
     return bp

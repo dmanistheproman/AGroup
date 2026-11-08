@@ -93,6 +93,8 @@ from backend.repositories.favourite_repo import FavouriteRepository
 from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
 from backend.boundary.customer_routes import create_customer_blueprint
 from backend.entities.project_activity import ProjectActivity
+from backend.repositories.collection_repo import CollectionRepo
+from backend.controllers.shared.collection_service import CollectionService
 
 # ----- Helpdesk -----
 from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
@@ -251,7 +253,9 @@ def create_app(registry=None, admin_provider=None, config=None):
 
     # ----- Customer -----
     favourites = ManageFavouritesController(FavouriteRepository(store), shared.projects, ProjectActivity(store))
-    app.register_blueprint(create_customer_blueprint(favourites, login))
+    shared.collections = CollectionService(CollectionRepo(store), FavouriteRepository(store))
+    favourites.collections = shared.collections
+    app.register_blueprint(create_customer_blueprint(favourites, login, shared.collections))
 
     # ----- Helpdesk -----
     merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)

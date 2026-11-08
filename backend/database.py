@@ -249,6 +249,25 @@ CREATE TABLE IF NOT EXISTS upload_failure (
     reason TEXT NOT NULL,
     occurred_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS collection (
+    collection_id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    attachment_group_id TEXT,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    share_token TEXT UNIQUE,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS collection_item (
+    item_id TEXT PRIMARY KEY,
+    collection_id TEXT NOT NULL REFERENCES collection(collection_id),
+    project_id INTEGER,
+    attachment_id TEXT,
+    item_type TEXT NOT NULL,
+    colour TEXT,
+    note TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
 CREATE INDEX IF NOT EXISTS message_by_thread ON message(thread_id, sent_at);
 CREATE INDEX IF NOT EXISTS payment_by_offer ON payment_milestone(offer_id, due_date);
 CREATE INDEX IF NOT EXISTS notification_by_recipient ON notification(recipient_id, created_at);

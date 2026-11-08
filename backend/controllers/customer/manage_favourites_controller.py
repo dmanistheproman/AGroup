@@ -24,6 +24,7 @@ class ManageFavouritesController:
         self.favourite_repo = favourite_repo
         self.project_repo = project_repo
         self.activity = activity
+        self.collections = None   # CollectionService (S-22): removing a favourite takes it out of every folder
 
     def add_favourite(self, customer_id: str, project_id) -> dict:
         reference = project_reference(project_id)
@@ -43,6 +44,8 @@ class ManageFavouritesController:
         removed = fav_list.remove_project(reference)
         if removed:
             self.favourite_repo.save(fav_list)
+            if self.collections is not None:
+                self.collections.remove_project_everywhere(customer_id, reference)
         return {"success": removed, "favourites": fav_list.to_dict()}
 
     def get_favourites(self, customer_id: str) -> dict:
