@@ -20,7 +20,7 @@ class SpyRules:
     def __init__(self):
         self.calls = []
 
-    def on_status_changed(self, target_type, target_id, new_status, from_status=None):
+    def on_status_changed(self, target_type, target_id, new_status, from_status=None, reason=None):
         self.calls.append((target_type, target_id, new_status, from_status))
 
 

@@ -21,6 +21,9 @@ from backend.controllers.shared.notification_service import NotificationService
 from backend.controllers.shared.notification_rules import NotificationRules
 from backend.controllers.shared.request_service import RequestService
 from backend.controllers.shared.submit_ticket_controller import SubmitTicketController
+from backend.repositories.audit_log_repo import AuditLogRepo
+from backend.controllers.shared.status_change_service import StatusChangeService
+from backend.controllers.shared.ticket_lifecycle import TicketLifecycle
 from backend.boundary.shared_routes import create_shared_blueprint
 
 # ----- User Admin -----
@@ -151,11 +154,17 @@ def create_app(registry=None, admin_provider=None, config=None):
     login = LoginController(user_accounts, lambda: session)
     app.extensions['login'] = login   # for role guards in other blueprints
 
-    # ----- Shared: support tickets, reports, notifications (S-07, S-15, S-19) -----
+    # ----- Shared: support tickets, reports, notifications, status changes (S-04, S-07, S-15, S-19) -----
     notifications = NotificationService(NotificationRepo.from_data(SEED_NOTIFICATION_DATA))
     support_tickets = SupportTicketRepo()
-    requests = RequestService(support_tickets, NotificationRules(notifications, user_accounts, support_tickets))
-    app.register_blueprint(create_shared_blueprint(login, SubmitTicketController(requests), requests, notifications))
+    rules = NotificationRules(notifications, user_accounts, support_tickets)
+    requests = RequestService(support_tickets, rules)
+    status_change = StatusChangeService(AuditLogRepo(), rules)
+    ticket_lifecycle = TicketLifecycle(status_change, support_tickets)   # registers SUPPORT_TICKET
+    status_change.register("USER_ACCOUNT", user_accounts.get, user_accounts.save)
+    app.extensions['status_change'] = status_change   # for other roles' status changes
+    app.register_blueprint(create_shared_blueprint(login, SubmitTicketController(requests), requests, notifications,
+                                                   ticket_lifecycle, status_change))
 
     # ----- User Admin -----
     account_registry = registry if registry is not None else UnconnectedAccountRegistry()

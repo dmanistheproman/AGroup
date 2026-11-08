@@ -10,18 +10,24 @@ class NotificationRules:
         self.accounts = account_repo
         self.tickets = ticket_repo
 
-    def on_status_changed(self, target_type, target_id, new_status):
+    def on_status_changed(self, target_type, target_id, new_status, from_status=None, reason=None):
+        """from_status is None when the record has just been opened (RequestService.open)."""
         if target_type != self.TARGET_SUPPORT_TICKET:
             return
         ticket = self.tickets.get(target_id)
         if ticket is None:
             return
-        if new_status == ticket.STATUS_OPEN:
+        if new_status == ticket.STATUS_OPEN and from_status is None:
             self._ticket_opened(ticket)
+            return
+        if new_status == ticket.STATUS_OPEN:
+            text = f"Your request {ticket.id} has been reopened."
         else:
-            self.notifications.send(ticket.requester_id, "TICKET_STATUS",
-                                    f"Your request {ticket.id} is now {new_status.replace('_', ' ').lower()}.",
-                                    self._requester_link(ticket), *self._target(ticket))
+            text = f"Your request {ticket.id} is now {new_status.replace('_', ' ').lower()}."
+        if reason:
+            text += f" {reason}"
+        self.notifications.send(ticket.requester_id, "TICKET_STATUS", text,
+                                self._requester_link(ticket), *self._target(ticket))
 
     def _ticket_opened(self, ticket):
         self.notifications.send(ticket.requester_id, "TICKET_OPENED",

@@ -1,4 +1,5 @@
-"""Boundary: shared HTTP routes — Contact Support, Report IDP, notifications (S-07, S-15)."""
+"""Boundary: shared HTTP routes — Contact Support, Report IDP, ticket page, record history and
+notifications (S-04, S-07, S-15, S-20)."""
 from flask import Blueprint, jsonify, request
 
 from backend.boundary.auth_guard import require_role
@@ -7,9 +8,11 @@ from backend.entities.support_ticket import SupportTicket
 from backend.entities.user_account import UserAccount
 
 REQUESTERS = (UserAccount.ROLE_CUSTOMER, UserAccount.ROLE_DESIGNER)
+STAFF = (UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN, UserAccount.ROLE_PLATFORM_MANAGER)
 
 
-def create_shared_blueprint(login, submit_ticket, request_service, notifications):
+def create_shared_blueprint(login, submit_ticket, request_service, notifications, ticket_lifecycle=None,
+                            status_change=None):
     bp = Blueprint("shared", __name__)
 
     # ---- error mapping (see backend/CONVENTIONS.md) ----
@@ -48,6 +51,38 @@ def create_shared_blueprint(login, submit_ticket, request_service, notifications
     def my_tickets():
         tickets = request_service.list_for_requester(login.current_user().id)
         return jsonify(tickets=[t.public_view() for t in tickets])
+
+    # ---- Ticket page for requesters and agents (RecordPage, S-20) ----
+    def ticket_page(ticket):
+        is_agent = login.current_user().role == UserAccount.ROLE_HELPDESK
+        return jsonify(ticket=ticket.public_view(),
+                       history=[e.public_view() for e in ticket_lifecycle.history_of(ticket.id)],
+                       allowed_statuses=ticket_lifecycle.allowed_statuses(ticket.id) if is_agent else [])
+
+    @bp.get("/api/support/tickets/<ticket_id>")
+    @require_role(login, *REQUESTERS, UserAccount.ROLE_HELPDESK)
+    def view_ticket(ticket_id):
+        ticket = request_service.tickets.get(ticket_id)
+        if ticket is None:
+            raise LookupError(f"Ticket {ticket_id} was not found.")
+        user = login.current_user()
+        if user.role != UserAccount.ROLE_HELPDESK and not ticket.can_access(user.id):
+            raise PermissionError("You can only view your own requests.")
+        return ticket_page(ticket)
+
+    # ---- Move a ticket (ConfirmWithReasonDialog -> TicketLifecycle -> StatusChangeService) ----
+    @bp.post("/api/support/tickets/<ticket_id>/status")
+    @require_role(login, UserAccount.ROLE_HELPDESK)
+    def move_ticket(ticket_id):
+        data = body()
+        ticket = ticket_lifecycle.move_to(ticket_id, data.get("status"), login.current_user(), data.get("reason"))
+        return ticket_page(ticket)
+
+    # ---- Record history (HistoryTimeline, S-04) ----
+    @bp.get("/api/history/<target_type>/<target_id>")
+    @require_role(login, *STAFF)
+    def record_history(target_type, target_id):
+        return jsonify(history=[e.public_view() for e in status_change.history_of(target_type, target_id)])
 
     # ---- Report IDP (ReportAction) ----
     @bp.post("/api/reports/projects/<project_id>")

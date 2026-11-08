@@ -20,6 +20,11 @@ class UserAccount:
     STATUS_ACTIVE = AccountStatus.ACTIVE
     STATUS_SUSPENDED = AccountStatus.SUSPENDED
 
+    # Lifecycle used by StatusChangeService (S-04): suspending and reactivating both need a reason.
+    TRANSITIONS = {AccountStatus.ACTIVE: {AccountStatus.SUSPENDED},
+                   AccountStatus.SUSPENDED: {AccountStatus.ACTIVE}}
+    REASON_REQUIRED = frozenset({AccountStatus.SUSPENDED, AccountStatus.ACTIVE})
+
     def __init__(self, user_id, name, email, password_hash, role,
                  status=STATUS_ACTIVE, contact_phone=None, created_at=None):
         if role not in self.ROLES:
