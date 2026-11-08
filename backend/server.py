@@ -157,6 +157,7 @@ def _connect_designer_records(shared, designer):
     rules.enquiries, rules.verifications = designer.enquiry_repo, designer.verification_repo
     rules.quotations, rules.proposals, rules.companies = designer.quotation_repo, designer.proposal_repo, designer.company_repo
     shared.messages.register_owner(designer.enquiry_repo.find_by_thread)
+    shared.messages.register_owner(designer.verification_repo.find_by_thread, staff_roles=(UserAccount.ROLE_USER_ADMIN,))
     designer.review_enquiry_controller.connect(shared)
     designer.verification_controller.shared = designer.review_controller.shared = shared
     designer.submit_quotation_controller.status_change = shared.status_change

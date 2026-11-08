@@ -42,6 +42,11 @@ class VerificationRepo:
     def for_company(self, company_id):
         return self._select("WHERE v.company_id = ?", (company_id,))
 
+    def find_by_thread(self, thread_id):
+        """The request a message thread belongs to (S-01), or None."""
+        found = self._select("WHERE r.thread_id = ?", (thread_id,))
+        return found[0] if found else None
+
     def next_reference(self):
         """Next request number, VER-001 onwards."""
         with self.store.transaction(write=True) as connection:
