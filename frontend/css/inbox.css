@@ -1,0 +1,28 @@
+/* InboxPage (S-14): requests, messages, offers and preferences for customers. Builds on styles.css, notifications.css, records.css. */
+.inbox-tabs{margin:10px 0 24px}
+.inbox-list{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.inbox-item{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--white);color:inherit;text-decoration:none}
+.inbox-item:hover,.inbox-item:focus-visible{border-color:var(--olive)}
+.inbox-item.unread{border-left:4px solid var(--olive)}
+.inbox-item small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+.inbox-icon .icon{width:20px;height:20px;color:var(--olive)}
+.inbox-meta{display:grid;justify-items:end;gap:4px}
+.inbox-unread{font-size:11px;color:var(--olive);font-weight:600}
+.inbox-record{border:1px solid var(--line);border-radius:10px;padding:22px;background:var(--white);margin-top:12px}
+.inbox-subheading{margin:26px 0 10px}
+.offer-card{border:1px solid var(--line);border-radius:10px;padding:18px 20px;background:var(--white);margin-bottom:12px}
+.offer-card h3{margin:4px 0 0}
+.preference-list{list-style:none;padding:0;display:grid;gap:12px}
+.conversation-list a{display:grid;border:1px solid var(--line);background:var(--white);border-radius:8px;padding:10px 12px;color:inherit;text-decoration:none}
+.conversation-list a.active{border-color:var(--olive)}
+.conversation-list a small{color:var(--muted);font-size:11px}
+@media(max-width:700px){.inbox-item{grid-template-columns:auto 1fr}.inbox-meta{grid-column:1/-1;justify-items:start}}
+/* portal.css styles the record parts in the portal; the customer inbox needs the same look */
+.inbox-page .detail-list{display:grid;grid-template-columns:130px 1fr;gap:8px 14px;font-size:13px;margin:16px 0}
+.inbox-page .detail-list dt{color:var(--muted)}
+.inbox-page .detail-list dd{margin:0}
+.inbox-page .status{font-size:11px;display:inline-block;border:1px solid #d2d2d2;border-radius:4px;background:#f6f6f6;padding:3px 8px;white-space:nowrap}
+.inbox-page .status.dark{background:#333;color:#fff;border-color:#333}
+.inbox-page .small-note{color:var(--muted);font-size:13px}
+.inbox-page .record-actions .button{padding:9px 16px;font-size:13px}
+@media(max-width:700px){.inbox-page .detail-list{grid-template-columns:100px 1fr}}
