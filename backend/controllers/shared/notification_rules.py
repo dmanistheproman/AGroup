@@ -1,7 +1,8 @@
 """<<control>> NotificationRules — decides who is notified when something changes (S-07).
 
     on_status_changed  support tickets (opened, moved, reopened) and projects (hidden, restored)
-    on_message_posted  a new message in a ticket's thread goes to the other side of the conversation
+    on_message_posted  a new message in a ticket's or a private conversation's thread goes to the other side
+A customer's notification preferences (C-12) are checked before anything is sent to them.
 """
 from backend.entities.enums import ProjectStatus
 from backend.entities.user_account import UserAccount
@@ -19,6 +20,8 @@ class NotificationRules:
         self.accounts = account_repo
         self.tickets = ticket_repo
         self.projects = project_repo
+        self.conversations = None    # ConversationRepo (S-16), set in server.py
+        self.preferences = None      # NotificationPreferenceRepo (C-12), set in server.py
 
     def on_status_changed(self, target_type, target_id, new_status, from_status=None, reason=None):
         """from_status is None when the record has just been opened (RequestService.open)."""
@@ -39,14 +42,24 @@ class NotificationRules:
             text = f"Your request {ticket.id} is now {new_status.replace('_', ' ').lower()}."
         if reason:
             text += f" {reason}"
-        self.notifications.send(ticket.requester_id, "TICKET_STATUS", text,
+        self._send(ticket.requester_id, "TICKET_STATUS", text,
                                 self._requester_link(ticket), *self._target(ticket))
 
     def on_message_posted(self, thread_id, author_id, body=""):
+        preview = body if len(body) <= PREVIEW else body[:PREVIEW - 1] + "…"
+        conversation = self.conversations.find_by_thread(thread_id) if self.conversations is not None else None
+        if conversation is not None:
+            recipient = conversation.other_participant(author_id)
+            if recipient == conversation.customer_id:
+                text, link = f"New message from {conversation.company_name}: {preview}", "index.html#messages"
+            else:
+                text, link = f"New message from {conversation.customer_name}: {preview}", "portal.html#designer/messages"
+            if recipient:
+                self._send(recipient, "NEW_MESSAGE", text, link, self.TARGET_THREAD, thread_id)
+            return
         ticket = self.tickets.find_by_thread(thread_id) if hasattr(self.tickets, "find_by_thread") else None
         if ticket is None:
             return
-        preview = body if len(body) <= PREVIEW else body[:PREVIEW - 1] + "…"
         if author_id == ticket.requester_id:
             recipients = [ticket.handler_id] if ticket.handler_id else self._helpdesk_agents()
             link = "portal.html#helpdesk/tickets"
@@ -54,7 +67,7 @@ class NotificationRules:
             recipients, link = [ticket.requester_id], self._requester_link(ticket)
         for recipient in recipients:
             if recipient and recipient != author_id:
-                self.notifications.send(recipient, "NEW_MESSAGE", f"New message on {ticket.id}: {preview}", link,
+                self._send(recipient, "NEW_MESSAGE", f"New message on {ticket.id}: {preview}", link,
                                         self.TARGET_THREAD, thread_id)
 
     def _project_changed(self, project_id, new_status, from_status, reason):
@@ -69,11 +82,11 @@ class NotificationRules:
             return
         if reason:
             text += f" {reason}"
-        self.notifications.send(project["owner_id"], kind, text, "portal.html#designer/projects",
+        self._send(project["owner_id"], kind, text, "portal.html#designer/projects",
                                 self.TARGET_PROJECT, project_id)
 
     def _ticket_opened(self, ticket):
-        self.notifications.send(ticket.requester_id, "TICKET_OPENED",
+        self._send(ticket.requester_id, "TICKET_OPENED",
                                 f"We received your request {ticket.id}. The helpdesk will reply soon.",
                                 self._requester_link(ticket), *self._target(ticket))
         if ticket.is_report():
@@ -84,7 +97,12 @@ class NotificationRules:
             who = requester.name if requester else ticket.requester_id
             kind, text, link = "NEW_TICKET", f"New support ticket {ticket.id} from {who}: {ticket.label()}.", "portal.html#helpdesk/tickets"
         for agent_id in self._helpdesk_agents():
-            self.notifications.send(agent_id, kind, text, link, *self._target(ticket))
+            self._send(agent_id, kind, text, link, *self._target(ticket))
+
+    def _send(self, recipient_id, kind, text, link="", target_type=None, target_id=None):
+        if self.preferences is not None and not self.preferences.allows(recipient_id, kind):
+            return None
+        return self.notifications.send(recipient_id, kind, text, link, target_type, target_id)
 
     def _helpdesk_agents(self):
         return [a.id for a in self.accounts.all() if a.role == UserAccount.ROLE_HELPDESK and a.is_active()]

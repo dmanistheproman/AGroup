@@ -177,6 +177,62 @@ def create_shared_blueprint(shared):
         message = shared.messages.post_message(thread_id, login.current_user(), body().get("body"))
         return jsonify(message=message.public_view()), 201
 
+    # ---- Private conversations with a designer (MessageDesignerButton, S-16) ----
+    @bp.post("/api/conversations")
+    @require_role(login, UserAccount.ROLE_CUSTOMER)
+    def start_conversation():
+        conversation = shared.conversations.start_conversation(login.current_user(), body().get("company_id"))
+        return jsonify(conversation=conversation.public_view()), 201
+
+    @bp.get("/api/conversations")
+    @require_role(login, UserAccount.ROLE_CUSTOMER, UserAccount.ROLE_DESIGNER)
+    def list_conversations():
+        return jsonify(conversations=[c.public_view() for c in
+                                      shared.conversations.list_conversations(login.current_user())])
+
+    # ---- Inbox (InboxPage, S-14) ----
+    @bp.get("/api/inbox")
+    @require_role(login)
+    def inbox():
+        return jsonify(shared.inbox.inbox_for(login.current_user()))
+
+    # ---- Notification preferences (C-12) ----
+    @bp.get("/api/notification-preferences")
+    @require_role(login, UserAccount.ROLE_CUSTOMER)
+    def notification_preferences():
+        return jsonify(preferences=shared.preferences.list_for(login.current_user()))
+
+    @bp.put("/api/notification-preferences")
+    @require_role(login, UserAccount.ROLE_CUSTOMER)
+    def update_notification_preference():
+        data = body()
+        return jsonify(preferences=shared.preferences.update(login.current_user(), data.get("event_type"),
+                                                             data.get("is_enabled")))
+
+    # ---- The client's answer to offers (OfferPage, S-21) ----
+    @bp.get("/api/offers")
+    @require_role(login, UserAccount.ROLE_CUSTOMER)
+    def my_offers():
+        return jsonify(shared.offers.offers_for(login.current_user()))
+
+    @bp.post("/api/offers/quotations/<offer_id>/accept")
+    @require_role(login, UserAccount.ROLE_CUSTOMER)
+    def accept_quotation(offer_id):
+        quotation = shared.offers.accept(offer_id, login.current_user())
+        return jsonify(quotation=shared.offers.quotation_view(quotation))
+
+    @bp.post("/api/offers/quotations/<offer_id>/adjustment")
+    @require_role(login, UserAccount.ROLE_CUSTOMER)
+    def request_quotation_adjustment(offer_id):
+        quotation = shared.offers.request_adjustment(offer_id, login.current_user(), body().get("note"))
+        return jsonify(quotation=shared.offers.quotation_view(quotation))
+
+    @bp.post("/api/offers/proposals/<offer_id>/feedback")
+    @require_role(login, UserAccount.ROLE_CUSTOMER)
+    def proposal_feedback(offer_id):
+        proposal = shared.offers.give_feedback(offer_id, login.current_user(), body().get("feedback"))
+        return jsonify(proposal=proposal.public_view())
+
     # ---- Internal notes (NotesPanel, S-02): target_type REQUEST or USER_ACCOUNT ----
     @bp.get("/api/notes/<target_type>/<target_id>")
     @require_role(login, *STAFF)

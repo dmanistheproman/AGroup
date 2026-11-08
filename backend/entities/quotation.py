@@ -12,6 +12,12 @@ class Quotation(Offer):
     STATUS_EXPIRED = "EXPIRED"                       # UC7 AF2
     STATUS_ACCEPTED = "ACCEPTED"                     # UC7 AF3 (shared part: the client accepts)
 
+    # Lifecycle used by StatusChangeService (S-04) when the client answers through OfferService (S-21).
+    TRANSITIONS = {STATUS_DRAFT: {STATUS_WAITING},
+                   STATUS_WAITING: {STATUS_ACCEPTED, STATUS_ADJUSTMENT, STATUS_EXPIRED},
+                   STATUS_ADJUSTMENT: {STATUS_WAITING}}
+    REASON_REQUIRED = frozenset({STATUS_ADJUSTMENT})
+
     def __init__(self, quotation_id, enquiry_id, client_name, requirements,
                  design_fee, material_cost, construction_fee,
                  valid_until, payment_schedule, status=None, version=1,

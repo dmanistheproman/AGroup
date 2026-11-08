@@ -227,6 +227,20 @@ CREATE TABLE IF NOT EXISTS favourite (
     saved_at TEXT NOT NULL,
     UNIQUE (customer_id, project_id)
 );
+CREATE TABLE IF NOT EXISTS conversation (
+    conversation_id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    company_id TEXT NOT NULL,
+    thread_id TEXT NOT NULL UNIQUE REFERENCES thread(thread_id),
+    last_message_at TEXT,
+    UNIQUE (customer_id, company_id)
+);
+CREATE TABLE IF NOT EXISTS notification_preference (
+    customer_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    is_enabled INTEGER NOT NULL,
+    PRIMARY KEY (customer_id, event_type)
+);
 CREATE INDEX IF NOT EXISTS message_by_thread ON message(thread_id, sent_at);
 CREATE INDEX IF NOT EXISTS payment_by_offer ON payment_milestone(offer_id, due_date);
 CREATE INDEX IF NOT EXISTS notification_by_recipient ON notification(recipient_id, created_at);

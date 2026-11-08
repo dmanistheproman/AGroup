@@ -33,6 +33,12 @@ from backend.repositories.internal_note_repo import InternalNoteRepo
 from backend.controllers.shared.post_message_controller import PostMessageController
 from backend.controllers.shared.add_internal_note_controller import AddInternalNoteController
 from backend.controllers.shared.project_status_controller import ProjectStatusController
+from backend.repositories.conversation_repo import ConversationRepo
+from backend.repositories.notification_preference_repo import NotificationPreferenceRepo
+from backend.controllers.shared.start_conversation_controller import StartConversationController
+from backend.controllers.shared.notification_preference_controller import NotificationPreferenceController
+from backend.controllers.shared.inbox_service import InboxService
+from backend.controllers.shared.offer_service import OfferService
 from backend.entities.enquiry import Enquiry
 from backend.entities.user_account import UserAccount
 from backend.entities.verification_request import VerificationRequest
@@ -134,6 +140,7 @@ def build_designer_controllers(upload_service, store):
     )
     c.customer_repo, c.company_repo = customer_repo, company_repo   # shared with AccountService (S-13)
     c.enquiry_repo, c.verification_repo = enquiry_repo, verification_repo   # shared with RequestService (S-19)
+    c.quotation_repo, c.proposal_repo = quotation_repo, proposal_repo   # shared with OfferService (S-21)
     return c
 
 
@@ -201,6 +208,12 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.note_repo = InternalNoteRepo(store)
     shared.notes = AddInternalNoteController(shared.note_repo, {"REQUEST": shared.requests.find,
                                                                "USER_ACCOUNT": user_accounts.get})
+    shared.conversation_repo = ConversationRepo(store)
+    shared.rules.conversations = shared.conversation_repo
+    shared.messages.register_owner(shared.conversation_repo.find_by_thread, on_post=shared.conversation_repo.touch)
+    shared.preference_repo = NotificationPreferenceRepo(store)
+    shared.rules.preferences = shared.preference_repo
+    shared.preferences = NotificationPreferenceController(shared.preference_repo)
     shared.reports = ReportService(store)
     shared.category_lookup = CategoryLookupController(store)
     app.extensions['shared'] = shared
@@ -220,6 +233,10 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.account_service = accounts
     shared.requests.register(Enquiry, designer.enquiry_repo, "ENQUIRY")
     shared.requests.register(VerificationRequest, designer.verification_repo, "VERIFICATION_REQUEST")
+    shared.conversations = StartConversationController(shared.conversation_repo, designer.company_repo, shared.threads)
+    shared.inbox = InboxService(shared.tickets, designer.enquiry_repo, designer.verification_repo,
+                                shared.conversation_repo, shared.notifications)
+    shared.offers = OfferService(designer.quotation_repo, designer.proposal_repo, shared.status_change)
     app.register_blueprint(create_auth_blueprint(login, accounts))
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
 

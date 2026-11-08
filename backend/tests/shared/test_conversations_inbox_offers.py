@@ -136,8 +136,9 @@ def test_customer_asks_for_changes_with_a_note(shared):
 def test_only_the_client_answers_and_only_while_waiting(shared):
     with pytest.raises(PermissionError):
         shared.offers.accept("QT-101", second_customer(shared))
+    shared.offers.accept("QT-101", user(shared, "CUS-101"))
     with pytest.raises(ValueError):
-        shared.offers.accept("QT-103", user(shared, "CUS-101"))     # Meera's, and already accepted
+        shared.offers.accept("QT-101", user(shared, "CUS-101"))     # already accepted
     with pytest.raises(LookupError):
         shared.offers.accept("QT-999", user(shared, "CUS-101"))
 
