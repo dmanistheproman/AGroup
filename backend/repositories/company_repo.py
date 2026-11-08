@@ -1,4 +1,6 @@
-"""<<entity>> 仓库 — CompanyRepo。from_data() 每次生成全新实体，避免测试间串数据。"""
+"""<<repository>> CompanyRepo — DesignerCompany records in the designer_company table.
+from_data() adds the seed companies that are missing, so each test (with its own store) gets fresh data."""
+from backend.database import store_or_memory
 from backend.entities.designer_company import DesignerCompany
 
 SEED_COMPANY_DATA = [
@@ -12,26 +14,59 @@ SEED_COMPANY_DATA = [
      "specialisms": "Contemporary"},
 ]
 
+COLUMNS = ("company_id", "user_id", "name", "description", "address", "contact_email", "specialisms", "logo")
+
+
 class CompanyRepo:
-    def __init__(self, companies=None):
-        self.items = {c.id: c for c in (companies or [])}
+    def __init__(self, store=None):
+        self.store = store_or_memory(store)
 
     @classmethod
-    def from_data(cls, rows):
-        return cls([DesignerCompany(**row) for row in rows])
+    def from_data(cls, rows, store=None):
+        repo = cls(store)
+        with repo.store.transaction(write=True) as connection:
+            for row in rows:
+                connection.execute(f"INSERT OR IGNORE INTO designer_company({', '.join(COLUMNS)}) "
+                                   f"VALUES ({', '.join('?' * len(COLUMNS))})", cls._values(DesignerCompany(**row)))
+        return repo
+
+    @staticmethod
+    def _values(c):
+        return (c.id, c.owner_id, c.name, c.description or "", c.address or "", c.email or "", c.specialisms or "",
+                c.logo)
+
+    @staticmethod
+    def _company(row):
+        return DesignerCompany(row["company_id"], row["user_id"], row["name"], row["description"], row["address"],
+                               row["contact_email"], row["specialisms"], row["logo"])
+
+    def _one(self, column, value):
+        with self.store.transaction() as connection:
+            row = connection.execute(f"SELECT * FROM designer_company WHERE {column} = ?", (value,)).fetchone()
+        return self._company(row) if row else None
 
     def get(self, company_id):
-        return self.items.get(company_id)
+        return self._one("company_id", company_id)
 
     def get_by_owner(self, user_id):
-        return next((c for c in self.items.values() if c.owner_id == user_id), None)
+        return self._one("user_id", user_id)
+
+    def all(self):
+        with self.store.transaction() as connection:
+            rows = connection.execute("SELECT * FROM designer_company ORDER BY company_id").fetchall()
+        return [self._company(row) for row in rows]
 
     def save(self, company):
-        self.items[company.id] = company
+        with self.store.transaction(write=True) as connection:
+            connection.execute(f"""
+                INSERT INTO designer_company({', '.join(COLUMNS)}) VALUES ({', '.join('?' * len(COLUMNS))})
+                ON CONFLICT(company_id) DO UPDATE SET {", ".join(f"{c} = excluded.{c}" for c in COLUMNS[2:])}
+            """, self._values(company))
         return company
 
     def resolve_for_owner(self, user_id, claimed_company_id=None):
-        """共享的归属校验：定位 user_id 名下公司；claimed 与本人不符 → PermissionError。"""
+        """Shared ownership check: find the company of user_id; a claimed company that is not theirs
+        raises PermissionError."""
         company = self.get(claimed_company_id) if claimed_company_id else self.get_by_owner(user_id)
         if company is None:
             raise ValueError("No company profile found for this account.")

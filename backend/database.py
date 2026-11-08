@@ -1,8 +1,10 @@
-"""Tables for the shared parts and the helpers their repositories use.
+"""Tables for the shared parts and the Interior Designer records, and the helpers their repositories use.
 
-Table and column names follow the ER diagram (user_account, request + support_ticket, notification,
-audit_log, thread, attachment_group + attachment). Identifiers are the readable text IDs the app already
-uses (CUS-101, TKT-1001, ...). The project, category and activity tables are in storage.py.
+Table names follow the ER diagram: user_account, customer_profile, designer_company, request with
+support_ticket / enquiry / verification_request, offer with design_proposal / quotation, payment_milestone,
+review, notification, audit_log, thread, attachment_group + attachment. Columns use the ER names where the
+entity has the same field and the entity's own names otherwise. Identifiers are the readable text IDs the
+app already uses (CUS-101, TKT-1001, QT-101, ...). The project, category and activity tables are in storage.py.
 
     install_schema(store)   create the tables if they are missing (safe to run on every start)
     MemoryStore()           a private in-memory database with the same transaction() as SQLiteStore,
@@ -96,6 +98,113 @@ CREATE TABLE IF NOT EXISTS audit_log (
     reason TEXT,
     created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS customer_profile (
+    customer_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    house_type TEXT NOT NULL DEFAULT '',
+    preferred_styles TEXT NOT NULL DEFAULT '[]',
+    budget REAL NOT NULL DEFAULT 0,
+    share_preferences INTEGER NOT NULL DEFAULT 0,
+    requirements TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS designer_company (
+    company_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    address TEXT NOT NULL DEFAULT '',
+    contact_email TEXT NOT NULL DEFAULT '',
+    specialisms TEXT NOT NULL DEFAULT '',
+    logo TEXT
+);
+CREATE TABLE IF NOT EXISTS enquiry (
+    request_id TEXT PRIMARY KEY REFERENCES request(request_id),
+    client_name TEXT NOT NULL,
+    requirements TEXT NOT NULL,
+    budget REAL,
+    decided_at TEXT,
+    decision_reason TEXT
+);
+CREATE TABLE IF NOT EXISTS enquiry_question (
+    question_id TEXT PRIMARY KEY,
+    request_id TEXT NOT NULL REFERENCES request(request_id),
+    sort_order INTEGER NOT NULL,
+    body TEXT NOT NULL,
+    asked_at TEXT,
+    answer TEXT,
+    answered_at TEXT,
+    flagged INTEGER NOT NULL DEFAULT 0,
+    flag_reason TEXT
+);
+CREATE TABLE IF NOT EXISTS enquiry_clarification (
+    clarification_id INTEGER PRIMARY KEY,
+    request_id TEXT NOT NULL REFERENCES request(request_id),
+    note TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS verification_request (
+    request_id TEXT PRIMARY KEY REFERENCES request(request_id),
+    company_id TEXT NOT NULL,
+    requested_by TEXT,
+    documents TEXT NOT NULL DEFAULT '[]',
+    rejection_reason TEXT,
+    reviewed_by TEXT
+);
+CREATE TABLE IF NOT EXISTS offer (
+    offer_id TEXT PRIMARY KEY,
+    request_id TEXT,
+    previous_offer_id TEXT,
+    thread_id TEXT UNIQUE,
+    attachment_group_id TEXT,
+    offer_type TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL,
+    sent_at TEXT,
+    answered_at TEXT
+);
+CREATE TABLE IF NOT EXISTS design_proposal (
+    offer_id TEXT PRIMARY KEY REFERENCES offer(offer_id),
+    client_name TEXT NOT NULL,
+    title TEXT NOT NULL,
+    design_description TEXT NOT NULL,
+    attachments TEXT NOT NULL DEFAULT '[]',
+    feedback TEXT,
+    feedback_history TEXT NOT NULL DEFAULT '[]',
+    revision_note TEXT
+);
+CREATE TABLE IF NOT EXISTS quotation (
+    offer_id TEXT PRIMARY KEY REFERENCES offer(offer_id),
+    client_name TEXT NOT NULL,
+    requirements TEXT NOT NULL DEFAULT '',
+    design_fee REAL NOT NULL,
+    material_cost REAL NOT NULL,
+    construction_fee REAL NOT NULL,
+    total REAL NOT NULL,
+    valid_until TEXT NOT NULL,
+    payment_schedule TEXT NOT NULL,
+    adjustment_note TEXT,
+    revision_note TEXT
+);
+CREATE TABLE IF NOT EXISTS payment_milestone (
+    milestone_id TEXT PRIMARY KEY,
+    offer_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    amount REAL NOT NULL,
+    due_date TEXT NOT NULL,
+    status TEXT NOT NULL,
+    paid_date TEXT,
+    last_reminded_at TEXT
+);
+CREATE TABLE IF NOT EXISTS review (
+    review_id TEXT PRIMARY KEY,
+    request_id TEXT,
+    customer TEXT NOT NULL,
+    company TEXT NOT NULL,
+    score INTEGER NOT NULL,
+    comment TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS payment_by_offer ON payment_milestone(offer_id, due_date);
 CREATE INDEX IF NOT EXISTS notification_by_recipient ON notification(recipient_id, created_at);
 CREATE INDEX IF NOT EXISTS request_by_requester ON request(requester_id, created_at);
 CREATE INDEX IF NOT EXISTS request_by_handler ON request(handler_id);
@@ -130,6 +239,37 @@ class MemoryStore:
             except Exception:
                 self._connection.execute("ROLLBACK")
                 raise
+
+
+def save_request(connection, request, request_type, created_at):
+    """Insert or update the request base row shared by tickets, enquiries and verification requests."""
+    from datetime import datetime, timezone
+    connection.execute("""
+        INSERT INTO request(request_id, requester_id, handler_id, thread_id, attachment_group_id,
+                            request_type, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(request_id) DO UPDATE SET handler_id = excluded.handler_id,
+            thread_id = excluded.thread_id, attachment_group_id = excluded.attachment_group_id,
+            status = excluded.status, updated_at = excluded.updated_at
+    """, (request.id, request.requester_id, request.handler_id, request.thread_id, request.attachment_group_id,
+          request_type, request.status, created_at, datetime.now(timezone.utc).isoformat()))
+
+
+def save_offer(connection, offer, offer_type, request_id=None):
+    """Insert or update the offer base row shared by design proposals and quotations."""
+    connection.execute("""
+        INSERT INTO offer(offer_id, request_id, previous_offer_id, thread_id, attachment_group_id, offer_type,
+                          revision, status, sent_at, answered_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(offer_id) DO UPDATE SET request_id = excluded.request_id, revision = excluded.revision,
+            status = excluded.status, sent_at = excluded.sent_at, answered_at = excluded.answered_at
+    """, (offer.id, request_id if request_id is not None else offer.request_id, offer.previous_offer_id,
+          offer.thread_id, offer.attachment_group_id, offer_type, getattr(offer, "version", offer.revision),
+          offer.status, offer.sent_at, offer.answered_at))
+
+
+def exists(connection, table, column, value):
+    return connection.execute(f"SELECT 1 FROM {table} WHERE {column} = ?", (value,)).fetchone() is not None
 
 
 def store_or_memory(store):

@@ -45,6 +45,7 @@ class SubmitProposalController:
         if proposal is None:
             raise ValueError("Proposal not found.")
         proposal.present()
+        self.proposals.save(proposal)
         return _view(proposal)
 
 class ReviseProposalController:
@@ -61,4 +62,5 @@ class ReviseProposalController:
             proposal.attachments.append(self.uploads.upload(image, "Proposal", proposal.id))
         proposal.revise(description=(data.get("description") or "").strip() or None,
                         note=(data.get("note") or "").strip() or None)
+        self.proposals.save(proposal)
         return _view(proposal)

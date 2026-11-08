@@ -1,4 +1,3 @@
-from datetime import date
 
 from backend.entities.enquiry import Enquiry
 
@@ -14,7 +13,6 @@ class ReviewEnquiryController:
 
     def __init__(self, enquiry_repo):
         self._repo = enquiry_repo
-        self._clarifications = {}   # enquiry_id -> [{note, at}] (demo record; no message thread yet)
 
     def list_for(self, user_id=None):
         return [self._view(e) for e in self._repo.all()]
@@ -31,6 +29,7 @@ class ReviewEnquiryController:
             enquiry.decline(reason)
             message = ("Collaboration declined and recorded. The use case ends here; the client "
                        "is notified (demo record; notification service not implemented).")
+        self._repo.save(enquiry)
         return {"enquiry": self._view(enquiry),"questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "reviewed": True, "message": message}
 
     def clarify(self, enquiry_id, user_id, note):
@@ -40,19 +39,20 @@ class ReviewEnquiryController:
             raise ValueError("Describe what needs clarifying.")
         if enquiry.status != Enquiry.STATUS_AWAITING_REPLY:
             raise ValueError("Requirements already reviewed — clarification is only possible before the decision.")
-        self._clarifications.setdefault(enquiry.id, []).append(
-            {"note": note, "at": date.today().isoformat()})
+        self._repo.add_clarification(enquiry.id, note)   # demo record until message threads (S-01) exist
         return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(),"message":
                 f"Clarification request recorded for {enquiry.client_name} (message thread not implemented)."}
 
     def reply_question(self, enquiry_id, user_id, question_id, answer):
         enquiry = self._find(enquiry_id)
         enquiry.answer_question(question_id, answer)
+        self._repo.save(enquiry)
         return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "message": "Reply sent to the client (demo record; notification service not implemented)."}
 
     def flag_question(self, enquiry_id, user_id, question_id, reason=None):
         enquiry = self._find(enquiry_id)
         enquiry.flag_question(question_id, reason)
+        self._repo.save(enquiry)
         return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "message": "Question flagged — transferred to the platform for handling (demo record; notification service not implemented)."}
 
 
@@ -71,7 +71,7 @@ class ReviewEnquiryController:
             "status": enquiry.status,
             "decided_at": enquiry.decided_at,
             "decision_reason": enquiry.decision_reason,
-            "clarifications": self._clarifications.get(enquiry.id, []),
+            "clarifications": self._repo.clarifications_for(enquiry.id),
             "questions": enquiry.questions, 
             "unanswered": enquiry.unanswered_count(),
         }

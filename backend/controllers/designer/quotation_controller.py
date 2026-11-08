@@ -70,6 +70,7 @@ class SubmitQuotationController:
         if quotation is None:
             raise ValueError("Quotation not found.")
         quotation.send()
+        self.quotations.save(quotation)
         return self._view(quotation)
 
     def revise(self, user_id, quotation_id, data):
@@ -85,4 +86,5 @@ class SubmitQuotationController:
             valid_until=_iso_date(data.get("valid_until")),
             payment_schedule=_schedule(data.get("payment_schedule")),
             note=(data.get("note") or "").strip() or None)
+        self.quotations.save(quotation)
         return self._view(quotation)

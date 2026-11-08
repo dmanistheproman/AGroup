@@ -48,6 +48,7 @@ class PaymentController:
         self._assert_owned(milestone_id, user_id)
         milestone = self._repo.get(milestone_id)
         milestone.mark_paid(data.get("paid_date"))
+        self._repo.save(milestone)
         return {"milestone": milestone.to_dict(), "recorded": True}
 
     # ---- alternative flow: overdue reminder -----------------------------
@@ -58,6 +59,7 @@ class PaymentController:
             raise ValueError("Paid milestones do not need reminders")
         from datetime import date
         milestone.last_reminded_at = date.today().isoformat()
+        self._repo.save(milestone)
         return {"reminded": True,
                 "message": f"Payment reminder for '{milestone.name}' sent to the client "
                            f"(demo record; notification service not implemented)"}

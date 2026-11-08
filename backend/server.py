@@ -59,7 +59,7 @@ from backend.repositories.proposal_repo import ProposalRepo, SEED_PROPOSAL_DATA
 from backend.repositories.enquiry_repo import EnquiryRepo, SEED_ENQUIRY_DATA
 from backend.repositories.quotation_repo import QuotationRepo, SEED_QUOTATION_DATA
 from backend.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
-from backend.repositories.payment_repo import payment_repo
+from backend.repositories.payment_repo import PaymentRepo
 from backend.services.file_upload_service import FileUploadService
 from backend.services.credit_status_service import CreditStatusService
 from backend.controllers.designer.credit_status_controller import ViewCreditStatusController
@@ -80,22 +80,23 @@ UPLOAD_DIR = ROOT / 'backend' / 'uploads'
 
 def build_designer_controllers(upload_service, store):
     """ID-01 … ID-13 wiring, moved from the ID branch's run.py."""
-    company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA)
-    verification_repo = VerificationRepo()
+    company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA, store)
+    verification_repo = VerificationRepo(store)
     # ---------- ID-05 / ID-06：设计提案 — 两个控制器必须共享同一仓库实例 ----------
-    proposal_repo = ProposalRepo.from_data(SEED_PROPOSAL_DATA)
+    proposal_repo = ProposalRepo.from_data(SEED_PROPOSAL_DATA, store)
     # ---------- ID-07 / ID-08：报价（附加于已确认的请求）与客户评价（限本公司） ----------
-    enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA)
-    quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA)
+    enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA, store)
+    quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA, store)
 
     projects_repo = ProjectRepo(store)
+    payment_repo = PaymentRepo(store)
 
     c = SimpleNamespace()
     c.project_controller = ProjectController(projects_repo, CategoryRepo(store), upload_service)
     c.company_controller = UpdateCompanyProfileController(company_repo, upload_service)
     c.verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
     c.review_controller = ReviewVerificationController(verification_repo, company_repo)
-    customer_repo = CustomerRepo.from_data(SEED_CUSTOMER_DATA)
+    customer_repo = CustomerRepo.from_data(SEED_CUSTOMER_DATA, store)
     c.potential_clients_controller = FindPotentialClientsController(customer_repo)
     c.submit_proposal_controller = SubmitProposalController(proposal_repo, upload_service)
     c.revise_proposal_controller = ReviseProposalController(proposal_repo, upload_service)
@@ -103,7 +104,7 @@ def build_designer_controllers(upload_service, store):
     c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10：需求审查（accept/decline/clarify）
     c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo))
     c.statistics_controller = ViewProjectStatisticsController(ProjectActivityRepo(store), projects_repo)
-    c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
+    c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store))
     # ---------- ID-09：付款进度（平台只记录不代收；里程碑属于已接受的报价） ----------
     c.payment_controller = PaymentController(
         payment_repo,

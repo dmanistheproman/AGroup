@@ -1,6 +1,10 @@
-"""<<entity>> 仓库 — QuotationRepo（接 Firestore 前的内存替身；含 ID-07 任务 3 的到期检查）。"""
+"""<<repository>> QuotationRepo — Quotation records (shared offers, S-21), with the ID-07 task 3 expiry check.
+
+Stored as the ER diagram's offer base row (request_id = the enquiry) plus a quotation row.
+"""
 import datetime
-import re
+
+from backend.database import exists, next_number, save_offer, store_or_memory
 from backend.entities.quotation import Quotation
 
 SEED_QUOTATION_DATA = [
@@ -19,37 +23,68 @@ SEED_QUOTATION_DATA = [
     {"quotation_id": "QT-104", "enquiry_id": "CUS-105", "client_name": "Dana Teo", "requirements": "Full renovation for a resale flat; timeline flexible.", "design_fee": 5000, "material_cost": 12000, "construction_fee": 18000, "valid_until": "2026-12-30", "payment_schedule": "S$4,000 consultation, S$8,000 deposit, remainder on completion", "status": "ACCEPTED"}
 ]
 
+OFFER_TYPE = "QUOTATION"
+COLUMNS = ("client_name", "requirements", "design_fee", "material_cost", "construction_fee", "total", "valid_until",
+           "payment_schedule", "adjustment_note", "revision_note")
+
+
 class QuotationRepo:
-    def __init__(self, quotations=None):
-        self.items = {q.id: q for q in (quotations or [])}
+    PREFIX = "QT-"
+    FIRST_NUMBER = 101
+
+    def __init__(self, store=None):
+        self.store = store_or_memory(store)
 
     @classmethod
-    def from_data(cls, rows):
-        return cls([Quotation(**row) for row in rows])
+    def from_data(cls, rows, store=None):
+        """Add the seed quotations that are missing; stored quotations keep their changes."""
+        repo = cls(store)
+        for row in rows:
+            with repo.store.transaction() as connection:
+                if exists(connection, "offer", "offer_id", row["quotation_id"]):
+                    continue
+            repo.save(Quotation(**row))
+        return repo
 
     def get(self, quotation_id):
-        return self.items.get(quotation_id)
+        found = self._select("WHERE o.offer_id = ?", (quotation_id,))
+        return found[0] if found else None
 
     def save(self, quotation):
-        self.items[quotation.id] = quotation
+        with self.store.transaction(write=True) as connection:
+            save_offer(connection, quotation, OFFER_TYPE, request_id=quotation.enquiry_id)
+            connection.execute(f"""
+                INSERT INTO quotation(offer_id, {', '.join(COLUMNS)}) VALUES (?, {', '.join('?' * len(COLUMNS))})
+                ON CONFLICT(offer_id) DO UPDATE SET {", ".join(f"{c} = excluded.{c}" for c in COLUMNS)}
+            """, (quotation.id, *[getattr(quotation, c) for c in COLUMNS]))
         return quotation
 
     def all(self):
-        return list(self.items.values())
+        return self._select("", ())
 
     def next_reference(self):
-        """续接种子序号：取现有 QT-<数字> 引用的最大值 +1（空仓回退 QT-101）。"""
-        nums = [int(m.group(1)) for key in self.items
-                for m in [re.match(r"QT-(\d+)$", key)] if m]
-        return "QT-{}".format((max(nums) if nums else 100) + 1)
-
+        """Next quotation number, continuing after the seeds (QT-101 when empty)."""
+        with self.store.transaction(write=True) as connection:
+            number = next_number(connection, "quotation", "offer", "offer_id", self.PREFIX, first=self.FIRST_NUMBER)
+        return f"{self.PREFIX}{number}"
 
     def expire_due(self, today=None):
-        """ID-07 任务 3：到期未响应 → EXPIRED（shared: status change）。返回本次新到期的数量。"""
+        """ID-07 task 3: a quotation past its validity date with no answer becomes EXPIRED (shared status change).
+        Returns how many quotations expired now."""
         today = today or datetime.date.today().isoformat()
         expired = 0
-        for quotation in self.items.values():
+        for quotation in self.all():
             if quotation.is_expired_on(today):
-                quotation.expire()
+                self.save(quotation.expire())
                 expired += 1
         return expired
+
+    def _select(self, where, args):
+        with self.store.transaction() as connection:
+            rows = connection.execute(f"SELECT * FROM offer o JOIN quotation q ON q.offer_id = o.offer_id "
+                                      f"{where} ORDER BY o.offer_id", args).fetchall()
+        return [Quotation(row["offer_id"], row["request_id"], row["client_name"], row["requirements"],
+                          row["design_fee"], row["material_cost"], row["construction_fee"], row["valid_until"],
+                          row["payment_schedule"], status=row["status"], version=row["revision"],
+                          adjustment_note=row["adjustment_note"], revision_note=row["revision_note"])
+                for row in rows]

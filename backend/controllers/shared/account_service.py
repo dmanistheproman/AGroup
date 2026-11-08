@@ -75,7 +75,7 @@ class AccountService:
         return f"USR-{self._max_number([a.id for a in self.accounts.all()], 'USR-') + 1:03d}"
 
     def _next_company_id(self):
-        return f"COM-{self._max_number(list(self.companies.items), 'COM-') + 1:03d}"
+        return f"COM-{self._max_number([c.id for c in self.companies.all()], 'COM-') + 1:03d}"
 
     @staticmethod
     def _max_number(ids, prefix):
