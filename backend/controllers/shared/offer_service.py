@@ -46,6 +46,19 @@ class OfferService:
         quotation.adjustment_note = note
         return self.quotations.save(quotation)
 
+    def accept_proposal(self, offer_id, customer):
+        """The client confirms a design proposal (UNDER_REVIEW -> CONFIRMED); the designer is told."""
+        self._check_customer(customer)
+        proposal = self.proposals.get(offer_id)
+        if proposal is None:
+            raise LookupError(f"Proposal {offer_id} was not found.")
+        if not self._is_for(proposal, customer):
+            raise PermissionError("You can only answer proposals sent to you.")
+        if proposal.status != DesignProposal.STATUS_UNDER_REVIEW:
+            raise ValueError("Only a proposal under review can be accepted.")
+        self.status_change.change_status(self.TARGET_PROPOSAL, offer_id, DesignProposal.STATUS_CONFIRMED, customer.id)
+        return self.proposals.get(offer_id)
+
     def give_feedback(self, offer_id, customer, feedback):
         self._check_customer(customer)
         proposal = self.proposals.get(offer_id)

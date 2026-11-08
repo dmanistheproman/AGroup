@@ -27,6 +27,13 @@ class Rating:
         return self
 
     @staticmethod
+    def score_from(value):
+        """A score from a form: 4 or "4" becomes 4; anything else is left for validate() to refuse."""
+        if isinstance(value, str) and value.strip().isdigit():
+            return int(value)
+        return value
+
+    @staticmethod
     def average(ratings):
         """Average score to one decimal place, or None when there are no ratings."""
         scores = [r.score for r in ratings]

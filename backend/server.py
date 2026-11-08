@@ -98,6 +98,9 @@ from backend.controllers.shared.collection_service import CollectionService
 
 # ----- Helpdesk -----
 from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
+from backend.controllers.helpdesk.ticket_feedback_controller import TicketFeedbackController
+from backend.controllers.customer.submit_review_controller import SubmitReviewController
+from backend.repositories.ticket_feedback_repo import TicketFeedbackRepo
 from backend.boundary.helpdesk_routes import create_helpdesk_blueprint
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -239,6 +242,10 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.rules.preferences = shared.preference_repo
     shared.preferences = NotificationPreferenceController(shared.preference_repo)
     shared.uploads, shared.upload_failures = upload_service, upload_service.failures
+    upload_service.attachments = shared.attachments   # every accepted upload is kept as an attachment (S-03)
+    shared.ticket_feedback = TicketFeedbackController(TicketFeedbackRepo(store), shared.tickets)   # HD-13
+    # PM category changes are written to audit_log by their own controllers; registered here for history_of.
+    shared.status_change.register("CATEGORY", lambda category_id: None)
     shared.reports = ReportService(store)
     shared.category_lookup = CategoryLookupController(store)
     app.extensions['shared'] = shared
@@ -264,6 +271,8 @@ def create_app(registry=None, admin_provider=None, config=None):
                                 shared.conversation_repo, shared.notifications)
     shared.offers = OfferService(designer.quotation_repo, designer.proposal_repo, shared.status_change, shared.rules)
     _connect_designer_records(shared, designer)
+    shared.reviews = SubmitReviewController(designer.list_reviews_controller.reviews, designer.enquiry_repo,
+                                            designer.company_repo)   # C-07
     app.extensions['designer'] = designer
     app.register_blueprint(create_auth_blueprint(login, accounts))
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
@@ -277,6 +286,8 @@ def create_app(registry=None, admin_provider=None, config=None):
     # ----- Customer -----
     favourites = ManageFavouritesController(FavouriteRepository(store), shared.projects, ProjectActivity(store))
     shared.collections = CollectionService(CollectionRepo(store), FavouriteRepository(store))
+    shared.collections.uploads, shared.collections.attachments = upload_service, shared.attachments
+    shared.collections.projects = shared.projects
     favourites.collections = shared.collections
     app.register_blueprint(create_customer_blueprint(favourites, login, shared.collections))
 

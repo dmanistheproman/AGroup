@@ -43,7 +43,11 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None):
 
     # ---- S-22 collections: folders that organise favourites ----
     def collection_view(collection):
-        return collection.public_view(collections.items(login.current_user(), collection.id))
+        view = collection.public_view()
+        view["items"] = [collections.item_view(i) for i in collections.items(login.current_user(), collection.id)]
+        view["shared"] = bool(collection.share_token)
+        view["share_token"] = collection.share_token
+        return view
 
     def body():
         data = request.get_json(silent=True)
@@ -77,7 +81,26 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None):
         data = body()
         item = collections.add_item(login.current_user(), collection_id, data.get("item_type", "PROJECT"),
                                     project_id=data.get("project_id"), colour=data.get("colour"), note=data.get("note"))
-        return jsonify(item=item.public_view()), 201
+        return jsonify(item=collections.item_view(item)), 201
+
+    @bp.post("/api/collections/<collection_id>/images")
+    def add_collection_image(collection_id):
+        upload = request.files.get("image")
+        if upload is None:
+            raise ValueError("Choose an image to add.")
+        item = collections.add_image(login.current_user(), collection_id,
+                                     {"filename": upload.filename, "content": upload.read()})
+        return jsonify(item=collections.item_view(item)), 201
+
+    @bp.post("/api/collections/<collection_id>/share")
+    def share_collection(collection_id):
+        token = collections.share(login.current_user(), collection_id)
+        return jsonify(share_token=token, url=f"/moodboard.html#{token}")
+
+    @bp.delete("/api/collections/<collection_id>/share")
+    def revoke_collection_share(collection_id):
+        collections.revoke(login.current_user(), collection_id)
+        return jsonify(shared=False)
 
     @bp.delete("/api/collections/<collection_id>/items/<item_id>")
     def remove_collection_item(collection_id, item_id):

@@ -195,6 +195,13 @@ CREATE TABLE IF NOT EXISTS payment_milestone (
     paid_date TEXT,
     last_reminded_at TEXT
 );
+CREATE TABLE IF NOT EXISTS ticket_feedback (
+    feedback_id TEXT PRIMARY KEY,
+    request_id TEXT NOT NULL UNIQUE,
+    score INTEGER NOT NULL,
+    comment TEXT NOT NULL DEFAULT '',
+    submitted_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS review (
     review_id TEXT PRIMARY KEY,
     request_id TEXT,

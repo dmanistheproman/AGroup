@@ -105,11 +105,16 @@ def create_shared_blueprint(shared):
         names = {}
         for person in [ticket.requester_id, ticket.handler_id] + [m.author_id for m in messages] +                 [e.actor_id for e in history] + ([reported.author_id] if reported else []):
             name_of(person, names)
+        feedback = shared.ticket_feedback.for_ticket(ticket.id)   # HD-13: private to helpdesk staff
         return jsonify(ticket=ticket.public_view(),
                        messages=[m.public_view() for m in messages],
                        history=[e.public_view() for e in history], names=names,
                        reported_message=reported.public_view() if reported else None,
-                       allowed_statuses=shared.ticket_lifecycle.allowed_statuses(ticket.id) if is_agent else [])
+                       allowed_statuses=shared.ticket_lifecycle.allowed_statuses(ticket.id) if is_agent else [],
+                       feedback=feedback.public_view() if feedback and is_agent else None,
+                       feedback_given=feedback is not None,
+                       can_give_feedback=(ticket.requester_id == user.id and feedback is None
+                                          and ticket.status == SupportTicket.STATUS_CLOSED))
 
     def find_ticket(ticket_id):
         ticket = shared.tickets.get(ticket_id)
@@ -140,10 +145,15 @@ def create_shared_blueprint(shared):
         history = shared.status_change.history_of(kind, found.id)
         record = {"id": found.id, "kind": kind, "status": found.status, "created_at": found.created_at,
                   "requester_id": found.requester_id, "handler_id": found.handler_id, "thread_id": found.thread_id}
+        extra = {}
         if kind == "ENQUIRY":
             record.update(title="Enquiry", summary=found.requirements, budget=found.budget,
                           client_name=found.client_name, decided_at=found.decided_at,
                           decision_reason=found.decision_reason, questions=found.questions)
+            review = shared.reviews.reviews.for_request(found.id)
+            extra = {"can_review": shared.reviews.can_review(user, found),
+                     "review": {"rating": review.rating, "comment": review.comment, "date": review.date}
+                     if review else None}
         else:
             record.update(title="Verification request", summary=f"{len(found.documents)} document(s)",
                           **found.public_view())
@@ -152,7 +162,24 @@ def create_shared_blueprint(shared):
                 [e.actor_id for e in history]:
             name_of(person, names)
         return jsonify(request=record, messages=[m.public_view() for m in messages],
-                       history=[e.public_view() for e in history], names=names)
+                       history=[e.public_view() for e in history], names=names, **extra)
+
+    # ---- C-07: review the designer of a completed enquiry (RatingForm, S-11) ----
+    @bp.post("/api/requests/<request_id>/review")
+    @require_role(login, UserAccount.ROLE_CUSTOMER)
+    def review_designer(request_id):
+        data = body()
+        review = shared.reviews.submit(login.current_user(), request_id, data.get("score"), data.get("comment"))
+        return jsonify(review={"id": review.id, "rating": review.rating, "comment": review.comment,
+                               "company": review.company, "date": review.date}), 201
+
+    # ---- HD-13: the requester rates the help on a closed ticket (RatingForm, S-11) ----
+    @bp.post("/api/support/tickets/<ticket_id>/feedback")
+    @require_role(login, *REQUESTERS)
+    def ticket_feedback(ticket_id):
+        data = body()
+        shared.ticket_feedback.give(login.current_user(), ticket_id, data.get("score"), data.get("comment"))
+        return jsonify(thanks=True), 201
 
     # ---- Claim a ticket: the agent becomes its handler ----
     @bp.post("/api/support/tickets/<ticket_id>/assign")
@@ -246,6 +273,16 @@ def create_shared_blueprint(shared):
     def companies():
         return jsonify(companies=[c.public_view() for c in shared.companies.all()])
 
+    # ---- Public reviews of a company (C-07, RatingDisplay S-11) ----
+    @bp.get("/api/companies/<company_id>/reviews")
+    def company_reviews(company_id):
+        return jsonify(shared.reviews.for_company(company_id))
+
+    # ---- A shared moodboard, read-only, for anyone with the link (C-13) ----
+    @bp.get("/api/moodboards/shared/<token>")
+    def shared_moodboard(token):
+        return jsonify(shared.collections.shared_view(token))
+
     # ---- Private conversations with a designer (MessageDesignerButton, S-16) ----
     @bp.post("/api/conversations")
     @require_role(login, UserAccount.ROLE_CUSTOMER)
@@ -295,6 +332,11 @@ def create_shared_blueprint(shared):
     def request_quotation_adjustment(offer_id):
         quotation = shared.offers.request_adjustment(offer_id, login.current_user(), body().get("note"))
         return jsonify(quotation=shared.offers.quotation_view(quotation))
+
+    @bp.post("/api/offers/proposals/<offer_id>/accept")
+    @require_role(login, UserAccount.ROLE_CUSTOMER)
+    def accept_proposal(offer_id):
+        return jsonify(proposal=shared.offers.accept_proposal(offer_id, login.current_user()).public_view())
 
     @bp.post("/api/offers/proposals/<offer_id>/feedback")
     @require_role(login, UserAccount.ROLE_CUSTOMER)

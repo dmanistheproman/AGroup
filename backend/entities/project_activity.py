@@ -21,7 +21,7 @@ class ProjectActivity:
                 "enquiries": counts.get("ENQUIRY", 0)}
 
     def record(self, project_id, activity_type, event_id):
-        if activity_type not in ("VIEW", "FAVOURITE_ADD", "ENQUIRY"):
+        if activity_type not in ("VIEW", "FAVOURITE_ADD", "ENQUIRY", "UNFAVOURITE"):
             raise BusinessError("Choose a valid project activity type.")
         if not isinstance(event_id, str) or not 8 <= len(event_id) <= 120:
             raise BusinessError("Supply a valid activity reference.")

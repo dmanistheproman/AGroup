@@ -1,6 +1,6 @@
 """<<repository>> ReviewRepo — Review records in the review table.
 reviews_for_company() is the query C-07 and ID-08 share (shared rating, S-11)."""
-from backend.database import store_or_memory
+from backend.database import next_number, store_or_memory
 from backend.entities.review import Review
 
 SEED_REVIEW_DATA = [
@@ -31,6 +31,24 @@ class ReviewRepo:
                                    "created_at) VALUES (?, ?, ?, ?, ?, ?)",
                                    (r.id, r.customer, r.company, r.rating, r.comment or "", r.date))
         return repo
+
+    def next_reference(self):
+        with self.store.transaction(write=True) as connection:
+            return f"REV-{next_number(connection, 'review', 'review', 'review_id', 'REV-', first=901)}"
+
+    def add(self, review, request_id):
+        """C-07: one review per completed request (request_id is unique)."""
+        with self.store.transaction(write=True) as connection:
+            connection.execute("INSERT INTO review(review_id, request_id, customer, company, score, comment, created_at) "
+                               "VALUES (?, ?, ?, ?, ?, ?, ?)", (review.id, request_id, review.customer, review.company,
+                                                                review.rating, review.comment or "", review.date))
+        return review
+
+    def for_request(self, request_id):
+        with self.store.transaction() as connection:
+            row = connection.execute("SELECT * FROM review WHERE request_id = ?", (request_id,)).fetchone()
+        return Review(row["review_id"], row["customer"], row["company"], row["score"], row["comment"],
+                      row["created_at"]) if row else None
 
     def reviews_for_company(self, company):
         """C-07 shared query: every review of one company (public profile and the designer's reviews page)."""

@@ -261,6 +261,13 @@ def create_designer_blueprint(c, upload_dir, login):
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
+    @bp.route("/api/enquiries/<enquiry_id>/complete", methods=["POST"])
+    def api_complete_enquiry(enquiry_id):
+        try:
+            return jsonify(c.review_enquiry_controller.complete(enquiry_id, current_user_id())), 200
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+
     @bp.route("/api/enquiries/<enquiry_id>/clarify", methods=["POST"])
     def api_clarify_enquiry(enquiry_id):
         try:

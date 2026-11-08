@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS assignments (
 CREATE TABLE IF NOT EXISTS activities (
     id TEXT PRIMARY KEY,
     project_id INTEGER NOT NULL REFERENCES projects(id),
-    type TEXT NOT NULL CHECK (type IN ('VIEW', 'FAVOURITE_ADD', 'ENQUIRY')),
+    type TEXT NOT NULL CHECK (type IN ('VIEW', 'FAVOURITE_ADD', 'ENQUIRY', 'UNFAVOURITE')),
     occurred_at TEXT NOT NULL,
     source TEXT NOT NULL
 );
@@ -70,6 +70,19 @@ class SQLiteStore:
             columns = {row["name"] for row in connection.execute("PRAGMA table_info(categories)")}
             if "deleted_at" not in columns:
                 connection.execute("ALTER TABLE categories ADD COLUMN deleted_at TEXT")
+        # Existing databases also accept the UNFAVOURITE event (S-18): SQLite cannot change a CHECK constraint,
+        # so the activities table is rebuilt once with the same rows.
+        with self.transaction(write=True) as connection:
+            table = connection.execute("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'activities'").fetchone()
+            if table and "UNFAVOURITE" not in table["sql"]:
+                create = next(part for part in SCHEMA.split(";") if "CREATE TABLE IF NOT EXISTS activities" in part)
+                connection.execute("ALTER TABLE activities RENAME TO activities_before_unfavourite")
+                connection.execute(create)
+                connection.execute("INSERT INTO activities SELECT * FROM activities_before_unfavourite")
+                connection.execute("DROP TABLE activities_before_unfavourite")
+                for part in SCHEMA.split(";"):
+                    if "ON activities(" in part:
+                        connection.execute(part)
 
     @contextmanager
     def transaction(self, write=False):

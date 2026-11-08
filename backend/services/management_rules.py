@@ -41,11 +41,30 @@ def check_version(category, expected):
         raise BusinessError("This category changed since you opened it. Refresh and try again.", 409)
 
 
-def audit(connection, action, name):
+def audit(connection, action, name, category_id=None, from_status=None, to_status=None):
     connection.execute(
         "INSERT INTO audit(action, record, occurred_at) VALUES (?, ?, ?)",
         (action, name, timestamp()),
     )
+    if category_id and to_status:
+        # A status change is also written to the shared audit log (S-04), so history and UA-11 see it.
+        from backend.entities.audit_log import AuditLog
+        from backend.repositories.audit_log_repo import AuditLogRepo
+        AuditLogRepo.insert(connection, AuditLog(None, _actor(), "CATEGORY", category_id, AuditLog.ACTION_STATUS_CHANGED,
+                                                 from_status.upper() if from_status else None, to_status.upper(),
+                                                 action))
+
+
+def _actor():
+    """The logged-in user's ID when called during a request, otherwise "system"."""
+    try:
+        from flask import current_app, has_request_context
+        if has_request_context() and "login" in current_app.extensions:
+            user = current_app.extensions["login"].current_user()
+            return user.id if user else "system"
+    except RuntimeError:
+        pass
+    return "system"
 
 
 def primary_category(categories, details):

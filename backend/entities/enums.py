@@ -65,3 +65,4 @@ class EventType(StrEnum):
     VIEW = "VIEW"
     FAVOURITE_ADD = "FAVOURITE_ADD"
     ENQUIRY = "ENQUIRY"
+    UNFAVOURITE = "UNFAVOURITE"   # recorded when a saved project is removed; reports do not count it

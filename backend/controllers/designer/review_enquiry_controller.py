@@ -52,6 +52,21 @@ class ReviewEnquiryController:
             message = "Collaboration declined and recorded. The use case ends here; the client has been notified."
         return {"enquiry": self._view(enquiry),"questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "reviewed": True, "message": message}
 
+    def complete(self, enquiry_id, user_id):
+        """C-07 T05: the designer marks an accepted enquiry as completed; the client may then review them."""
+        enquiry = self._find(enquiry_id)
+        if enquiry.status != Enquiry.STATUS_CONFIRMED:
+            raise ValueError("Only an accepted enquiry can be marked as completed.")
+        if self._shared is None:
+            enquiry.status = Enquiry.STATUS_COMPLETED
+            self._repo.save(enquiry)
+        else:
+            self._handle(enquiry, user_id)
+            self._shared.status_change.change_status("ENQUIRY", enquiry.id, Enquiry.STATUS_COMPLETED, user_id)
+            enquiry = self._find(enquiry.id)
+        return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(),
+                "message": "Project marked as completed. The client can now leave a review."}
+
     def clarify(self, enquiry_id, user_id, note):
         enquiry = self._find(enquiry_id)
         note = (note or "").strip()

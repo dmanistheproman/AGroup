@@ -11,6 +11,11 @@ class NotificationService:
                                     target_type=target_type, target_id=target_id)
         return self.notifications.save(notification)
 
+    def has_sent(self, user_id, type, target_type, target_id):
+        """True when this user already has a notification of this type about this record."""
+        return any(n.type == type and n.target_type == target_type and n.target_id == target_id
+                   for n in self.list_for(user_id))
+
     def list_for(self, user_id, unread_only=False, limit=None):
         """Newest first (View Notifications, basic flow)."""
         items = self.notifications.for_recipient(user_id)

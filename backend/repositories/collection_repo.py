@@ -38,22 +38,31 @@ class CollectionRepo:
         with self.store.transaction(write=True) as connection:
             connection.execute("UPDATE collection SET name = ? WHERE collection_id = ?", (name, collection_id))
 
+    def set_share_token(self, collection_id, token):
+        with self.store.transaction(write=True) as connection:
+            connection.execute("UPDATE collection SET share_token = ? WHERE collection_id = ?", (token, collection_id))
+
+    def by_share_token(self, token):
+        found = self._select("WHERE share_token = ?", (token,)) if token else []
+        return found[0] if found else None
+
     def delete(self, collection_id):
         with self.store.transaction(write=True) as connection:
             connection.execute("DELETE FROM collection_item WHERE collection_id = ?", (collection_id,))
             connection.execute("DELETE FROM collection WHERE collection_id = ?", (collection_id,))
 
     # ---- items ----
-    def add_item(self, collection_id, item_type, project_id=None, colour=None, note=None):
+    def add_item(self, collection_id, item_type, project_id=None, colour=None, note=None, attachment_id=None):
         with self.store.transaction(write=True) as connection:
             number = next_number(connection, "collection_item", "collection_item", "item_id", self.ITEM_PREFIX)
             order = connection.execute("SELECT COUNT(*) FROM collection_item WHERE collection_id = ?",
                                        (collection_id,)).fetchone()[0]
             item = CollectionItem(f"{self.ITEM_PREFIX}{number:05d}", collection_id, item_type, project_id,
-                                  colour=colour, note=note, sort_order=order)
+                                  attachment_id=attachment_id, colour=colour, note=note, sort_order=order)
             connection.execute(f"INSERT INTO collection_item({', '.join(ITEM_COLUMNS)}) "
                                f"VALUES ({', '.join('?' * len(ITEM_COLUMNS))})",
-                               (item.id, collection_id, _number(project_id), None, item_type, colour, note, order))
+                               (item.id, collection_id, _number(project_id), attachment_id, item_type, colour, note,
+                                order))
         return item
 
     def items(self, collection_id):

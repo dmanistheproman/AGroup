@@ -20,6 +20,10 @@ class PaymentController:
         company = self._companies.resolve_for_owner(user_id)
         quotation_ids = self._quotation_ids_for(user_id)
         milestones = self._repo.list_for_quotation_ids(quotation_ids, today)
+        if self.rules is not None:   # S-07: an overdue milestone is announced once to both sides
+            for milestone in milestones:
+                if milestone.status == self.OVERDUE:
+                    self.rules.on_payment_overdue(milestone)
         by_quotation = {}
         for milestone in milestones:
             by_quotation.setdefault(milestone.quotation_id, []).append(milestone)

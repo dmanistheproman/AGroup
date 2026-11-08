@@ -6,6 +6,8 @@
     on_message_posted    a new message in a ticket's, an enquiry's or a private conversation's thread goes to the
                          other side
     on_payment_reminder  the customer is reminded about a payment milestone (ID-09)
+    on_payment_overdue   an overdue milestone is announced once to the customer and the designer
+    closing a ticket invites the requester to rate the help (HD-13); completing an enquiry invites a review (C-07)
     notify               any other update a controller wants to send (for example a designer's answer)
 A customer's notification preferences (C-12) are checked before anything is sent to them, and nothing is sent
 to an ID that is not an account (some seeded records name a customer without one).
@@ -61,6 +63,11 @@ class NotificationRules:
         if new_status == ticket.STATUS_OPEN and from_status is None:
             self._ticket_opened(ticket)
             return
+        if new_status == ticket.STATUS_CLOSED:
+            self._send(ticket.requester_id, "TICKET_FEEDBACK",
+                       f"Your request {ticket.id} is closed. How did we do? Rate the help you received.",
+                       f"inbox.html#requests/{ticket.id}", *self._target(ticket))
+            return
         if new_status == ticket.STATUS_OPEN:
             text = f"Your request {ticket.id} has been reopened."
         else:
@@ -88,7 +95,7 @@ class NotificationRules:
         who = self._designer_name(enquiry.handler_id)
         text = {"CONFIRMED": f"{who} accepted your enquiry and will prepare a quotation.",
                 "DECLINED": f"{who} declined your enquiry.",
-                "COMPLETED": f"Your project with {who} is marked as completed."}.get(
+                "COMPLETED": f"Your project with {who} is marked as completed. You can now leave a review."}.get(
             new_status, f"Your enquiry is now {self._words(new_status)}.")
         self._send(enquiry.customer_id, "ENQUIRY_UPDATE", self._with(text, reason),
                    f"{CUSTOMER_REQUESTS}/{enquiry.id}", target_type, enquiry.id)
@@ -119,7 +126,7 @@ class NotificationRules:
             again = " (revised)" if from_status not in (None, "DRAFT") else ""
             self._send(customer, "OFFER_SENT", f"{self._designer_name(designer)} sent you a {name}{again}: {offer.id}.",
                        CUSTOMER_OFFERS, target_type, offer.id)
-        elif new_status in ("ACCEPTED", "ADJUSTMENT_REQUESTED", "CONFIRMED"):
+        elif new_status in ("ACCEPTED", "ADJUSTMENT_REQUESTED", "CONFIRMED"):   # CONFIRMED: a proposal accepted
             verb = "asked for changes to" if new_status == "ADJUSTMENT_REQUESTED" else "accepted"
             self._send(designer, "OFFER_ANSWERED", self._with(f"{offer.client_name} {verb} {name} {offer.id}.", reason),
                        "portal.html#designer/quotations" if target_type == self.TARGET_QUOTATION
@@ -174,6 +181,20 @@ class NotificationRules:
                           f"Reminder from {self._designer_name(designer)}: \"{milestone.name}\" "
                           f"(S${milestone.amount:,.0f}) was due on {milestone.due_date}.",
                           CUSTOMER_OFFERS, self.TARGET_QUOTATION, quotation.id)
+
+    def on_payment_overdue(self, milestone):
+        """Once per overdue milestone: the customer is reminded and the designer told (S-07, ID-09)."""
+        quotation = self._get(self.quotations, milestone.quotation_id)
+        if quotation is None:
+            return
+        customer, designer = self.offer_parties(quotation)
+        what = f"\"{milestone.name}\" (S${milestone.amount:,.0f}) was due on {milestone.due_date}"
+        for recipient, kind, text, link in (
+                (customer, "PAYMENT_REMINDER", f"Overdue payment: {what}.", CUSTOMER_OFFERS),
+                (designer, "PAYMENT_OVERDUE", f"{quotation.client_name}'s payment {what} and is overdue.",
+                 "portal.html#designer/payments")):
+            if recipient and not self.notifications.has_sent(recipient, kind, "PAYMENT_MILESTONE", milestone.id):
+                self._send(recipient, kind, text, link, "PAYMENT_MILESTONE", milestone.id)
 
     # ---- shared helpers ----
 
