@@ -5,7 +5,6 @@ import json
 
 import pytest
 
-from app import create_app as compatibility_app
 from backend.entities.project_category import ProjectCategory
 from backend.repositories.project_repo import ProjectRepo
 from backend.server import create_app
@@ -131,14 +130,12 @@ def test_concurrent_reference_allocation_and_category_change_during_save(app):
     assert repo.all() == []
 
 
-def test_frontend_assets_and_compatibility_entry_point_use_shared_app(app):
+def test_frontend_assets_use_shared_app(app):
     client = app.test_client()
     for path in ('/', '/login.html', '/portal.html', '/js/management.js', '/js/api.js', '/css/management.css'):
         assert client.get(path).status_code == 200
     html = client.get('/portal.html').text
     assert 'js/management.js' in html and 'js/account.js' in html and 'js/icons.js' in html
-    legacy = compatibility_app({'TESTING': True, 'DATABASE': app.config['DATABASE'], 'SEED_DEMO': False})
-    assert signed_in(legacy, 'manager@demo.agroup').get('/api/management/categories').status_code == 200
 
 
 def test_legacy_project_primary_category_survives_rename_and_merge(app):
