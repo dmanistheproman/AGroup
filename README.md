@@ -69,7 +69,7 @@ Reports use Singapore time, Monday-to-Sunday weeks and calendar months. Project 
 
 Management APIs require a logged-in Platform Manager. Mutating management requests also require the session's CSRF token. The existing shared login and other role routes use their own established access checks.
 
-Project and category persistence currently uses SQLite. Other group repositories, including demo accounts, continue to use in-memory data. Firestore integration remains future work. The current management entity services retain their transactional database operations from the original BCE implementation, while designer repositories adapt to the same store.
+Project and category persistence currently uses SQLite. Accounts, notifications, support tickets, the audit log and the Interior Designer records use the same database (tables in `backend/database.py`), so changes survive a restart; only the User Admin account registry is still in memory. Delete `instance/agroup.sqlite3` to start again from the demo data. The current management entity services retain their transactional database operations from the original BCE implementation, while designer repositories adapt to the same store.
 
 `backend/tests/management/` contains the management regression and shared-application tests, so the existing CI workflow includes them.
 
