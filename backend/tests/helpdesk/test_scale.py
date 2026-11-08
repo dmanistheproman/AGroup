@@ -5,10 +5,10 @@ import time
 
 import pytest
 
-from app.controllers.merge_ticket_controller import MergeFailed, MergeNotAllowed, MergeTicketController
-from app.entities import ticket
-from app.repositories.scale_seed import scale_seed
-from app.repositories.ticket_memory_repo import TicketMemoryRepo
+from backend.controllers.helpdesk.merge_ticket_controller import MergeFailed, MergeNotAllowed, MergeTicketController
+from backend.entities import ticket
+from backend.repositories.scale_seed import scale_seed
+from backend.repositories.ticket_memory_repo import TicketMemoryRepo
 
 BASE = scale_seed()
 TIMINGS = {}

@@ -44,6 +44,11 @@ from backend.repositories.activity_repo import ActivityRepo, SEED_ACTIVITY_EVENT
 from backend.controllers.designer.statistics_controller import ViewProjectStatisticsController
 from backend.boundary.designer_routes import create_designer_blueprint
 
+# ----- Helpdesk -----
+from backend.repositories.ticket_memory_repo import TicketMemoryRepo
+from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
+from backend.boundary.helpdesk_routes import create_helpdesk_blueprint
+
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT / 'frontend'
 UPLOAD_DIR = ROOT / 'backend' / 'uploads'
@@ -109,6 +114,10 @@ def create_app(registry=None, admin_provider=None):
     # ----- Interior Designer -----
     designer = build_designer_controllers(upload_service)
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
+
+    # ----- Helpdesk -----
+    ticket_repo = TicketMemoryRepo()
+    app.register_blueprint(create_helpdesk_blueprint(MergeTicketController(ticket_repo), ticket_repo, login))
 
     @app.get('/')
     def home():

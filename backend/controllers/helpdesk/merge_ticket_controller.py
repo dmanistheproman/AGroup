@@ -1,5 +1,5 @@
 """<<control>> MergeTicketController, method names follow the HD05 sequence diagram."""
-from app.entities import ticket
+from backend.entities import ticket
 
 
 class MergeNotAllowed(Exception):

@@ -1,6 +1,6 @@
 # HD05 Merge Tickets: Firestore handover
 
-Built and tested with an in-memory store (`app/repositories/ticket_memory_repo.py`). Only the store changes for Firestore; `run.py`, the controller and the entity stay as they are.
+Built and tested with an in-memory store (`backend/repositories/ticket_memory_repo.py`). Only the store changes for Firestore; `backend/server.py`, `backend/boundary/helpdesk_routes.py`, the controller and the entity stay as they are.
 
 ## Steps
 1. `pip install google-cloud-firestore` and set credentials (`GOOGLE_APPLICATION_CREDENTIALS`).
@@ -13,8 +13,8 @@ Built and tested with an in-memory store (`app/repositories/ticket_memory_repo.p
 3. Layout: `tickets/{id}` has `requester, idp, subject, status, readOnly, mergedIntoTicketId`.
    Subcollections `messages` and `notes` hold `body, timestamp`.
 4. Port `seed()` in `ticket_memory_repo.py`: write the same documents to Firestore, wiping first so it can be rerun.
-5. In `run.py`, replace `TicketMemoryRepo()` with the Firestore store. In `tests/test_merge_tickets.py`, replace the `store` fixture so it reseeds Firestore before each test.
-6. Run `pytest`. Expect 7 passed, and `tests/test_results.md` showing 7 PASS rows.
+5. In `backend/server.py`, replace `TicketMemoryRepo()` with the Firestore store. In `backend/tests/helpdesk/test_merge_tickets.py`, replace the `store` fixture so it reseeds Firestore before each test.
+6. Run `pytest`. Expect 7 passed, and `backend/tests/helpdesk/test_results.md` showing 7 PASS rows.
 
 ## Watch out
 - A batch holds at most 500 writes. Each moved message or note costs 2 writes (set and delete), so a merge handles about 250 items. Larger merges would fail and report "Merge failed".

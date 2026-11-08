@@ -4,9 +4,9 @@ import pathlib
 
 import pytest
 
-from app.entities import ticket
-from app.controllers.merge_ticket_controller import MergeFailed, MergeNotAllowed, MergeTicketController
-from app.repositories.ticket_memory_repo import TicketMemoryRepo
+from backend.entities import ticket
+from backend.controllers.helpdesk.merge_ticket_controller import MergeFailed, MergeNotAllowed, MergeTicketController
+from backend.repositories.ticket_memory_repo import TicketMemoryRepo
 
 ROWS = []
 
