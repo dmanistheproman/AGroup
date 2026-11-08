@@ -63,8 +63,12 @@ def create_shared_blueprint(login, submit_ticket, request_service, notifications
     @require_role(login)
     def list_notifications():
         user_id = login.current_user().id
-        return jsonify(items=[n.public_view() for n in notifications.list_for(user_id)],
-                       unread=notifications.unread_count(user_id))
+        limit = request.args.get("limit")
+        if limit is not None and (not limit.isdigit() or not 1 <= int(limit) <= 100):
+            raise ValueError("limit must be a number from 1 to 100.")
+        items = notifications.list_for(user_id, unread_only=request.args.get("unread") == "1",
+                                       limit=int(limit) if limit else None)
+        return jsonify(items=[n.public_view() for n in items], unread=notifications.unread_count(user_id))
 
     @bp.post("/api/notifications/<notification_id>/read")
     @require_role(login)
