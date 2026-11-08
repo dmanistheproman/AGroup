@@ -93,7 +93,8 @@ def test_inbox_lists_the_customers_enquiries(shared):
 def test_preferences_are_on_by_default_and_can_be_turned_off(shared):
     alex, designer = user(shared, "CUS-101"), user(shared, "user-form-field")
     prefs = {p["event_type"]: p["is_enabled"] for p in shared.preferences.list_for(alex)}
-    assert prefs == {"NEW_MESSAGE": True, "TICKET_STATUS": True}
+    assert prefs == {"NEW_MESSAGE": True, "TICKET_STATUS": True, "ENQUIRY_UPDATE": True, "OFFER_SENT": True,
+                     "PAYMENT_REMINDER": True}
     shared.preferences.update(alex, "NEW_MESSAGE", False)
     conversation = shared.conversations.start_conversation(alex, "COM-FF")
     before = len(shared.notifications.list_for("CUS-101"))
@@ -171,3 +172,9 @@ def test_conversation_inbox_preferences_and_offers_through_the_api(app):
     assert customer.post("/api/offers/quotations/QT-101/accept").get_json()["quotation"]["status"] == "ACCEPTED"
     assert designer.post("/api/conversations", json={"company_id": "COM-CG"}).status_code == 403
     assert designer.get("/api/offers").status_code == 403
+
+
+def test_public_company_list_lets_customers_find_a_company(app):
+    companies = app.test_client().get("/api/companies").get_json()["companies"]
+    names = {c["name"]: c["id"] for c in companies}
+    assert names["Form & Field"] == "COM-FF" and "owner_id" not in companies[0]

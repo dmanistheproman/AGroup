@@ -20,6 +20,11 @@ class FavouriteRepository:
                                       "ORDER BY saved_at, favourite_id", (customer_id,)).fetchall()
         return FavouriteList(customer_id, [f"IDP-{row['project_id']:03d}" for row in rows])
 
+    def remove_project_everywhere(self, reference: str) -> None:
+        """A deleted project leaves every customer's favourites (ID-03)."""
+        with self.store.transaction(write=True) as connection:
+            connection.execute("DELETE FROM favourite WHERE project_id = ?", (int(reference.split("-")[1]),))
+
     def save(self, favourite_list: FavouriteList) -> None:
         wanted = [int(p.split("-")[1]) for p in favourite_list.project_ids]
         with self.store.transaction(write=True) as connection:

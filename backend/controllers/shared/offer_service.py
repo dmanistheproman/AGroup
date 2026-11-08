@@ -2,8 +2,8 @@
 accept a quotation or ask for changes (through StatusChangeService, so it is audited), and give feedback on a
 proposal. The designer's side (send, revise) is in ID-05/06/07.
 
-Ownership: a quotation belongs to the customer whose enquiry it answers (enquiry_id); a proposal is matched
-by the client's name until proposals record the enquiry they answer.
+Ownership: a quotation belongs to the customer whose enquiry it answers (enquiry_id); a proposal belongs to the
+customer of the enquiry it answers (request_id), or is matched by the client's name when it has none.
 """
 from backend.entities.design_proposal import DesignProposal
 from backend.entities.quotation import Quotation
@@ -13,11 +13,15 @@ from backend.entities.user_account import UserAccount
 class OfferService:
     TARGET_QUOTATION = "QUOTATION"
 
-    def __init__(self, quotation_repo, proposal_repo, status_change):
+    TARGET_PROPOSAL = "DESIGN_PROPOSAL"
+
+    def __init__(self, quotation_repo, proposal_repo, status_change, rules=None):
         self.quotations = quotation_repo
         self.proposals = proposal_repo
         self.status_change = status_change
+        self.rules = rules   # NotificationRules: who the customer and designer of an offer are, and feedback
         status_change.register(self.TARGET_QUOTATION, quotation_repo.get, quotation_repo.save)
+        status_change.register(self.TARGET_PROPOSAL, proposal_repo.get, proposal_repo.save)
 
     def offers_for(self, customer):
         self._check_customer(customer)
@@ -25,7 +29,7 @@ class OfferService:
         quotations = [self.quotation_view(q) for q in self.quotations.all()
                       if q.enquiry_id == customer.id and not q.is_draft()]
         proposals = [p.public_view() for p in self.proposals.all()
-                     if p.client_name == customer.name and not p.is_draft()]
+                     if self._is_for(p, customer) and not p.is_draft()]
         return {"quotations": quotations, "proposals": proposals}
 
     def accept(self, offer_id, customer):
@@ -42,19 +46,37 @@ class OfferService:
         quotation.adjustment_note = note
         return self.quotations.save(quotation)
 
+    def accept_proposal(self, offer_id, customer):
+        """The client confirms a design proposal (UNDER_REVIEW -> CONFIRMED); the designer is told."""
+        self._check_customer(customer)
+        proposal = self.proposals.get(offer_id)
+        if proposal is None:
+            raise LookupError(f"Proposal {offer_id} was not found.")
+        if not self._is_for(proposal, customer):
+            raise PermissionError("You can only answer proposals sent to you.")
+        if proposal.status != DesignProposal.STATUS_UNDER_REVIEW:
+            raise ValueError("Only a proposal under review can be accepted.")
+        self.status_change.change_status(self.TARGET_PROPOSAL, offer_id, DesignProposal.STATUS_CONFIRMED, customer.id)
+        return self.proposals.get(offer_id)
+
     def give_feedback(self, offer_id, customer, feedback):
         self._check_customer(customer)
         proposal = self.proposals.get(offer_id)
         if proposal is None:
             raise LookupError(f"Proposal {offer_id} was not found.")
-        if proposal.client_name != customer.name:
+        if not self._is_for(proposal, customer):
             raise PermissionError("You can only answer proposals sent to you.")
         if proposal.status != DesignProposal.STATUS_UNDER_REVIEW:
             raise ValueError("Feedback can be given while the proposal is under review.")
         feedback = (feedback or "").strip()
         if not feedback:
             raise ValueError("Write your feedback first.")
-        return self.proposals.save(proposal.receive_feedback(feedback))
+        saved = self.proposals.save(proposal.receive_feedback(feedback))
+        if self.rules is not None:
+            _, designer = self.rules.offer_parties(saved)
+            self.rules.notify(designer, "OFFER_ANSWERED", f"{customer.name} gave feedback on {saved.id}: {feedback[:120]}",
+                              "portal.html#designer/proposals", self.TARGET_PROPOSAL, saved.id)
+        return saved
 
     @staticmethod
     def quotation_view(q):
@@ -63,6 +85,11 @@ class OfferService:
                 "total": q.total, "valid_until": q.valid_until, "payment_schedule": q.payment_schedule,
                 "status": q.status, "version": q.version, "adjustment_note": q.adjustment_note,
                 "revision_note": q.revision_note}
+
+    def _is_for(self, proposal, customer):
+        if proposal.request_id and self.rules is not None:
+            return self.rules.offer_parties(proposal)[0] == customer.id
+        return proposal.client_name == customer.name
 
     def _own_quotation(self, offer_id, customer):
         self._check_customer(customer)

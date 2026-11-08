@@ -46,6 +46,7 @@ check("Customer website loads", "GET", "/", 200, contains="AGroup")
 check("Staff portal loads", "GET", "/portal.html", 200)
 check("Login page loads", "GET", "/login.html", 200)
 check("Icons load", "GET", "/assets/icons/lucide.svg", 200, contains="<symbol")
+check("Shared components page loads", "GET", "/ui-kit.html", 200, contains="js/ui.js")
 check("Anonymous user is not logged in", "GET", "/api/auth/me", 401)
 check("Designer data needs login", "GET", "/api/company", 401)
 check("Wrong password is refused", "POST", "/api/auth/login", 401,
@@ -55,12 +56,21 @@ check("Demo designer logs in", "POST", "/api/auth/login", 200,
 check("Session knows the designer", "GET", "/api/auth/me", 200, contains="user-form-field")
 check("Designer reads own company", "GET", "/api/company", 200, contains="Form & Field")
 check("Designer reads statistics (ID-13)", "GET", "/api/statistics", 200)
+text = check("Designer opens an enquiry page (S-19, S-20)", "GET", "/api/requests/CUS-101", 200, contains='"ENQUIRY"')
+try:
+    enquiry_thread = json.loads(text)["request"]["thread_id"]
+except (ValueError, KeyError, TypeError):
+    enquiry_thread = "THR-0000"
+check("Designer writes on the enquiry (S-01)", "POST", f"/api/threads/{enquiry_thread}/messages", 201,
+      body={"body": "Smoke test: could we visit next week?"})
 check("Designer logs out", "POST", "/api/auth/logout", 200)
 check("Session ended after logout", "GET", "/api/auth/me", 401)
 
 # ----- shared parts -----
 check("Catalogue lists projects (S-09)", "GET", "/api/catalog", 200, contains='"projects"')
 check("Active categories (S-10)", "GET", "/api/categories", 200, contains="Japandi")
+check("Company reviews are public (C-07)", "GET", "/api/companies/COM-FF/reviews", 200, contains='"average"')
+check("A wrong moodboard link is refused (C-13)", "GET", "/api/moodboards/shared/not-a-real-link", 404)
 email = f"smoke-{uuid.uuid4().hex[:8]}@example.com"
 check("New customer registers (S-13)", "POST", "/api/auth/register", 201,
       body={"name": "Smoke Test", "email": email, "password": "smoke-test-1"}, contains='"CUSTOMER"')
@@ -78,6 +88,11 @@ except (ValueError, KeyError, TypeError):
 check("Customer writes to the helpdesk (S-01)", "POST", f"/api/threads/{thread_id}/messages", 201,
       body={"body": "Smoke test message."})
 check("Customer saves a project (C-04)", "POST", "/api/favourites", 200, body={"project_id": 1}, contains="IDP-001")
+check("Customer makes a folder (S-22)", "POST", "/api/collections", 201, body={"name": f"Smoke {uuid.uuid4().hex[:6]}"})
+check("Customer inbox (S-14)", "GET", "/api/inbox", 200, contains=ticket_id)
+check("Customer opens the request page (S-20)", "GET", f"/api/requests/{ticket_id}", 200, contains='"messages"')
+check("Customers cannot open other people's requests", "GET", "/api/requests/CUS-101", 403)
+check("Customer offers (S-21)", "GET", "/api/offers", 200, contains='"quotations"')
 check("Customers cannot read reports", "GET", "/api/reports/activity", 403)
 check("Customer logs out", "POST", "/api/auth/logout", 200)
 check("Helpdesk agent logs in", "POST", "/api/auth/login", 200,

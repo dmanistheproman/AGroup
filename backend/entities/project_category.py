@@ -75,7 +75,7 @@ class ProjectCategory:
             connection.execute("""
                 UPDATE categories SET deleted_at = ?, featured = 0, version = version + 1 WHERE id = ?
             """, (deleted_at, category_id))
-            audit(connection, "Deleted category", category["name"])
+            audit(connection, "Deleted category", category["name"], category_id, category["status"], "DELETED")
             return {**category, "deleted_at": deleted_at, "featured": False, "version": version + 1}
 
     @staticmethod
@@ -131,7 +131,8 @@ class ProjectCategory:
                 "UPDATE categories SET status = ?, featured = 0, version = version + 1 WHERE id = ?",
                 (new_status, category_id),
             )
-            audit(connection, "Archived category" if new_status == "Archived" else "Restored category", category["name"])
+            audit(connection, "Archived category" if new_status == "Archived" else "Restored category", category["name"],
+                  category_id, category["status"], new_status)
             return self.find_by_id(connection, category_id)
 
     def set_featured(self, category_id, featured, version):
@@ -156,7 +157,8 @@ class ProjectCategory:
         connection.execute("UPDATE categories SET version = version + 1 WHERE id = ?", (target_id,))
         source = self.find_by_id(connection, source_id)
         target = self.find_by_id(connection, target_id)
-        audit(connection, "Merged categories", source["name"] + " → " + target["name"])
+        audit(connection, "Merged categories", source["name"] + " → " + target["name"], source_id, "ACTIVE",
+              "MERGED")
         return {"target": target, **result}
 
     @staticmethod

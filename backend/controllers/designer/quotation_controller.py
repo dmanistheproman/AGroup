@@ -31,6 +31,7 @@ class SubmitQuotationController:
     def __init__(self, quotation_repo, enquiry_repo):
         self.quotations = quotation_repo
         self.enquiries = enquiry_repo
+        self.status_change = None   # StatusChangeService (S-04), set in server.py: sending is audited and notified
 
     def _view(self, q):
         return {"id": q.id, "enquiry_id": q.enquiry_id, "client_name": q.client_name,
@@ -69,6 +70,11 @@ class SubmitQuotationController:
         quotation = self.quotations.get(quotation_id)
         if quotation is None:
             raise ValueError("Quotation not found.")
+        if self.status_change is not None:
+            if not quotation.is_draft():
+                raise ValueError("Quotation has already been sent to the client.")
+            self.status_change.change_status("QUOTATION", quotation.id, Quotation.STATUS_WAITING, user_id)
+            return self._view(self.quotations.get(quotation.id))
         quotation.send()
         self.quotations.save(quotation)
         return self._view(quotation)
@@ -79,6 +85,7 @@ class SubmitQuotationController:
         quotation = self.quotations.get(quotation_id)
         if quotation is None:
             raise ValueError("Quotation not found.")
+        answered = quotation.status == Quotation.STATUS_ADJUSTMENT
         quotation.revise(
             design_fee=_fee(data.get("design_fee"), "Design fee"),
             material_cost=_fee(data.get("material_cost"), "Material cost"),
@@ -86,5 +93,11 @@ class SubmitQuotationController:
             valid_until=_iso_date(data.get("valid_until")),
             payment_schedule=_schedule(data.get("payment_schedule")),
             note=(data.get("note") or "").strip() or None)
+        if answered and self.status_change is not None:
+            quotation.status = Quotation.STATUS_ADJUSTMENT   # the new version goes back to the client below
+            self.quotations.save(quotation)
+            self.status_change.change_status("QUOTATION", quotation.id, Quotation.STATUS_WAITING, user_id,
+                                             quotation.revision_note)
+            return self._view(self.quotations.get(quotation.id))
         self.quotations.save(quotation)
         return self._view(quotation)

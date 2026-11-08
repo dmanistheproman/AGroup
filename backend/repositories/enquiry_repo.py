@@ -32,14 +32,19 @@ class EnquiryRepo:
         self.store = store_or_memory(store)
 
     @classmethod
-    def from_data(cls, rows, store=None):
-        """Add the seed enquiries that are missing; stored enquiries keep their changes."""
+    def from_data(cls, rows, store=None, handler_id=None):
+        """Add the seed enquiries that are missing; stored enquiries keep their changes.
+        handler_id: the designer who handles seed enquiries that have no handler yet (S-19)."""
         repo = cls(store)
         for row in rows:
             enquiry = Enquiry(**row)
             with repo.store.transaction() as connection:
-                if exists(connection, "request", "request_id", enquiry.id):
+                stored = exists(connection, "request", "request_id", enquiry.id)
+            if stored:
+                enquiry = repo.get(enquiry.id)
+                if not handler_id or enquiry.handler_id:
                     continue
+            enquiry.handler_id = enquiry.handler_id or handler_id
             repo.save(enquiry)
         return repo
 

@@ -37,7 +37,7 @@ def create_designer_blueprint(c, upload_dir, login):
     @bp.route("/api/projects", methods=["POST"])
     def api_create_project():
         try:
-            images = [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images")]
+            images = [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images") if f.filename]
             project = c.project_controller.create({
                 "title": request.form.get("title", ""),
                 "description": request.form.get("description", ""),
@@ -46,8 +46,43 @@ def create_designer_blueprint(c, upload_dir, login):
                 "owner_id": current_user_id(),
                 "firm": (c.company_controller.view(current_user_id()) or {}).get("name", ""),
                 "stage": request.form.get("stage", "Current project"),
+                **project_details(),
             })
             return jsonify({"message": "Project added successfully.", "project": project}), 201
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+
+    def project_details():
+        """The C-03 details from a project form (ID-03); missing fields are left as they are."""
+        return {key: request.form.get(key) for key in ("materials", "estimated_cost", "location", "home_type", "area")
+                if request.form.get(key) is not None}
+
+    @bp.route("/api/projects/<project_id>", methods=["PATCH"])
+    def api_update_project(project_id):
+        try:
+            images = [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images") if f.filename]
+            project = c.project_controller.update(current_user_id(), project_id, {
+                "title": request.form.get("title", ""), "description": request.form.get("description", ""),
+                "category_id": request.form.get("category_id", ""), "stage": request.form.get("stage"),
+                "images": images, **project_details()})
+            return jsonify({"message": "Project updated.", "project": project}), 200
+        except PermissionError as err:
+            return jsonify({"error": str(err)}), 403
+        except LookupError as err:
+            return jsonify({"error": str(err).strip("'\"")}), 404
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+
+    @bp.route("/api/projects/<project_id>/primary-image", methods=["POST"])
+    def api_primary_image(project_id):
+        try:
+            data = request.get_json(silent=True) or {}
+            return jsonify({"project": c.project_controller.set_primary_image(current_user_id(), project_id,
+                                                                              data.get("image"))}), 200
+        except PermissionError as err:
+            return jsonify({"error": str(err)}), 403
+        except LookupError as err:
+            return jsonify({"error": str(err).strip("'\"")}), 404
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
@@ -65,6 +100,8 @@ def create_designer_blueprint(c, upload_dir, login):
                 request.args.get("confirm_impact") == "true",
             )
             return jsonify(result), 200
+        except PermissionError as err:
+            return jsonify({"error": str(err)}), 403
         except ValueError as err:
             return jsonify({"error": str(err)}), 404
 
@@ -125,7 +162,8 @@ def create_designer_blueprint(c, upload_dir, login):
     @bp.route("/api/admin/verifications/<request_id>/review", methods=["POST"])
     def api_review_verification(request_id):
         try:
-            r = c.review_controller.review(request_id, request.form.get("decision", ""), request.form.get("reason"))
+            r = c.review_controller.review(request_id, request.form.get("decision", ""), request.form.get("reason"),
+                                           reviewer=current_user_id() or "platform-admin")
             return jsonify({"message": "Review recorded.", "request": r.public_view()}), 200
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
@@ -143,7 +181,7 @@ def create_designer_blueprint(c, upload_dir, login):
             return jsonify(c.submit_proposal_controller.list_for(current_user_id()))
         data = {"title": request.form.get("title", ""),
                 "description": request.form.get("description", ""),
-                "client_name": request.form.get("client_name", ""),
+                "client_name": request.form.get("client_name", ""), "enquiry_id": request.form.get("enquiry_id", ""),
                 "images": [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images")]}
         try:
             return jsonify({"proposal": c.submit_proposal_controller.create(current_user_id(), data)}), 201
@@ -257,6 +295,13 @@ def create_designer_blueprint(c, upload_dir, login):
                 enquiry_id, current_user_id(),
                 request.form.get("decision", ""), request.form.get("reason"))
             return jsonify(result), 200
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+
+    @bp.route("/api/enquiries/<enquiry_id>/complete", methods=["POST"])
+    def api_complete_enquiry(enquiry_id):
+        try:
+            return jsonify(c.review_enquiry_controller.complete(enquiry_id, current_user_id())), 200
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 

@@ -22,6 +22,22 @@ class AttachmentRepo:
             connection.execute("INSERT INTO attachment_group(attachment_group_id) VALUES (?)", (group.id,))
         return group
 
+    def group_for(self, owner_type, owner_id):
+        """The attachment group of a record that has no group column (a project, a company, a moodboard):
+        AG-<OWNER TYPE>-<owner ID>, made the first time it is needed."""
+        group_id = f"{self.GROUP_PREFIX}{owner_type.upper()}-{owner_id}"
+        with self.store.transaction(write=True) as connection:
+            connection.execute("INSERT OR IGNORE INTO attachment_group(attachment_group_id) VALUES (?)", (group_id,))
+        return AttachmentGroup(group_id)
+
+    def for_owner(self, owner_type, owner_id):
+        return self.for_group(f"{self.GROUP_PREFIX}{owner_type.upper()}-{owner_id}")
+
+    def get(self, attachment_id):
+        with self.store.transaction() as connection:
+            row = connection.execute("SELECT * FROM attachment WHERE attachment_id = ?", (attachment_id,)).fetchone()
+        return self._attachment(row) if row else None
+
     def get_group(self, group_id):
         with self.store.transaction() as connection:
             row = connection.execute("SELECT 1 FROM attachment_group WHERE attachment_group_id = ?",
@@ -48,9 +64,13 @@ class AttachmentRepo:
         with self.store.transaction() as connection:
             rows = connection.execute("SELECT * FROM attachment WHERE attachment_group_id = ? ORDER BY sort_order",
                                       (group_id,)).fetchall()
-        return [Attachment(row["attachment_id"], row["attachment_group_id"], row["uploaded_by"], row["file_name"],
-                           row["file_path"], row["content_type"], row["size_bytes"], row["caption"],
-                           row["sort_order"], bool(row["is_primary"]), row["uploaded_at"]) for row in rows]
+        return [self._attachment(row) for row in rows]
+
+    @staticmethod
+    def _attachment(row):
+        return Attachment(row["attachment_id"], row["attachment_group_id"], row["uploaded_by"], row["file_name"],
+                          row["file_path"], row["content_type"], row["size_bytes"], row["caption"],
+                          row["sort_order"], bool(row["is_primary"]), row["uploaded_at"])
 
     def primary_of(self, group_id):
         return next((a for a in self.for_group(group_id) if a.is_primary), None)

@@ -52,6 +52,7 @@ EXPECTED = {   # full-scale minimum per entity; the module fixture uses SCALE of
     "enquiries": 120, "quotations": 100, "proposals": 100, "payment_milestones": 100, "reviews": 120,
     "verification_requests": 100, "support_tickets": 200, "messages": 300, "conversations": 100,
     "internal_notes": 100, "favourites": 250, "upload_failures": 100, "audit_logs": 150,
+    "collections": 100, "collection_items": 150,
 }
 
 

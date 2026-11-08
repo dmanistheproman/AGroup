@@ -42,6 +42,11 @@ class VerificationRepo:
     def for_company(self, company_id):
         return self._select("WHERE v.company_id = ?", (company_id,))
 
+    def find_by_thread(self, thread_id):
+        """The request a message thread belongs to (S-01), or None."""
+        found = self._select("WHERE r.thread_id = ?", (thread_id,))
+        return found[0] if found else None
+
     def next_reference(self):
         """Next request number, VER-001 onwards."""
         with self.store.transaction(write=True) as connection:
@@ -58,6 +63,6 @@ class VerificationRepo:
         request = VerificationRequest(row["request_id"], row["company_id"], row["requested_by"],
                                       json.loads(row["documents"]), row["status"], row["rejection_reason"],
                                       row["created_at"], row["reviewed_by"])
-        request.requester_id, request.handler_id = row["requester_id"], row["handler_id"]
+        request.requester_id, request.handler_id = row["requester_id"] or row["requested_by"], row["handler_id"]
         request.attach(row["thread_id"], row["attachment_group_id"])
         return request

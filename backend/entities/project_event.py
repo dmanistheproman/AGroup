@@ -63,7 +63,9 @@ class ProjectEvent:
         for e in events:
             for key, label in ProjectEvent._groups_of(e, group_by, categories):
                 row = rows.setdefault(key, {"key": key, "label": label, "views": 0, "favourites": 0, "enquiries": 0})
-                row[METRIC_OF[EventType(e["type"])]] += 1
+                metric = METRIC_OF.get(EventType(e["type"]))
+                if metric:   # UNFAVOURITE is kept but not counted
+                    row[metric] += 1
         return ProjectEvent._fill(list(rows.values()), group_by, period)
 
     @staticmethod

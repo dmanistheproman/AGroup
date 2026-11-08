@@ -10,6 +10,11 @@ class Enquiry(Request):
     STATUS_DECLINED = "DECLINED"     # ID-10: the designer declines to collaborate — the decision is final (AF1)
     STATUS_COMPLETED = "COMPLETED"  # ID-12 credit: collaboration completed (C-07 will make this a proper transition)
 
+    # Lifecycle for StatusChangeService (S-04); apply_status runs the rules of confirm / decline below.
+    TRANSITIONS = {STATUS_AWAITING_REPLY: {STATUS_CONFIRMED, STATUS_DECLINED},
+                   STATUS_CONFIRMED: {STATUS_COMPLETED}}
+    REASON_REQUIRED = frozenset({STATUS_DECLINED})
+
     def __init__(self, enquiry_id, client_name, requirements, budget, status=None, questions=None):
         self.id = enquiry_id
         self.client_name = client_name
@@ -25,6 +30,23 @@ class Enquiry(Request):
                                    "answered_at": q.get("answered_at"), "flagged": bool(q.get("flagged")),
                                    "flag_reason": q.get("flag_reason")})
 
+
+    @property
+    def customer_id(self):
+        """The customer who sent it. Seeded enquiries use the customer's ID as their own ID."""
+        return self.requester_id or self.id
+
+    def can_access(self, user_id):
+        return user_id is not None and user_id in (self.customer_id, self.handler_id)
+
+    def apply_status(self, status, reason=None, actor_id=None):
+        """Called by StatusChangeService after it has checked the transition."""
+        if status == self.STATUS_CONFIRMED:
+            return self.confirm()
+        if status == self.STATUS_DECLINED:
+            return self.decline(reason)
+        self.status = status
+        return self
 
     def is_confirmed(self):
         return self.status == self.STATUS_CONFIRMED

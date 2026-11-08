@@ -2,8 +2,12 @@
 kind="image": ID-01 logo, ID-03 project images (JPG/PNG/WebP, ≤1MB)
 kind="document": ID-02 verification documents (PDF/DOC/images, ≤5MB)
 A refused file is written to the failed-upload log (UploadFailureRepo) with the logged-in user (HD-08).
+An accepted file is kept as an Attachment of its owner (S-03) when an AttachmentRepo is connected.
 """
+import mimetypes
 import os
+
+from werkzeug.utils import secure_filename
 
 class FileUploadService:
     RULES = {
@@ -19,10 +23,16 @@ class FileUploadService:
         self.upload_folder = upload_folder
         self.failures = failure_repo           # the failed-upload log (S-03)
         self.current_user = current_user       # function returning the logged-in user, or None
+        self.attachments = None                # AttachmentRepo (S-03), set in server.py
 
     def upload(self, file, owner_type, owner_id, kind="image"):
+        """Check, store and return the file's path (uploads/<owner_id>/<name>)."""
+        return self.store(file, owner_type, owner_id, kind)[0]
+
+    def store(self, file, owner_type, owner_id, kind="image"):
+        """Like upload, and also return the Attachment kept for the owner (None without an AttachmentRepo)."""
         rule = self.RULES.get(kind) or self.RULES["image"]
-        filename = (file.get("filename") or "").strip()
+        filename = secure_filename((file.get("filename") or "").strip())   # no folders or "../" in the name
         ext = os.path.splitext(filename)[1].lower()
         if ext not in rule["exts"]:
             self._log_failure(filename, rule["fmt_msg"], owner_type, owner_id)
@@ -35,7 +45,14 @@ class FileUploadService:
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, filename), "wb") as fh:
             fh.write(content)
-        return "uploads/{}/{}".format(owner_id, filename)
+        path = "uploads/{}/{}".format(owner_id, filename)
+        attachment = None
+        if self.attachments is not None:
+            user = self.current_user() if self.current_user else None
+            group = self.attachments.group_for(owner_type, owner_id)
+            attachment = self.attachments.add(group.id, getattr(user, "id", None), filename, path,
+                                              mimetypes.guess_type(filename)[0], len(content))
+        return path, attachment
 
     def _log_failure(self, filename, reason, owner_type, owner_id):
         if self.failures is None:

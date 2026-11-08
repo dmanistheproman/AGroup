@@ -99,7 +99,7 @@ def test_revise_on_draft_keeps_draft_and_version():
 def test_public_view_is_the_shared_offer_for_clients():
     _, _, repo = build()
     view = repo.get("PROP-801").public_view()
-    assert set(view) == {"id", "client_name", "title", "description", "attachments",
+    assert set(view) == {"id", "request_id", "thread_id", "client_name", "title", "description", "attachments",
                          "status", "version", "revision_note"}
     assert "feedback" not in view
 

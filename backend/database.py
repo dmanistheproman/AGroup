@@ -195,6 +195,13 @@ CREATE TABLE IF NOT EXISTS payment_milestone (
     paid_date TEXT,
     last_reminded_at TEXT
 );
+CREATE TABLE IF NOT EXISTS ticket_feedback (
+    feedback_id TEXT PRIMARY KEY,
+    request_id TEXT NOT NULL UNIQUE,
+    score INTEGER NOT NULL,
+    comment TEXT NOT NULL DEFAULT '',
+    submitted_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS review (
     review_id TEXT PRIMARY KEY,
     request_id TEXT,
@@ -248,6 +255,25 @@ CREATE TABLE IF NOT EXISTS upload_failure (
     file_name TEXT NOT NULL,
     reason TEXT NOT NULL,
     occurred_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS collection (
+    collection_id TEXT PRIMARY KEY,
+    customer_id TEXT NOT NULL,
+    attachment_group_id TEXT,
+    name TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    share_token TEXT UNIQUE,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS collection_item (
+    item_id TEXT PRIMARY KEY,
+    collection_id TEXT NOT NULL REFERENCES collection(collection_id),
+    project_id INTEGER,
+    attachment_id TEXT,
+    item_type TEXT NOT NULL,
+    colour TEXT,
+    note TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS message_by_thread ON message(thread_id, sent_at);
 CREATE INDEX IF NOT EXISTS payment_by_offer ON payment_milestone(offer_id, due_date);
@@ -308,7 +334,9 @@ def save_offer(connection, offer, offer_type, request_id=None):
                           revision, status, sent_at, answered_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(offer_id) DO UPDATE SET request_id = excluded.request_id, revision = excluded.revision,
-            status = excluded.status, sent_at = excluded.sent_at, answered_at = excluded.answered_at
+            status = excluded.status, sent_at = excluded.sent_at, answered_at = excluded.answered_at,
+            thread_id = COALESCE(excluded.thread_id, offer.thread_id),
+            attachment_group_id = COALESCE(excluded.attachment_group_id, offer.attachment_group_id)
     """, (offer.id, request_id if request_id is not None else offer.request_id, offer.previous_offer_id,
           offer.thread_id, offer.attachment_group_id, offer_type, getattr(offer, "version", offer.revision),
           offer.status, offer.sent_at, offer.answered_at))

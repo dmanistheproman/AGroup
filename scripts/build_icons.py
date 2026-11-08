@@ -25,6 +25,9 @@ ICONS = sorted({
     "upload", "download", "house", "ellipsis", "banknote", "receipt", "file-text", "merge",
     # customer site
     "heart", "star",
+    # shared parts: tickets, messages, notes, collections
+    "send", "eye", "eye-off", "user-check", "sticky-note", "folder", "folder-plus", "pencil", "trash-2", "search",
+    "messages-square",
 })
 
 OUT_DIR = Path(__file__).resolve().parent.parent / "frontend" / "assets" / "icons"

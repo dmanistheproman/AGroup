@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Your AGroup inbox: requests, messages with designers, offers and notification preferences.">
+<title>AGroup — Inbox</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/icons.css">
+<link rel="stylesheet" href="css/account.css">
+<link rel="stylesheet" href="css/support.css">
+<link rel="stylesheet" href="css/notifications.css">
+<link rel="stylesheet" href="css/records.css">
+<link rel="stylesheet" href="css/ui.css">
+<link rel="stylesheet" href="css/inbox.css">
+<script src="js/icons.js" defer></script>
+<script src="js/account.js" defer></script>
+<script src="js/notifications.js" defer></script>
+<script src="js/support.js" defer></script>
+<script src="js/records.js" defer></script>
+<script src="js/ui.js" defer></script>
+<script src="js/inbox-page.js" defer></script>
+</head>
+<body>
+<div class="demo-bar">AGroup student prototype <span>Sample accounts · demo actions only</span></div>
+
+<header class="site-header">
+  <a class="brand" href="index.html" aria-label="AGroup home"><span class="brand-mark">A</span>AGroup<span class="brand-dot">.</span></a>
+  <a class="text-button notification-back" href="index.html"><svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/lucide.svg#arrow-left"></use></svg> Back to website</a>
+  <div class="header-actions" data-account-slot></div>
+</header>
+
+<main class="section inbox-page">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow">YOUR INBOX</p>
+      <h2>Requests, messages and offers.</h2>
+      <p>Everything between you, the designers and the helpdesk, in one place.</p>
+    </div>
+  </div>
+
+  <div class="notification-tabs inbox-tabs" role="tablist" aria-label="Inbox sections">
+    <button type="button" role="tab" data-tab="requests" aria-selected="true">Requests <span data-unread="requests"></span></button>
+    <button type="button" role="tab" data-tab="messages" aria-selected="false">Messages <span data-unread="conversations"></span></button>
+    <button type="button" role="tab" data-tab="offers" aria-selected="false">Offers</button>
+    <button type="button" role="tab" data-tab="preferences" aria-selected="false">Preferences</button>
+  </div>
+
+  <div id="inbox-content" aria-live="polite"><p class="small-note">Loading…</p></div>
+</main>
+
+<footer>
+  <a class="brand" href="index.html"><span class="brand-mark">A</span>AGroup.</a>
+  <p>Spaces to inspire. People to make them happen.</p>
+  <small>Academic prototype. All firms, prices, reviews and project details are fictional. Photos are illustrative.</small>
+</footer>
+</body>
+</html>

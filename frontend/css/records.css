@@ -1,0 +1,40 @@
+/* Shared record components and workspace pages (S-01, S-02, S-04, S-16, S-20). Builds on styles.css / portal.css. */
+.record-page h3{display:flex;align-items:center;gap:8px;font-size:15px;margin:26px 0 10px}
+.record-page h3 small{color:var(--muted);font-weight:400}
+.record-header{display:flex;justify-content:space-between;align-items:start;gap:16px}
+.record-header h2{margin:4px 0 0}
+.record-actions{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px}
+.record-actions .button,.merge-form .button{padding:8px 14px;font-size:12px}
+.merge-form{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:8px 0}
+.merge-form label{flex:1;min-width:220px}
+.message-thread{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+.message-thread li{max-width:85%;background:#f3f4ef;border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.message-thread li.mine{justify-self:end;background:var(--white)}
+.message-thread small,.notes-panel small,.history-timeline small{color:var(--muted);font-size:11px}
+.message-thread p,.notes-panel p,.history-timeline p{margin:4px 0 0;white-space:pre-wrap}
+.reply-form{display:grid;gap:8px;margin-top:12px}
+.reply-form textarea{min-height:70px}
+.reply-form .button{justify-self:start}
+.notes-panel{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.notes-panel li{display:flex;gap:10px;align-items:start;background:#fbf8ec;border:1px solid #ece3c3;border-radius:8px;padding:9px 12px}
+.history-timeline{list-style:none;padding:0 0 0 14px;margin:0;border-left:2px solid var(--line);display:grid;gap:12px}
+.history-timeline li{position:relative}
+.history-timeline li::before{content:"";position:absolute;left:-20px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--olive,#5b6b45)}
+.history-timeline b{font-size:13px}
+.reason-dialog{width:min(480px,calc(100% - 28px))}
+.reason-actions{display:flex;gap:14px;align-items:center}
+.pager{display:flex;justify-content:space-between;padding:12px 16px}
+.pager button[disabled]{opacity:.4;cursor:default}
+.table-wrap{overflow-x:auto}
+.metric-link{text-decoration:none;color:inherit;display:block}
+.metric-link:hover,.metric-link:focus-visible{border-color:var(--olive,#5b6b45)}
+.conversation-layout{display:grid;grid-template-columns:260px 1fr;gap:18px}
+.conversation-list{list-style:none;padding:0;margin:0;display:grid;gap:6px;align-content:start}
+.conversation-list button{width:100%;text-align:left;border:1px solid var(--line);background:var(--white);border-radius:8px;padding:10px 12px;cursor:pointer;display:grid}
+.conversation-list button.active{border-color:var(--olive,#5b6b45)}
+.conversation-list small{color:var(--muted);font-size:11px}
+@media(max-width:800px){.conversation-layout{grid-template-columns:1fr}}
+.report-message{font-size:11px;margin-top:4px}
+.reported-message{margin:0;border-left:3px solid #8e2d20;padding:6px 10px;background:#fbf1ef}
+.reported-message small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.conversation-thread h3{display:flex;gap:8px;align-items:center;font-size:15px;margin:22px 0 10px}

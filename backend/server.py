@@ -93,9 +93,14 @@ from backend.repositories.favourite_repo import FavouriteRepository
 from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
 from backend.boundary.customer_routes import create_customer_blueprint
 from backend.entities.project_activity import ProjectActivity
+from backend.repositories.collection_repo import CollectionRepo
+from backend.controllers.shared.collection_service import CollectionService
 
 # ----- Helpdesk -----
 from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
+from backend.controllers.helpdesk.ticket_feedback_controller import TicketFeedbackController
+from backend.controllers.customer.submit_review_controller import SubmitReviewController
+from backend.repositories.ticket_feedback_repo import TicketFeedbackRepo
 from backend.boundary.helpdesk_routes import create_helpdesk_blueprint
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -110,7 +115,7 @@ def build_designer_controllers(upload_service, store):
     # ---------- ID-05 / ID-06: design proposals — both controllers must share one repository ----------
     proposal_repo = ProposalRepo.from_data(SEED_PROPOSAL_DATA, store)
     # ---------- ID-07 / ID-08: quotations (attached to confirmed requests) and client reviews (own company only) ----------
-    enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA, store)
+    enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA, store, handler_id="user-form-field")   # Form & Field handles the seeds
     quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA, store)
 
     projects_repo = ProjectRepo(store)
@@ -139,10 +144,48 @@ def build_designer_controllers(upload_service, store):
             if isinstance(q, dict) and q.get("status") == "ACCEPTED"
         ],
     )
+    c.payment_repo = payment_repo
     c.customer_repo, c.company_repo = customer_repo, company_repo   # shared with AccountService (S-13)
     c.enquiry_repo, c.verification_repo = enquiry_repo, verification_repo   # shared with RequestService (S-19)
     c.quotation_repo, c.proposal_repo = quotation_repo, proposal_repo   # shared with OfferService (S-21)
     return c
+
+
+def _remove_deleted_project(store, reference):
+    """ID-03: a deleted project leaves every customer's favourites, folders and moodboards."""
+    from backend.repositories.collection_repo import CollectionRepo
+    from backend.repositories.favourite_repo import FavouriteRepository
+    FavouriteRepository(store).remove_project_everywhere(reference)
+    CollectionRepo(store).remove_project_everywhere(reference)
+
+
+def _with_parties(rules, proposal):
+    """A proposal knows its client and designer through the enquiry it answers (S-21)."""
+    if proposal is not None:
+        proposal.participants = rules.offer_parties(proposal)
+    return proposal
+
+
+def _connect_designer_records(shared, designer):
+    """Enquiries, verification requests and offers use the shared status change, notifications and threads
+    (S-01, S-04, S-07, S-19, S-21)."""
+    shared.status_change.register("ENQUIRY", designer.enquiry_repo.get, designer.enquiry_repo.save)
+    shared.status_change.register("VERIFICATION_REQUEST", designer.verification_repo.get, designer.verification_repo.save)
+    rules = shared.rules
+    rules.enquiries, rules.verifications = designer.enquiry_repo, designer.verification_repo
+    rules.quotations, rules.proposals, rules.companies = designer.quotation_repo, designer.proposal_repo, designer.company_repo
+    shared.messages.register_owner(designer.enquiry_repo.find_by_thread)
+    shared.messages.register_owner(lambda thread_id: _with_parties(rules, designer.proposal_repo.find_by_thread(thread_id)))
+    designer.submit_proposal_controller.threads = shared.threads
+    designer.project_controller.attachments = shared.attachments
+    designer.project_controller.on_delete = lambda reference: _remove_deleted_project(shared.store, reference)
+    shared.messages.register_owner(designer.verification_repo.find_by_thread, staff_roles=(UserAccount.ROLE_USER_ADMIN,))
+    designer.review_enquiry_controller.connect(shared)
+    designer.verification_controller.shared = designer.review_controller.shared = shared
+    designer.submit_quotation_controller.status_change = shared.status_change
+    designer.submit_proposal_controller.enquiries = designer.enquiry_repo
+    designer.submit_proposal_controller.status_change = shared.status_change
+    designer.revise_proposal_controller.rules = designer.payment_controller.rules = rules
 
 
 def build_management_controllers(store):
@@ -207,6 +250,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.message_repo = MessageRepo(store)
     shared.messages = PostMessageController(shared.threads, shared.message_repo, shared.rules)
     shared.messages.register_owner(shared.tickets.find_by_thread, staff_roles=(UserAccount.ROLE_HELPDESK,))
+    shared.submit_ticket.messages = shared.messages
     shared.note_repo = InternalNoteRepo(store)
     shared.notes = AddInternalNoteController(shared.note_repo, {"REQUEST": shared.requests.find,
                                                                "USER_ACCOUNT": user_accounts.get})
@@ -217,6 +261,10 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.rules.preferences = shared.preference_repo
     shared.preferences = NotificationPreferenceController(shared.preference_repo)
     shared.uploads, shared.upload_failures = upload_service, upload_service.failures
+    upload_service.attachments = shared.attachments   # every accepted upload is kept as an attachment (S-03)
+    shared.ticket_feedback = TicketFeedbackController(TicketFeedbackRepo(store), shared.tickets)   # HD-13
+    # PM category changes are written to audit_log by their own controllers; registered here for history_of.
+    shared.status_change.register("CATEGORY", lambda category_id: None)
     shared.reports = ReportService(store)
     shared.category_lookup = CategoryLookupController(store)
     app.extensions['shared'] = shared
@@ -236,10 +284,15 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.account_service = accounts
     shared.requests.register(Enquiry, designer.enquiry_repo, "ENQUIRY")
     shared.requests.register(VerificationRequest, designer.verification_repo, "VERIFICATION_REQUEST")
+    shared.companies = designer.company_repo
     shared.conversations = StartConversationController(shared.conversation_repo, designer.company_repo, shared.threads)
     shared.inbox = InboxService(shared.tickets, designer.enquiry_repo, designer.verification_repo,
                                 shared.conversation_repo, shared.notifications)
-    shared.offers = OfferService(designer.quotation_repo, designer.proposal_repo, shared.status_change)
+    shared.offers = OfferService(designer.quotation_repo, designer.proposal_repo, shared.status_change, shared.rules)
+    _connect_designer_records(shared, designer)
+    shared.reviews = SubmitReviewController(designer.list_reviews_controller.reviews, designer.enquiry_repo,
+                                            designer.company_repo)   # C-07
+    app.extensions['designer'] = designer
     app.register_blueprint(create_auth_blueprint(login, accounts))
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
 
@@ -251,7 +304,11 @@ def create_app(registry=None, admin_provider=None, config=None):
 
     # ----- Customer -----
     favourites = ManageFavouritesController(FavouriteRepository(store), shared.projects, ProjectActivity(store))
-    app.register_blueprint(create_customer_blueprint(favourites, login))
+    shared.collections = CollectionService(CollectionRepo(store), FavouriteRepository(store))
+    shared.collections.uploads, shared.collections.attachments = upload_service, shared.attachments
+    shared.collections.projects = shared.projects
+    favourites.collections = shared.collections
+    app.register_blueprint(create_customer_blueprint(favourites, login, shared.collections))
 
     # ----- Helpdesk -----
     merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)

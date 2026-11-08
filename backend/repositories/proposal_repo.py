@@ -66,6 +66,11 @@ class ProposalRepo:
     def all(self):
         return self._select("", ())
 
+    def find_by_thread(self, thread_id):
+        """The proposal a message thread belongs to (S-01), or None."""
+        found = self._select("WHERE o.thread_id = ?", (thread_id,))
+        return found[0] if found else None
+
     def next_reference(self):
         """Next proposal number, continuing after the seeds (PROP-801 when empty)."""
         with self.store.transaction(write=True) as connection:
@@ -77,8 +82,13 @@ class ProposalRepo:
         with self.store.transaction() as connection:
             rows = connection.execute(f"SELECT * FROM offer o JOIN design_proposal p ON p.offer_id = o.offer_id "
                                       f"{where} ORDER BY o.offer_id", args).fetchall()
-        return [DesignProposal(row["offer_id"], row["client_name"], row["title"], row["design_description"],
-                               attachments=json.loads(row["attachments"]), status=row["status"],
-                               version=row["revision"], feedback=row["feedback"],
-                               feedback_history=json.loads(row["feedback_history"]),
-                               revision_note=row["revision_note"]) for row in rows]
+        proposals = []
+        for row in rows:
+            proposal = DesignProposal(row["offer_id"], row["client_name"], row["title"], row["design_description"],
+                                      attachments=json.loads(row["attachments"]), status=row["status"],
+                                      version=row["revision"], feedback=row["feedback"],
+                                      feedback_history=json.loads(row["feedback_history"]),
+                                      revision_note=row["revision_note"], request_id=row["request_id"])
+            proposal.thread_id = row["thread_id"]
+            proposals.append(proposal)
+        return proposals

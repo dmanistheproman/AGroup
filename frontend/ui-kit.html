@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="The shared interface components every AGroup page uses.">
+<title>AGroup — Shared components</title>
+<link rel="stylesheet" href="css/styles.css">
+<link rel="stylesheet" href="css/icons.css">
+<link rel="stylesheet" href="css/account.css">
+<link rel="stylesheet" href="css/records.css">
+<link rel="stylesheet" href="css/ui.css">
+<style>
+  .kit{padding:30px 5% 60px;max-width:1180px;margin:0 auto}
+  .kit-intro{color:var(--muted);max-width:720px;margin:14px 0 30px}
+  .kit-nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px}
+  .kit-nav a{border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12px;background:var(--white)}
+  .kit-section{border-top:1px solid var(--line);padding:30px 0}
+  .kit-section>h2{font-size:28px;margin-bottom:6px}
+  .kit-section>p{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .kit-section>p code{font-size:12px;background:#f0f1ea;padding:1px 5px;border-radius:3px}
+  .kit-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+  .kit-box{background:var(--white);border:1px solid var(--line);border-radius:8px;padding:20px}
+  .kit-note{font-size:12px;color:var(--muted);margin-top:8px}
+  @media(max-width:800px){.kit-grid{grid-template-columns:1fr}}
+</style>
+<script src="js/icons.js" defer></script>
+<script src="js/account.js" defer></script>
+<script src="js/records.js" defer></script>
+<script src="js/ui.js" defer></script>
+<script src="js/ui-kit.js" defer></script>
+</head>
+<body>
+<div class="demo-bar">AGroup student prototype <span>Shared components for every role</span></div>
+<header class="site-header">
+  <a class="brand" href="index.html" aria-label="AGroup home"><span class="brand-mark">A</span>AGroup<span class="brand-dot">.</span></a>
+  <a class="text-button" href="index.html"><svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/lucide.svg#arrow-left"></use></svg> Back to website</a>
+  <div class="header-actions" data-account-slot></div>
+</header>
+<main class="kit">
+  <p class="eyebrow">SHARED PARTS / INTERFACE</p>
+  <h1>Shared components.</h1>
+  <p class="kit-intro">Every role's pages are built from these parts, so a status, a list or a form looks and behaves the same
+    everywhere. They live in <b>js/records.js</b> and <b>js/ui.js</b>; each section names the function to call.
+    Live data is used where it is public; examples are marked.</p>
+  <nav class="kit-nav" aria-label="Components">
+    <a href="#status">Status and history</a><a href="#list">List page</a><a href="#cards">Project cards</a>
+    <a href="#categories">Category picker</a><a href="#report">Period and chart</a><a href="#upload">Upload</a>
+    <a href="#rating">Rating</a><a href="#form">Form</a><a href="#record">Record page</a>
+  </nav>
+  <section class="kit-section" id="status"><h2>Status badge, reason dialog and history (S-04)</h2>
+    <p><code>AGroupRecords.statusBadge(status)</code>, <code>confirmWithReason({title})</code>, <code>historyTimeline(entries)</code></p>
+    <div class="kit-grid" id="kit-status"></div></section>
+  <section class="kit-section" id="list"><h2>List page (S-05)</h2>
+    <p><code>AGroupUI.toolbar</code>, <code>table</code>, <code>pager</code>, <code>listPage</code>, <code>state('loading' | 'empty' | 'error')</code>. Live: active categories, five per page.</p>
+    <div id="kit-list"></div><div class="kit-grid" id="kit-states"></div></section>
+  <section class="kit-section" id="cards"><h2>Project card and image gallery (S-08)</h2>
+    <p><code>AGroupUI.projectCard(project)</code>, <code>imageGallery(images)</code>. Live: the first published projects. A missing image falls back to a placeholder.</p>
+    <div class="project-grid" id="kit-cards"></div><div class="kit-grid" style="margin-top:24px"><div class="kit-box" id="kit-gallery"></div></div></section>
+  <section class="kit-section" id="categories"><h2>Category picker (S-10)</h2>
+    <p><code>AGroupUI.loadCategories()</code> then <code>categoryPicker(categories, {multiple})</code>. Only active categories are offered.</p>
+    <div class="kit-grid"><div class="kit-box" id="kit-picker-one"></div><div class="kit-box" id="kit-picker-many" style="grid-column:span 2"></div></div></section>
+  <section class="kit-section" id="report"><h2>Period selector and trend chart (S-06)</h2>
+    <p><code>AGroupUI.periodSelector()</code>, <code>periodQuery(form)</code>, <code>trendChart(rows, series)</code> on <code>GET /api/reports/activity</code>.</p>
+    <div class="kit-box" id="kit-report"></div></section>
+  <section class="kit-section" id="upload"><h2>Upload widget (S-03)</h2>
+    <p><code>AGroupUI.uploadWidget({kind})</code>, <code>checkFiles(input)</code>, <code>send(url, formData, onProgress)</code>. Files are checked here with the server's rules; nothing is uploaded on this page.</p>
+    <div class="kit-grid"><div class="kit-box" id="kit-upload-image"></div><div class="kit-box" id="kit-upload-doc"></div></div></section>
+  <section class="kit-section" id="rating"><h2>Rating (S-11)</h2>
+    <p><code>AGroupUI.ratingInput(name)</code>, <code>ratingDisplay(average, count)</code>, <code>ratingForm()</code></p>
+    <div class="kit-grid"><div class="kit-box" id="kit-rating-display"></div><div class="kit-box" id="kit-rating-form" style="grid-column:span 2"></div></div></section>
+  <section class="kit-section" id="form"><h2>Form view (S-12)</h2>
+    <p><code>AGroupUI.formView.submit(form, method, url, body)</code> shows field errors from the server (<code>{error, field}</code>), a busy button and a success message. Example only: this form is not sent.</p>
+    <div class="kit-grid"><div class="kit-box" id="kit-form" style="grid-column:span 2"></div></div></section>
+  <section class="kit-section" id="record"><h2>Record page (S-20)</h2>
+    <p><code>AGroupUI.recordPage({eyebrow, title, status, details, actions, sections})</code> with the message thread and notes from records.js. Example record.</p>
+    <div class="kit-box" id="kit-record"></div></section>
+</main>
+<div class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
