@@ -77,9 +77,21 @@ jobs:
           echo "Staging container did not start"; docker logs agroup-staging; exit 1
       - name: Smoke test
         run: python3 scripts/smoke_test.py http://127.0.0.1:8000
+      - name: Start staging on generated test data (X-05)
+        run: |
+          docker run -d --name agroup-testdata -p 8001:8000             -e AGROUP_SECRET_KEY="$(openssl rand -hex 32)" -e AGROUP_DATABASE=/tmp/test-data.sqlite3             agroup:${{ github.sha }} sh -c 'python -c "from backend.data_generator import generate; generate(\"/tmp/test-data.sqlite3\")" && exec gunicorn --bind 0.0.0.0:8000 --workers 1 --threads 4 "backend.server:create_app()"'
+          for i in $(seq 1 180); do
+            curl -sf http://127.0.0.1:8001/ > /dev/null && exit 0
+            sleep 1
+          done
+          echo "Test-data container did not start"; docker logs agroup-testdata; exit 1
+      - name: Smoke test on generated test data
+        run: python3 scripts/smoke_test.py http://127.0.0.1:8001
       - name: Container logs
         if: always()
-        run: docker logs agroup-staging || true
+        run: |
+          docker logs agroup-staging || true
+          docker logs agroup-testdata || true
 
   deliver:
     name: "CD · deliver image to GitHub Packages"

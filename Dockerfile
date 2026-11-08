@@ -11,6 +11,6 @@ COPY backend backend
 COPY frontend frontend
 
 EXPOSE 8000
-# One worker: data is still kept in memory, so every request must reach the same process.
+# Data is in a SQLite file inside the container (AGROUP_DATABASE); one worker keeps writes simple.
 # Set AGROUP_SECRET_KEY when starting the container so login sessions survive restarts.
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "4", "backend.server:create_app()"]
