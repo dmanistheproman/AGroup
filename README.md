@@ -71,7 +71,7 @@ Management APIs require a logged-in Platform Manager. Mutating management reques
 
 Project and category persistence currently uses SQLite. Other group repositories, including demo accounts, continue to use in-memory data. Firestore integration remains future work. The current management entity services retain their transactional database operations from the original BCE implementation, while designer repositories adapt to the same store.
 
-The earlier `python app.py` entry point also starts the shared application. `backend/tests/management/` contains the management regression and shared-application tests, so the existing CI workflow includes them.
+`backend/tests/management/` contains the management regression and shared-application tests, so the existing CI workflow includes them.
 
 ## Running the tests
 
