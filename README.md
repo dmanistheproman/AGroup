@@ -51,6 +51,19 @@ Log in at `/login.html`. Every demo account uses the password `demo`.
 
 The portal shows only the workspace of the logged-in role (customers use the customer website). The Interior Designer workspace, Platform Management workspace and User Admin company-verification screen use server data and require the matching login. Helpdesk and several other portal screens still use browser demonstrations.
 
+## Test data
+
+`scripts/generate_data.py` fills a **separate** database with at least 100 records per main entity (accounts, companies, projects, categories, enquiries, quotations, proposals, payments, reviews, verification requests, support tickets, messages, conversations, notes, favourites, failed uploads) and 90 days of project activity. It goes through the app's own services, so status changes are audited and notifications are sent as in real use. The same `--seed` always gives the same data, and the demo database is never touched.
+
+```
+python scripts/generate_data.py                            # instance/test-data.sqlite3 (about 30 s)
+python scripts/generate_data.py --reset                    # start again
+python scripts/generate_data.py --scale 0.2 --seed 7       # a smaller or different set
+python run.py --database instance/test-data.sqlite3        # open the site on the test data
+```
+
+The demo accounts above work on the test database too; generated accounts (for example `studio1@example.com`) use the password `testdata`.
+
 ## Platform Management
 
 Start the shared application with `python run.py`, log in as `manager@demo.agroup` with password `demo`, then open **Project categories**. The workspace supports the 14 management stories, including reports, category merging, and the additional Deleted categories page.

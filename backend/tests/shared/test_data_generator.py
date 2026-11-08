@@ -1,5 +1,6 @@
 """X-05 / X-12 / X-13: the test-data generator writes a separate database through the app's own services."""
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -20,7 +21,7 @@ def generated(tmp_path_factory):
 
 
 def query(path, sql, *args):
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection:
         return connection.execute(sql, args).fetchall()
 
 

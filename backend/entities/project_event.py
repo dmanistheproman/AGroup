@@ -3,7 +3,7 @@
 Events are stored in the activities table (recorded by ProjectActivity, POST /api/activity).
 count_by is what reports read (S-06): counts per type, grouped by project, category, day or in total.
 """
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from backend.entities.enums import EventType
 from backend.services.management_rules import SINGAPORE
@@ -19,6 +19,18 @@ class ProjectEvent:
         self.type = EventType(event_type)
         self.occurred_at = occurred_at
         self.customer_id = customer_id
+
+    @staticmethod
+    def create(connection, event_id, project_id, event_type, occurred_at, source="customer"):
+        """Write one event inside an open write transaction (ActivityRecorder, S-18)."""
+        try:
+            event_type = EventType(event_type)
+        except ValueError as error:
+            raise ValueError("Choose a valid project activity type.") from error
+        when = occurred_at.astimezone(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
+        connection.execute("INSERT INTO activities(id, project_id, type, occurred_at, source) VALUES (?, ?, ?, ?, ?)",
+                           (event_id, project_id, event_type.value, when, source))
+        return ProjectEvent(event_id, project_id, event_type, when)
 
     @staticmethod
     def count_by(connection, period, group_by="total", filters=None):
