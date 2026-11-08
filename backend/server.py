@@ -73,6 +73,11 @@ from backend.entities.activity_report import ActivityReport
 from backend.seed import seed_demo
 from backend.storage import SQLiteStore
 
+# ----- Helpdesk -----
+from backend.repositories.ticket_memory_repo import TicketMemoryRepo
+from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
+from backend.boundary.helpdesk_routes import create_helpdesk_blueprint
+
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT / 'frontend'
 UPLOAD_DIR = ROOT / 'backend' / 'uploads'
@@ -194,6 +199,10 @@ def create_app(registry=None, admin_provider=None, config=None):
 
     # ----- Platform Management -----
     app.register_blueprint(create_management_blueprint(build_management_controllers(store), store, login))
+
+    # ----- Helpdesk -----
+    ticket_repo = TicketMemoryRepo()
+    app.register_blueprint(create_helpdesk_blueprint(MergeTicketController(ticket_repo), ticket_repo, login))
 
     @app.get('/')
     def home():
