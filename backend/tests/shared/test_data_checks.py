@@ -77,3 +77,10 @@ def test_internal_notes_are_written_by_staff(database, tmp_path):
     broken = corrupt(database, tmp_path, "UPDATE internal_note SET author_id = 'CUS-101' WHERE note_id = "
                                          "(SELECT MIN(note_id) FROM internal_note)")
     assert any("note" in p for p in check_database(broken))
+
+
+def test_a_folder_holds_only_saved_projects_of_its_owner(database, tmp_path):
+    broken = corrupt(database, tmp_path, "INSERT INTO collection_item(item_id, collection_id, project_id, item_type) "
+                                         "SELECT 'CI-99999', collection_id, 9999, 'PROJECT' FROM collection "
+                                         "WHERE kind = 'FOLDER' LIMIT 1")
+    assert any("folder" in p.lower() for p in check_database(broken))
