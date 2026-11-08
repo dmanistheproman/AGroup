@@ -1,5 +1,5 @@
-"""<<entity>> Review — C-07 任务 1 的共享面（客户、公司、日期；rating 走共享评分规则 1-5）。
-提交资格（须有已完成的请求、一请求一评）由 C-07 的 SubmitReviewController 把关；ID-08 只读。"""
+"""<<entity>> Review — the shared part of C-07 task 1 (customer, company, date; the rating follows the shared 1-5 rule).
+Who may submit (a completed request, one review per request) is checked by the C-07 SubmitReviewController; ID-08 only reads."""
 
 class Review:
     def __init__(self, review_id, customer, company, rating, comment, date):

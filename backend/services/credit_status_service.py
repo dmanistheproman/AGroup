@@ -1,6 +1,6 @@
-"""ID-12 任务1 — CreditStatusService。Rule：只用平台内活动——
-已完成协作（COMPLETED enquiry）、付款准时性（ID-09 里程碑）。
-Upheld complaints (HD-10) 与 account flags (UA-09) 未实现→无信号，如实入账。"""
+"""ID-12 task 1 — CreditStatusService. Rule: use platform activity only —
+completed collaborations (COMPLETED enquiries) and payment punctuality (ID-09 milestones).
+Upheld complaints (HD-10) and account flags (UA-09) are not implemented → no signal, reported as such."""
 from datetime import date
 from backend.entities.payment_milestone import PaymentMilestone
 

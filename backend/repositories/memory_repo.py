@@ -1,4 +1,4 @@
-"""<<entity>> Project / Category 的仓库 — 接 Firestore 前的内存替身。"""
+"""<<entity>> Repository for Project / Category — an in-memory stand-in before a database."""
 import re
 
 class MemoryRepo:
@@ -16,17 +16,17 @@ class MemoryRepo:
         return list(self.items.values())
 
     def delete(self, item_id):
-        """ID-03b：删除并返回被删项；不存在时返回 None。"""
+        """ID-03b: delete and return the removed item; None when it does not exist."""
         return self.items.pop(item_id, None)
 
     def next_reference(self, prefix):
-        """续接既有序号：取现有 <prefix>-<数字> 键的最大值 +1（无则从 001 起）。"""
+        """Continue the existing numbering: the highest <prefix>-<number> key + 1 (from 001 when there is none)."""
         nums = [int(m.group(1)) for key in self.items
                 for m in [re.match(prefix + r"-(\d+)$", key)] if m]
         return "{}-{:03d}".format(prefix, (max(nums) if nums else 0) + 1)
 
 
-# 与原型演示数据对应的分类（Retro 是 archived，正好用来演示被拒绝的分支）
+# Categories matching the prototype demo data (Retro is archived, which shows the refused branch)
 SEED_CATEGORIES = {
     "cat-japandi": {"id": "cat-japandi", "name": "Japandi", "status": "ACTIVE"},
     "cat-contemporary": {"id": "cat-contemporary", "name": "Contemporary", "status": "ACTIVE"},
@@ -35,7 +35,7 @@ SEED_CATEGORIES = {
     "cat-retro": {"id": "cat-retro", "name": "Retro", "status": "ARCHIVED"},
 }
 
-# ID-03b：与原型作品集对应的种子项目（IDP-001/004 带客户浏览与收藏数，用于演示 AF2 二次确认）
+# ID-03b: seed projects matching the prototype portfolio (IDP-001/004 have client views and favourites, to show the AF2 second confirmation)
 SEED_PROJECTS = {
     "IDP-001": {"id": "IDP-001", "title": "The quiet everyday",
                 "description": "Past project. Quiet architecture and natural materials for a family HDB home.",

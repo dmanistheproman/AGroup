@@ -1,6 +1,6 @@
-"""<<control>> FileUploadService — 校验格式与大小，写入 uploads/ 文件夹。
-kind="image"：ID-01 Logo、ID-03 项目图片（JPG/PNG/WebP，≤1MB）
-kind="document"：ID-02 认证文件（PDF/DOC/图片，≤5MB）
+"""<<control>> FileUploadService — checks format and size and writes to the uploads/ folder.
+kind="image": ID-01 logo, ID-03 project images (JPG/PNG/WebP, ≤1MB)
+kind="document": ID-02 verification documents (PDF/DOC/images, ≤5MB)
 """
 import os
 

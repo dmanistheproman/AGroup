@@ -18,7 +18,7 @@ class FakeProjectRepo:
         return project
 
 class FakeUploadService:
-    """测试替身：与真实 FileUploadService 同接口，只验证不写盘。"""
+    """Test double: same interface as the real FileUploadService, checks only and does not write to disk."""
     def upload(self, file, owner_type, owner_id):
         name = (file.get("filename") or "").lower()
         if not name.endswith((".jpg", ".jpeg", ".png", ".webp")):
@@ -42,7 +42,7 @@ def build():
     repo = FakeProjectRepo()
     return ProjectController(repo, FakeCategoryRepo(), FakeUploadService()), repo
 
-# ---- 基本流程 ----
+# ---- Basic flow ----
 def test_add_project_success():
     controller, repo = build()
     project = controller.create(make_data())
@@ -60,12 +60,12 @@ def test_multiple_images_all_uploaded():
     ]))
     assert project["attachments"] == ["uploads/IDP-TEST/living.jpg", "uploads/IDP-TEST/kitchen.png"]
 
-# ---- 替代流程1：图片无效 ----
+# ---- Alternative flow 1: invalid image ----
 def test_rejects_unsupported_image_format():
     controller, repo = build()
     with pytest.raises(ValueError, match="format"):
         controller.create(make_data(images=[{"filename": "photo.heic", "content": b"x"}]))
-    assert repo.saved == []          # 失败后作品集不变
+    assert repo.saved == []          # the portfolio is unchanged after a failure
 
 def test_rejects_oversized_image():
     controller, _ = build()
@@ -73,7 +73,7 @@ def test_rejects_oversized_image():
     with pytest.raises(ValueError, match="1 MB"):
         controller.create(make_data(images=[{"filename": "big.jpg", "content": big}]))
 
-# ---- 顺序图 alt-else：分类不是 ACTIVE ----
+# ---- Sequence diagram alt-else: the category is not ACTIVE ----
 def test_rejects_archived_category():
     controller, repo = build()
     with pytest.raises(ValueError, match="category"):
@@ -85,7 +85,7 @@ def test_rejects_unknown_category():
     with pytest.raises(ValueError, match="category"):
         controller.create(make_data(category_id="cat-none"))
 
-# ---- 字段验证 ----
+# ---- Field validation ----
 def test_rejects_blank_title():
     controller, _ = build()
     with pytest.raises(ValueError, match="Title"):

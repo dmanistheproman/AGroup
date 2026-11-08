@@ -1,4 +1,4 @@
-"""<<control>> SubmitVerificationController / ReviewVerificationController — 命名与任务列表一致。"""
+"""<<control>> SubmitVerificationController / ReviewVerificationController — named as in the task list."""
 from backend.entities.verification_request import VerificationRequest
 
 class SubmitVerificationController:
@@ -8,7 +8,7 @@ class SubmitVerificationController:
         self.uploads = upload_service
 
     def view(self, user_id):
-        """BF1/任务3：认证页显示请求状态。"""
+        """BF1 / task 3: the verification page shows the request status."""
         company = self.companies.resolve_for_owner(user_id)
         return [r.public_view() for r in self.verifications.for_company(company.id)]
 
@@ -22,18 +22,18 @@ class SubmitVerificationController:
         if any(r.status == "PENDING_REVIEW" for r in existing):
             raise ValueError("A request is already pending review. Please wait for the administrators' decision.")
 
-        # BF3：loop [each document]，格式与大小校验在 FileUploadService 内
+        # BF3: loop [each document]; format and size are checked in FileUploadService
         refs = [self.uploads.upload(d, "Verification", company.id, kind="document") for d in docs]
 
         rejected = [r for r in existing if r.status == "REJECTED"]
         if rejected:
-            request = rejected[-1]      # AF2：复用同一请求重新提交
+            request = rejected[-1]      # AF2: resubmit the same request
             request.resubmit(refs)
         else:
             request = VerificationRequest(
                 request_id=self.verifications.next_reference(),
                 company_id=company.id, requested_by=user_id, documents=refs)
-        return self.verifications.save(request)   # BF4 提交管理员；BF5 Pending Review
+        return self.verifications.save(request)   # BF4 submitted to the administrators; BF5 Pending Review
 
 class ReviewVerificationController:
     def __init__(self, verification_repo, company_repo):
@@ -41,7 +41,7 @@ class ReviewVerificationController:
         self.companies = company_repo
 
     def queue(self):
-        """管理员工作台的请求列表（映射为原型 recordPage 的行格式）。"""
+        """Request list for the administrators' workspace (rows in the prototype recordPage format)."""
         rows = []
         for r in self.verifications.all():
             company = self.companies.get(r.company_id)

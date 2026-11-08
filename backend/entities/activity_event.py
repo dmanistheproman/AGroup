@@ -1,5 +1,5 @@
-"""<<entity>> ActivityEvent — IDP 页面浏览/收藏事件（ID-13 任务1 的共享活动事件）。
-当前仅由种子生成；真实浏览/收藏动作的实时采集（C-03/C-04）未实现。"""
+"""<<entity>> ActivityEvent — an IDP page view or favourite event (the shared activity event of ID-13 task 1).
+Created from seeds only; recording real views and favourites live (C-03/C-04) is not implemented."""
 class ActivityEvent:
     VIEW = "VIEW"
     FAVOURITE = "FAVOURITE"

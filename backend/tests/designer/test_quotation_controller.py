@@ -11,7 +11,7 @@ def build():
     return (SubmitQuotationController(QuotationRepo.from_data(SEED_QUOTATION_DATA),
                                       EnquiryRepo.from_data(SEED_ENQUIRY_DATA)),)
 
-# UC7 BF1-3：为已确认请求起草报价；总额=行项目之和；需求随报价快照
+# UC7 BF1-3: draft a quotation for a confirmed request; total = sum of the line items; requirements saved with it
 def test_create_for_confirmed_enquiry_computes_total_and_snapshots_requirements():
     ctrl, = build()
     q = ctrl.create("user-form-field", DATA)
@@ -20,7 +20,7 @@ def test_create_for_confirmed_enquiry_computes_total_and_snapshots_requirements(
     assert q["client_name"] == "Alex Tan"
     assert "family-friendly living room" in q["requirements"]
 
-# UC7 前提：需求未确认的请求不能报价（ENQ-DEMO2 种子未确认）
+# UC7 precondition: a request whose requirements are not confirmed cannot be quoted (the ENQ-DEMO2 seed is not confirmed)
 def test_create_rejects_unconfirmed_enquiry():
     ctrl, = build()
     with pytest.raises(ValueError, match="not confirmed"):
@@ -31,7 +31,7 @@ def test_create_requires_existing_enquiry():
     with pytest.raises(ValueError, match="not found"):
         ctrl.create("user-form-field", {**DATA, "enquiry_id": "ENQ-999"})
 
-# 报价校验：费用为非负数字、日期格式、付款计划必填
+# Quotation checks: fees are non-negative numbers, date format, payment schedule required
 def test_create_validates_fees_date_and_schedule():
     ctrl, = build()
     for field, bad in (("design_fee", "-1"), ("material_cost", "abc"), ("construction_fee", "")):
@@ -42,7 +42,7 @@ def test_create_validates_fees_date_and_schedule():
     with pytest.raises(ValueError):
         ctrl.create("user-form-field", {**DATA, "payment_schedule": ""})
 
-# UC7 BF4-5：发送 → Waiting for Client Confirmation（仅草稿、仅一次）
+# UC7 BF4-5: send → Waiting for Client Confirmation (drafts only, once)
 def test_present_marks_waiting_client_confirmation():
     ctrl, = build()
     q = ctrl.create("user-form-field", DATA)
@@ -55,7 +55,7 @@ def test_present_only_once():
     with pytest.raises(ValueError, match="already"):
         ctrl.present("user-form-field", q["id"])
 
-# UC7 AF1：客户请求调整（C-06 共享面触发）→ 修订重提，版本 +1，回到等待确认
+# UC7 AF1: the client asks for changes (triggered by the C-06 shared part) → revise and resubmit, version +1, back to awaiting confirmation
 def test_revise_after_adjustment_creates_new_version():
     ctrl, = build()
     q = ctrl.create("user-form-field", DATA)
@@ -67,7 +67,7 @@ def test_revise_after_adjustment_creates_new_version():
     assert out["total"] == 56000 and out["adjustment_note"] is None
     assert out["revision_note"] == "Material cost reduced."
 
-# ID-07 任务 3：到期未响应 → 自动 Expired（读取时惰性触发，可注入日期）
+# ID-07 task 3: no answer by the validity date → Expired automatically (checked lazily on read, the date can be injected)
 def test_lazy_expiry_marks_waiting_quotations_expired():
     ctrl, = build()
     q = ctrl.create("user-form-field", {**DATA, "valid_until": "2026-01-31"})
@@ -75,7 +75,7 @@ def test_lazy_expiry_marks_waiting_quotations_expired():
     rows = ctrl.list_for("user-form-field", today="2026-11-06")
     expired = {r["id"]: r["status"] for r in rows}
     assert expired[q["id"]] == "EXPIRED"
-    assert expired["QT-101"] == "WAITING_CLIENT_CONFIRMATION"  # 未到期的不受影响
+    assert expired["QT-101"] == "WAITING_CLIENT_CONFIRMATION"  # not yet due, unchanged
 
 def test_expired_quotation_cannot_be_revised():
     ctrl, = build()
@@ -85,7 +85,7 @@ def test_expired_quotation_cannot_be_revised():
     with pytest.raises(ValueError, match="revised"):
         ctrl.revise("user-form-field", q["id"], DATA)
 
-# C-06 共享面（Rule）：接受 = 签约决定的记录；接受后终止
+# C-06 shared part (Rule): accepting records the decision to sign; nothing changes after acceptance
 def test_accept_is_the_shared_face_and_terminal():
     ctrl, = build()
     q = ctrl.create("user-form-field", DATA)
@@ -96,12 +96,12 @@ def test_accept_is_the_shared_face_and_terminal():
     with pytest.raises(ValueError):
         ctrl.present("user-form-field", q["id"])
 
-# 响应形状契约（HTTP 边界）：create 包裹 / present、revise 裸视图——钉死，防上轮 revise 事故重演
+# Response shape contract (HTTP boundary): create is wrapped / present and revise return the bare view — fixed so the earlier revise bug cannot return
 def test_http_response_shape_contracts():
     from backend import server as portal
     client = portal.create_app().test_client()
     client.post("/api/auth/login", json={"email": "designer@demo.agroup", "password": "demo"})  # session identity
-    http_data = {**DATA, "valid_until": "2099-12-31"}  # 远期日期，测试不受真实时钟影响
+    http_data = {**DATA, "valid_until": "2099-12-31"}  # a far-future date, so the test does not depend on the real clock
     created = client.post("/api/quotations", data=http_data)
     assert created.status_code == 201
     body = created.get_json()

@@ -1,10 +1,10 @@
-"""<<control>> SubmitProposalController（ID-05）/ ReviseProposalController（ID-06）
-— 共享同一 ProposalRepo 实例（shared: offers）。"""
+"""<<control>> SubmitProposalController (ID-05) / ReviseProposalController (ID-06)
+— both use the same ProposalRepo instance (shared: offers)."""
 from backend.entities.design_proposal import DesignProposal
 from backend.services.validators import require_text
 
 def _view(p):
-    """设计师侧视图：比客户侧 public_view 多反馈与历史。"""
+    """Designer view: adds feedback and history to the client-side public_view."""
     return {"id": p.id, "client_name": p.client_name, "title": p.title,
             "description": p.description, "status": p.status, "version": p.version,
             "attachments": list(p.attachments), "feedback": p.feedback,
@@ -16,11 +16,11 @@ class SubmitProposalController:
         self.uploads = upload_service
 
     def list_for(self, user_id):
-        # user_id 预留归属过滤（与 ID-04 同口径）
+        # user_id is kept for filtering by owner (same rule as ID-04)
         return [_view(p) for p in self.proposals.all()]
 
     def create(self, user_id, data):
-        """UC5 BF1-2：起草提案并逐张上传图片（保存为草稿，尚未发送）。"""
+        """UC5 BF1-2: draft a proposal and upload its images one by one (saved as a draft, not sent yet)."""
         title = require_text(data.get("title"), "Title", 100)
         if not title:
             raise ValueError("Title is required.")
@@ -40,7 +40,7 @@ class SubmitProposalController:
         return _view(proposal)
 
     def present(self, user_id, proposal_id):
-        """UC5 BF3-4：发送给客户，状态标记为 Under Review。"""
+        """UC5 BF3-4: send to the client and mark it Under Review."""
         proposal = self.proposals.get(proposal_id)
         if proposal is None:
             raise ValueError("Proposal not found.")
@@ -54,7 +54,7 @@ class ReviseProposalController:
         self.uploads = upload_service
 
     def revise(self, user_id, proposal_id, data):
-        """UC6 BF5 / UC5 AF2：按反馈修改并重新提交（新版本）。"""
+        """UC6 BF5 / UC5 AF2: revise from the feedback and submit again (new version)."""
         proposal = self.proposals.get(proposal_id)
         if proposal is None:
             raise ValueError("Proposal not found.")

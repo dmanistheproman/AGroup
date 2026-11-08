@@ -1,4 +1,4 @@
-"""共享字段校验 — 业务约定：空值/超长 raise ValueError。"""
+"""Shared field checks — business rule: empty or too long raises ValueError."""
 import re
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")

@@ -82,9 +82,9 @@ def build_designer_controllers(upload_service, store):
     """ID-01 … ID-13 wiring, moved from the ID branch's run.py."""
     company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA, store)
     verification_repo = VerificationRepo(store)
-    # ---------- ID-05 / ID-06：设计提案 — 两个控制器必须共享同一仓库实例 ----------
+    # ---------- ID-05 / ID-06: design proposals — both controllers must share one repository ----------
     proposal_repo = ProposalRepo.from_data(SEED_PROPOSAL_DATA, store)
-    # ---------- ID-07 / ID-08：报价（附加于已确认的请求）与客户评价（限本公司） ----------
+    # ---------- ID-07 / ID-08: quotations (attached to confirmed requests) and client reviews (own company only) ----------
     enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA, store)
     quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA, store)
 
@@ -101,11 +101,11 @@ def build_designer_controllers(upload_service, store):
     c.submit_proposal_controller = SubmitProposalController(proposal_repo, upload_service)
     c.revise_proposal_controller = ReviseProposalController(proposal_repo, upload_service)
     c.submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
-    c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10：需求审查（accept/decline/clarify）
+    c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10: requirement review (accept/decline/clarify)
     c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo))
     c.statistics_controller = ViewProjectStatisticsController(ProjectActivityRepo(store), projects_repo)
     c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store))
-    # ---------- ID-09：付款进度（平台只记录不代收；里程碑属于已接受的报价） ----------
+    # ---------- ID-09: payment progress (the platform records payments but never collects them; milestones belong to accepted quotations) ----------
     c.payment_controller = PaymentController(
         payment_repo,
         company_repo,

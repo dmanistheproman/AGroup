@@ -3,7 +3,7 @@ from backend.controllers.designer.review_controller import ListReviewsController
 from backend.entities.review import Review
 from backend.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
 
-# ID-08 任务 1：复用 C-07 查询，限定设计师自己的公司
+# ID-08 task 1: reuses the C-07 query, limited to the designer's own company
 def test_list_for_scopes_to_the_designers_own_company():
     ctrl = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
     own = ctrl.list_for("user-form-field")
@@ -17,13 +17,13 @@ def test_unknown_designer_account_is_rejected():
     with pytest.raises(ValueError, match="Unknown"):
         ctrl.list_for("user-nobody")
 
-# C-07 共享查询本体（公开主页将来复用同一方法）
+# The C-07 shared query itself (the public profile will reuse the same method)
 def test_reviews_for_company_is_the_shared_query():
     repo = ReviewRepo.from_data(SEED_REVIEW_DATA)
     assert len(repo.reviews_for_company("Form & Field")) == 2
     assert len(repo.reviews_for_company("Nope Ltd")) == 0
 
-# 共享评分规则：1-5
+# Shared rating rule: 1-5
 def test_review_entity_validates_rating_range():
     with pytest.raises(ValueError):
         Review(review_id="REV-999", customer="X", company="Form & Field", rating=6,

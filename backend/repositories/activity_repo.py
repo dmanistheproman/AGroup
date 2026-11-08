@@ -1,8 +1,8 @@
-"""<<repository>> ActivityRepo — 活动事件仓（ID-13）。种子为确定性生成：细节不重要，覆盖与空档才重要。"""
+"""<<repository>> ActivityRepo — activity events (ID-13). Seeds are generated deterministically: the details do not matter, the coverage and gaps do."""
 from datetime import date, timedelta
 from backend.entities.activity_event import ActivityEvent
 
-_WINDOW_START = date(2026, 10, 11)  # 28 天窗口，至 2026-11-07
+_WINDOW_START = date(2026, 10, 11)  # 28-day window, up to 2026-11-07
 
 def _seed_events():
     rows, n = [], 0

@@ -3,7 +3,7 @@ from backend.controllers.designer.company_controller import UpdateCompanyProfile
 from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 
 class FakeUploadService:
-    """与真实 FileUploadService 同接口的测试替身（约定同 ID-03）。"""
+    """Test double with the same interface as the real FileUploadService (same convention as ID-03)."""
     def upload(self, file, owner_type, owner_id):
         name = (file.get("filename") or "").lower()
         if not name.endswith((".jpg", ".jpeg", ".png", ".webp")):
@@ -13,7 +13,7 @@ class FakeUploadService:
         return "uploads/{}/{}".format(owner_id, file["filename"])
 
 def build():
-    repo = CompanyRepo.from_data(SEED_COMPANY_DATA)   # 每个测试全新数据，互不污染
+    repo = CompanyRepo.from_data(SEED_COMPANY_DATA)   # fresh data for every test, no leaks between tests
     return UpdateCompanyProfileController(repo, FakeUploadService()), repo
 
 def make_data(**overrides):
@@ -29,26 +29,26 @@ def make_data(**overrides):
     data.update(overrides)
     return data
 
-# ---- 任务1：entity 与 UserAccount 的 1-1 关系 ----
+# ---- Task 1: the 1-1 relationship between the entity and UserAccount ----
 def test_profile_linked_to_owner_account():
     controller, repo = build()
     company = repo.get_by_owner("user-form-field")
     assert company is not None and company.name == "Form & Field" and company.owner_id == "user-form-field"
 
-# ---- 基本流程 ----
+# ---- Basic flow ----
 def test_update_company_success():
     controller, repo = build()
     company = controller.update("user-form-field", make_data())
     assert company.name == "Form & Field Renovated"
-    assert repo.get("COM-FF").email == "new@formfield.example"   # 已保存
+    assert repo.get("COM-FF").email == "new@formfield.example"   # saved
 
-# ---- ownership check（任务2）----
+# ---- Ownership check (task 2) ----
 def test_rejects_editing_another_companies_profile():
     controller, _ = build()
     with pytest.raises(PermissionError, match="own"):
         controller.update("user-common-ground", make_data(company_id="COM-FF"))
 
-# ---- 替代流程1：必填为空 / 格式无效 ----
+# ---- Alternative flow 1: required field empty / invalid format ----
 def test_rejects_blank_name():
     controller, _ = build()
     with pytest.raises(ValueError, match="Company name"):
@@ -59,14 +59,14 @@ def test_rejects_invalid_email_format():
     with pytest.raises(ValueError, match="email"):
         controller.update("user-form-field", make_data(email="not-an-email"))
 
-# ---- 校验失败不得污染已发布信息（AF1/AF2 的数据完整性语义）----
+# ---- A failed check must not change the published information (data integrity of AF1/AF2) ----
 def test_failed_update_keeps_original_data():
     controller, repo = build()
     with pytest.raises(ValueError):
         controller.update("user-form-field", make_data(email="not-an-email"))
-    assert repo.get("COM-FF").email == "studio@example.com"      # 原信息未变
+    assert repo.get("COM-FF").email == "studio@example.com"      # original information unchanged
 
-# ---- 任务4：logo 上传 ----
+# ---- Task 4: logo upload ----
 def test_logo_uploaded_and_attached():
     controller, _ = build()
     company = controller.update("user-form-field", make_data(logo={"filename": "logo.png", "content": b"png"}))

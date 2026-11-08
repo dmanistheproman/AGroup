@@ -1,4 +1,4 @@
-"""<<control>> UpdateCompanyProfileController — 命名与任务列表一致。"""
+"""<<control>> UpdateCompanyProfileController — named as in the task list."""
 from backend.services.validators import require_text, require_email
 import re
 
@@ -10,24 +10,24 @@ class UpdateCompanyProfileController:
         self.uploads = upload_service
 
     def view(self, user_id):
-        """用例 BF2：显示当前公开信息。"""
+        """Use case BF2: show the current public information."""
         company = self.companies.get_by_owner(user_id)
         return company.public_view() if company else None
 
     def update(self, user_id, data):
         company = self.companies.resolve_for_owner(user_id, data.get("company_id"))
 
-        # 验证（用例 BF5 / AF1）
+        # Validation (use case BF5 / AF1)
         name = require_text(data.get("name"), "Company name", 70)
         description = require_text(data.get("description"), "Company introduction", 500)
         address = require_text(data.get("address"), "Business address", 200)
         email = require_email(data.get("email"))
         specialisms = require_text(data.get("specialisms"), "Design specialisms", 200)
 
-        # logo 上传（任务4，可选，复用 FileUploadService）
+        # Logo upload (task 4, optional, reuses FileUploadService)
         logo = data.get("logo")
         logo_ref = self.uploads.upload(logo, "Company", company.id) if logo and logo.get("filename") else company.logo
 
         company.apply_update(name=name, description=description, address=address,
                              email=email, specialisms=specialisms, logo=logo_ref)
-        return self.companies.save(company)   # 用例 BF5-6：保存并发布
+        return self.companies.save(company)   # use case BF5-6: save and publish

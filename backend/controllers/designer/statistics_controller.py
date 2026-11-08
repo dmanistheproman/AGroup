@@ -1,5 +1,5 @@
-"""ID-13 任务2 — ViewProjectStatisticsController。
-近期数据聚合自 activity 事件（当前只有种子事件）；lifetime 计数读项目档案，两列永不混算。"""
+"""ID-13 task 2 — ViewProjectStatisticsController.
+Recent counts are aggregated from activity events; lifetime counts come from the project record, and the two are never mixed."""
 from datetime import date, timedelta
 
 class ViewProjectStatisticsController:
@@ -54,7 +54,7 @@ class ViewProjectStatisticsController:
                 m = t.month - i
                 label = "%04d-%02d" % (t.year + (m - 1) // 12, (m - 1) % 12 + 1)
                 out.append((label + "-01", label + "-31", label))
-        else:  # custom → 按日分桶
+        else:  # custom → one bucket per day
             cur, stop = date.fromisoformat(date_from), date.fromisoformat(date_to)
             while cur <= stop:
                 out.append((cur.isoformat(), cur.isoformat(), cur.isoformat()[5:]))

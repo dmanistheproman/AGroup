@@ -1,4 +1,4 @@
-"""<<entity>> CustomerProfile — 客户档案；sharing_consent 决定是否对设计师可见。"""
+"""<<entity>> CustomerProfile — the customer's profile; sharing_consent decides whether designers can see it."""
 
 class CustomerProfile:
     def __init__(self, customer_id, name, home_type, preferred_styles,
@@ -15,7 +15,7 @@ class CustomerProfile:
         return self.sharing_consent
 
     def prefers_any(self, styles):
-        """OR 语义：偏好包含任一所选风格即匹配。"""
+        """OR rule: matches when the preferences include any of the chosen styles."""
         return any(s in self.preferred_styles for s in styles)
 
     def public_view(self):

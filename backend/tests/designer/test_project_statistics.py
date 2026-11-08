@@ -40,12 +40,12 @@ def test_monthly_series_has_six_buckets():
 
 def test_events_outside_the_window_are_excluded():
     out = _controller().statistics("u", period="daily", today=TODAY)
-    assert _p901(out)["series"][-1]["favourites"] == 0  # EV-3 在 10-15
+    assert _p901(out)["series"][-1]["favourites"] == 0  # EV-3 is on 10-15
 
 def test_events_are_scoped_per_project():
     out = _controller().statistics("u", period="daily", today=TODAY)
     p902 = next(p for p in out["projects"] if p["project_id"] == "IDP-902")
-    assert p902["period_views"] == 0  # EV-4 是 IDP-902 的，但在 10-01，窗口外
+    assert p902["period_views"] == 0  # EV-4 belongs to IDP-902 but is on 10-01, outside the window
 
 def test_empty_buckets_return_zeros_for_af1():
     out = _controller().statistics("u", period="daily", today=TODAY)
