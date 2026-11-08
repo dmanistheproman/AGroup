@@ -134,6 +134,8 @@
   async function offers() {
     const r = await R.call('GET', '/api/offers');
     const { quotations = [], proposals = [] } = r.ok ? r.data : {};
+    const threads = Object.fromEntries(await Promise.all(proposals.filter(p => p.thread_id).map(async p =>
+      [p.id, (await R.call('GET', `/api/threads/${p.thread_id}/messages`)).data.messages || []])));
     const quotationCard = q => `<article class="offer-card"><div class="record-header"><div><p class="eyebrow">${esc(q.id)} · Quotation · version ${q.version}</p>
         <h3>${money(q.total)}</h3></div>${statusBadge(q.status)}</div>
       <dl class="detail-list"><dt>Design fee</dt><dd>${money(q.design_fee)}</dd><dt>Materials</dt><dd>${money(q.material_cost)}</dd>
@@ -147,7 +149,12 @@
       ${p.status === 'UNDER_REVIEW' ? `<div class="record-actions"><button class="button" data-inbox="accept-proposal" data-id="${esc(p.id)}">${icon('check')} Accept proposal</button></div>
         <form class="reply-form" data-inbox-form="feedback" data-id="${esc(p.id)}">
         <label for="fb-${esc(p.id)}">YOUR FEEDBACK</label><textarea id="fb-${esc(p.id)}" name="feedback" maxlength="2000" required placeholder="What would you like changed?"></textarea>
-        <button class="button outline" type="submit">${icon('send')} Send feedback</button></form>` : ''}</article>`;
+        <button class="button outline" type="submit">${icon('send')} Send feedback</button></form>` : ''}
+      ${p.thread_id ? `<details class="offer-thread" ${threads[p.id] && threads[p.id].length ? 'open' : ''}><summary>${icon('message-square')} Messages with the designer (${(threads[p.id] || []).length})</summary>
+        ${R.messageThread(threads[p.id] || [], me().id, Object.fromEntries((threads[p.id] || []).map(m => [m.author_id, 'Your designer'])), { reportable: true })}
+        <form class="reply-form" data-inbox-form="message" data-thread="${esc(p.thread_id)}">
+          <label class="visually-hidden" for="pt-${esc(p.id)}">Message</label><textarea id="pt-${esc(p.id)}" name="body" maxlength="2000" required placeholder="Ask about this proposal"></textarea>
+          <button class="button outline" type="submit">${icon('send')} Send</button></form></details>` : ''}</article>`;
     content.innerHTML = `<h3 class="inbox-subheading">Quotations</h3>${quotations.length ? quotations.map(quotationCard).join('') : '<p class="small-note">No quotations yet.</p>'}
       <h3 class="inbox-subheading">Design proposals</h3>${proposals.length ? proposals.map(proposalCard).join('') : '<p class="small-note">No proposals yet.</p>'}`;
   }

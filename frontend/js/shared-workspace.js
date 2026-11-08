@@ -1,7 +1,7 @@
 /* Shared workspace pages in the portal, on the real APIs (S-01, S-02, S-04, S-05, S-15, S-16, S-20, HD-05, HD-08, HD-09).
    portal.js asks SharedWorkspace.handles(role, section) and calls render(role, section) for:
      helpdesk: overview, tickets (active queue), resolved, complaints (reports), uploads (failed uploads)
-     designer: messages (private conversations with customers, and the threads of enquiries they handle)
+     designer: messages (private conversations, enquiry and proposal threads, and their own support requests)
    The ticket page opens in the portal's #modal. Buttons use data-shared (portal.js owns data-action). */
 (() => {
   'use strict';
@@ -191,14 +191,22 @@
         pageAttrs: n => `data-shared="uploads-page" data-page="${n}"` });
   }
 
-  // ---------- Designer: private conversations (S-16) and enquiry threads (S-01) ----------
+  // ---------- Designer: one Messages page (S-14) — private conversations (S-16), enquiry and proposal threads (S-01),
+  // and the designer's own support requests to the helpdesk (S-15) ----------
   async function messages(stillHere) {
-    const [c, inbox] = await Promise.all([R.call('GET', '/api/conversations'), R.call('GET', '/api/inbox')]);
+    const [c, inbox, sent] = await Promise.all([R.call('GET', '/api/conversations'), R.call('GET', '/api/inbox'),
+                                                R.call('GET', '/api/proposals')]);
     if (!stillHere()) return;
     const conversations = (c.ok ? c.data.conversations : []).map(x => ({ ...x, kind: 'conversation', name: x.customer_name || x.customer_id }));
-    const enquiries = (inbox.ok ? inbox.data.requests : []).filter(r => r.kind === 'ENQUIRY')
+    const requests = inbox.ok ? inbox.data.requests : [];
+    const enquiries = requests.filter(r => r.kind === 'ENQUIRY')
       .map(r => ({ id: r.id, kind: 'enquiry', name: `${r.id} · ${r.summary}`, status: r.status, unread: r.unread }));
-    const all = [...conversations, ...enquiries];
+    const proposals = (sent.ok && Array.isArray(sent.data) ? sent.data : []).filter(p => p.thread_id)
+      .map(p => ({ id: p.id, kind: 'proposal', name: `${p.title} · ${p.client_name}`, status: p.status, thread_id: p.thread_id,
+                   client_name: p.client_name }));
+    const tickets = requests.filter(r => r.kind === 'SUPPORT_TICKET')
+      .map(r => ({ id: r.id, kind: 'ticket', name: `${r.id} · ${r.title}`, status: r.status, unread: r.unread }));
+    const all = [...conversations, ...enquiries, ...proposals, ...tickets];
     if (openConversation) openConversation = all.find(x => x.kind === openConversation.kind && x.id === openConversation.id) || null;
     if (!openConversation && all.length) openConversation = all[0];
     let thread = '';
@@ -207,6 +215,30 @@
       if (!stillHere()) return;
       thread = threadPanel(openConversation.name, m.ok ? m.data.messages : [],
                            { [openConversation.customer_id]: openConversation.customer_name }, 'Write to the customer');
+    } else if (openConversation && openConversation.kind === 'proposal') {
+      const m = await R.call('GET', `/api/threads/${openConversation.thread_id}/messages`);
+      if (!stillHere()) return;
+      thread = `<p class="eyebrow">DESIGN PROPOSAL ${esc(openConversation.id)} · ${statusBadge(openConversation.status)}</p>` +
+        threadPanel(openConversation.client_name, m.ok ? m.data.messages : [],
+          Object.fromEntries((m.ok ? m.data.messages : []).map(x => [x.author_id, openConversation.client_name])), 'Write to the client about this proposal') +
+        `<p class="small-note">Versions and feedback are under <a href="#designer/proposals">Proposals &amp; feedback</a>.</p>`;
+    } else if (openConversation && openConversation.kind === 'ticket') {
+      const page = await R.call('GET', `/api/requests/${encodeURIComponent(openConversation.id)}`);
+      if (!stillHere()) return;
+      if (page.ok) {
+        const t = page.data.ticket;
+        openConversation.thread_id = t.thread_id;
+        const closed = ['MERGED', 'CLOSED'].includes(t.status);
+        thread = `<p class="eyebrow">SUPPORT REQUEST ${esc(t.id)} · ${esc(t.type_label)} · ${statusBadge(t.status)}</p>
+          <h2>${esc(t.related_project_title || t.type_label)}</h2><p>${esc(t.details)}</p>
+          ${R.messageThread(page.data.messages, me().id, page.data.names)}
+          ${closed ? '<p class="small-note">This request is closed.</p>' : `<form class="reply-form" data-shared-form="conversation">
+            <label class="visually-hidden" for="conv-body">Reply</label><textarea id="conv-body" name="body" maxlength="2000" required placeholder="Reply to the helpdesk"></textarea>
+            <button class="button" type="submit">${icon('send')} Send</button></form>`}
+          ${page.data.can_give_feedback ? UI.ratingForm({ form: { 'data-shared-form': 'ticket-feedback', 'data-id': t.id },
+            title: 'How did the helpdesk do?', submitLabel: 'Send feedback' }) : page.data.feedback_given ? '<p class="small-note">Thank you for rating this request.</p>' : ''}
+          <h3>${icon('history')} Progress</h3>${R.historyTimeline(page.data.history, page.data.names)}`;
+      } else thread = `<p class="inline-error">${esc(page.data.error || 'Could not open the request.')}</p>`;
     } else if (openConversation) {
       const page = await R.call('GET', `/api/requests/${encodeURIComponent(openConversation.id)}`);
       if (!stillHere()) return;
@@ -223,10 +255,12 @@
     const item = x => `<li><button class="${openConversation && x.kind === openConversation.kind && x.id === openConversation.id ? 'active' : ''}"
         data-shared="conversation" data-kind="${x.kind}" data-id="${esc(x.id)}"><b>${esc(x.name)}</b>
         <small>${x.unread ? `${x.unread} new · ` : ''}${x.kind === 'conversation' ? (x.last_message_at ? time(x.last_message_at) : 'No messages yet') : R.label(x.status)}</small></button></li>`;
-    main().innerHTML = title('designer', 'Messages', 'Private conversations with customers, and the messages on enquiries you handle.') +
+    main().innerHTML = title('designer', 'Messages', 'Conversations with customers, messages on your enquiries and proposals, and your requests to the helpdesk.') +
       `<div class="conversation-layout"><ul class="conversation-list">
           <li class="eyebrow">CUSTOMERS</li>${conversations.map(item).join('') || '<li class="small-note">No conversations yet. Customers start them from your company profile.</li>'}
-          <li class="eyebrow">ENQUIRIES</li>${enquiries.map(item).join('') || '<li class="small-note">No enquiries assigned to you yet.</li>'}</ul>
+          <li class="eyebrow">ENQUIRIES</li>${enquiries.map(item).join('') || '<li class="small-note">No enquiries assigned to you yet.</li>'}
+          <li class="eyebrow">PROPOSALS</li>${proposals.map(item).join('') || '<li class="small-note">Sent proposals get a thread with the client.</li>'}
+          <li class="eyebrow">HELPDESK</li>${tickets.map(item).join('') || '<li class="small-note">Use Contact support in the account menu to ask the helpdesk.</li>'}</ul>
         <section class="panel conversation-thread"><div class="panel-body">${thread || '<p class="small-note">Choose a conversation.</p>'}</div></section></div>`;
     window.__conversations = all;
   }
@@ -292,6 +326,12 @@
       if (reason === null) return;
       afterChange(await R.call('POST', '/api/support/tickets/merge', { main_ticket_id: openTicket.id, other_ticket_id: other, reason }),
                   `${other} merged into ${openTicket.id}.`);
+    } else if (kind === 'ticket-feedback') {
+      const score = form.querySelector('input[name="score"]:checked');
+      if (!score) { UI.formView.message(form, 'Choose a number of stars first.', 'error'); return; }
+      const r = await UI.formView.submit(form, 'POST', `/api/support/tickets/${form.dataset.id}/feedback`,
+                                         { score: Number(score.value), comment: value('comment') });
+      if (r.ok) { toast('Thank you for your feedback.'); render('designer', 'messages'); }
     } else if (kind === 'conversation' && openConversation) {
       const r = await R.call('POST', `/api/threads/${openConversation.thread_id}/messages`, { body: value('body') });
       if (!r.ok) { toast(r.data.error || 'Could not send.'); return; }

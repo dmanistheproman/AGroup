@@ -26,3 +26,6 @@
 .inbox-page .small-note{color:var(--muted);font-size:13px}
 .inbox-page .record-actions .button{padding:9px 16px;font-size:13px}
 @media(max-width:700px){.inbox-page .detail-list{grid-template-columns:100px 1fr}}
+.offer-thread{margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+.offer-thread summary{cursor:pointer;color:var(--olive);font-size:13px;display:flex;gap:6px;align-items:center}
+.offer-thread .message-thread{margin-top:10px}

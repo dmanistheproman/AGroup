@@ -60,8 +60,8 @@ Ready (backend and API):
 Pages: `inbox.html` (Requests, Messages, Offers, Preferences tabs; the account menu links to it; every request opens
 on one record page, enquiries with their thread, the review form once a project is completed and the feedback form
 once a ticket is closed), folders on the Saved page, **My moodboard** on the server for logged-in customers (the browser
-demo board stays for visitors), "Message designer" and the reviews on a company's page, `moodboard.html` for a shared
-board.
+demo board stays for visitors), "Message designer" on a company's page and on a project's page, the reviews on a
+company's page, a message thread on each sent design proposal (Offers tab), `moodboard.html` for a shared board.
 Notified about: enquiry decisions and answers (`ENQUIRY_UPDATE`), quotations and proposals sent (`OFFER_SENT`),
 payment reminders and overdue payments (`PAYMENT_REMINDER`), the invitation to rate a closed ticket
 (`TICKET_FEEDBACK`); the first three can be turned off in Preferences.
@@ -77,6 +77,7 @@ Ready:
 | Inbox | `GET /api/inbox` (enquiries, verification requests, tickets, conversations) |
 | Enquiry thread with the client (S-01) | `GET /api/requests/<enquiry_id>` (creates the thread if missing), then `/api/threads/<thread_id>/messages` |
 | Proposal for an enquiry (S-21) | `POST /api/proposals` with `enquiry_id`: the client name comes from the enquiry and the client sees it in their inbox |
+| Thread of a sent proposal with the client (S-01) | `thread_id` on each proposal (`GET /api/proposals`), then `/api/threads/<thread_id>/messages` |
 | Mark an accepted enquiry completed (C-07) | `POST /api/enquiries/<id>/complete`; the client is invited to review |
 | Notifications | `NEW_ENQUIRY`, `OFFER_ANSWERED` (accepted, changes asked, proposal accepted or feedback), `VERIFICATION_STATUS`, `PAYMENT_OVERDUE` (once per milestone), `PROJECT_HIDDEN` / `PROJECT_RESTORED`, `NEW_MESSAGE` |
 
@@ -88,8 +89,11 @@ in the enquiry's thread; a payment reminder reaches the client when the client h
 (project images, logo, proposal images, verification documents, moodboard photos) is also kept as an `Attachment` of
 its owner (`shared.attachments.for_owner("Project", "IDP-005")`), and file names are made safe before saving.
 Reviews customers leave appear on **Customer reviews** (ID-08).
-Pages: **Messages** in the portal (private conversations and enquiry threads, with Report on customer messages and
-"Mark project as completed"); the proposal form has an optional enquiry field.
+Pages: **Messages** in the portal is the designer's inbox (S-14): private conversations, enquiry threads (with
+"Mark project as completed"), the thread of each sent proposal, and their own support requests to the helpdesk (reply,
+progress, and the rating form once closed); Report on customer messages. The proposal form has an optional enquiry
+field. A resolved report about one of their projects is announced to them (`REPORT_DECIDED`, the reporter is not
+named).
 Open: portal buttons for publish / unpublish.
 
 ### Helpdesk Agent

@@ -37,3 +37,4 @@
 .report-message{font-size:11px;margin-top:4px}
 .reported-message{margin:0;border-left:3px solid #8e2d20;padding:6px 10px;background:#fbf1ef}
 .reported-message small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.conversation-thread h3{display:flex;gap:8px;align-items:center;font-size:15px;margin:22px 0 10px}
