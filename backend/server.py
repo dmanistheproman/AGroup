@@ -239,6 +239,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.account_service = accounts
     shared.requests.register(Enquiry, designer.enquiry_repo, "ENQUIRY")
     shared.requests.register(VerificationRequest, designer.verification_repo, "VERIFICATION_REQUEST")
+    shared.companies = designer.company_repo
     shared.conversations = StartConversationController(shared.conversation_repo, designer.company_repo, shared.threads)
     shared.inbox = InboxService(shared.tickets, designer.enquiry_repo, designer.verification_repo,
                                 shared.conversation_repo, shared.notifications)

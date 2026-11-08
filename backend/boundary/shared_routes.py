@@ -213,6 +213,11 @@ def create_shared_blueprint(shared):
         message = shared.messages.post_message(thread_id, login.current_user(), body().get("body"))
         return jsonify(message=message.public_view()), 201
 
+    # ---- Public company list (who customers can message; no owner details) ----
+    @bp.get("/api/companies")
+    def companies():
+        return jsonify(companies=[c.public_view() for c in shared.companies.all()])
+
     # ---- Private conversations with a designer (MessageDesignerButton, S-16) ----
     @bp.post("/api/conversations")
     @require_role(login, UserAccount.ROLE_CUSTOMER)
