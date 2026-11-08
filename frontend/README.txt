@@ -125,6 +125,12 @@ css/login.css    Login page layout.
 css/account.css  Header avatar and dropdown menu.
 js/icons.js      AGroupIcons.icon(name): Lucide icon markup.
 css/icons.css    Icon size and colour (follows the text).
+notifications.html     Notifications page: all notifications, All / Unread, mark all read.
+js/notifications.js    Header notification bell (latest 5, unread count, link to the page).
+js/notifications-page.js  Notifications page list.
+js/support.js          Contact Support form and Report button (opens a helpdesk ticket).
+css/support.css        Notification bell and support dialog.
+css/notifications.css  Notifications page layout.
 assets/icons/    Lucide icons (lucide.svg, ISC LICENSE); build with scripts/build_icons.py.
 assets/          Local illustrative interior photographs.
 

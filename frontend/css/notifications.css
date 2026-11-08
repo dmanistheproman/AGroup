@@ -1,0 +1,23 @@
+/* Notifications page (S-07). Builds on styles.css. */
+.site-header .notification-back{display:inline-flex;align-items:center;gap:6px;font-size:13px;margin-right:auto}
+.notification-page{max-width:900px;margin:0 auto}
+.notification-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.notification-toolbar[hidden]{display:none}
+.notification-tabs{display:flex;gap:6px;border:1px solid var(--line);border-radius:30px;padding:4px;background:var(--white)}
+.notification-tabs button{border:0;background:none;border-radius:30px;padding:8px 16px;font-size:13px;cursor:pointer;color:var(--muted)}
+.notification-tabs button[aria-selected=true]{background:var(--olive);color:#fff}
+.notification-tabs span{display:inline-block;min-width:18px;margin-left:4px;font-size:11px;opacity:.85}
+.notification-toolbar .button{gap:8px}
+.notification-toolbar .button:disabled{opacity:.45;cursor:default;filter:none}
+.notification-cards{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.notification-card{width:100%;display:grid;grid-template-columns:40px 1fr auto;gap:14px;align-items:center;text-align:left;
+  padding:16px 18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--white);color:var(--ink);cursor:pointer;font-size:14px;line-height:1.5}
+.notification-card:hover,.notification-card:focus-visible{border-color:var(--olive);outline:none}
+.notification-card.unread{background:var(--pale)}
+.notification-card.unread .notification-text{font-weight:600}
+.notification-type{width:40px;height:40px;border-radius:50%;background:var(--paper);border:1px solid var(--line);display:grid;place-items:center;color:var(--olive);font-size:17px}
+.notification-body{display:grid;gap:3px}
+.notification-body small{font-size:12px;color:var(--muted)}
+.notification-dot{width:9px;height:9px;border-radius:50%;background:var(--olive)}
+.notification-cards .notification-empty{padding:40px 12px;border:1px dashed var(--line);border-radius:var(--radius);color:var(--muted);text-align:center}
+@media(max-width:700px){.site-header .notification-back{order:3;width:100%}}

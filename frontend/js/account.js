@@ -121,7 +121,8 @@
           <a role="menuitem" href="index.html">${icon('house')}Customer website</a>` : `
           <button type="button" role="menuitem" data-action="profile">${icon('user')}My space</button>
           <button type="button" role="menuitem" data-action="inquiries">${icon('inbox')}My enquiries</button>
-          <button type="button" role="menuitem" data-action="preferences">${icon('bell')}Notification preferences</button>`}
+          <button type="button" role="menuitem" data-action="preferences">${icon('settings')}Notification preferences</button>`}
+          <a role="menuitem" href="notifications.html">${icon('bell')}Notifications<span class="menu-count" data-notification-count hidden></span></a>
           ${canContactSupport ? `<button type="button" role="menuitem" data-support="contact">${icon('life-buoy')}Contact support</button>` : ''}
           <button type="button" role="menuitem" data-account="logout">${icon('log-out')}Log out</button>
         </div>

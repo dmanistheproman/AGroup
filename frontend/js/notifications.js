@@ -20,6 +20,7 @@
   }
 
   function displayUnread(count) {
+    document.querySelectorAll('[data-notification-count]').forEach(el => { el.textContent = count; el.hidden = count === 0; });
     document.querySelectorAll('.notification-bell').forEach(bell => {
       const badge = bell.querySelector('.notification-badge');
       badge.textContent = count > 9 ? '9+' : String(count);
@@ -38,7 +39,7 @@
   }
 
   async function load() {
-    const data = await api('GET', '/api/notifications').catch(() => null);
+    const data = await api('GET', '/api/notifications?limit=5').catch(() => null);   // bell shows the latest 5
     if (!data) return;
     items = data.items; unread = data.unread;
     displayUnread(unread);
@@ -60,6 +61,7 @@
           <div class="notification-head"><strong>Notifications</strong>
             <button type="button" class="text-button" data-notifications="read-all">${icon('check-check')} Mark all read</button></div>
           <ul class="notification-list"><li class="notification-empty">Loading…</li></ul>
+          <a class="notification-all" href="notifications.html">View all notifications ${icon('arrow-right')}</a>
         </div>
       </div>`;
     const menu = slot.querySelector('.notification-menu');

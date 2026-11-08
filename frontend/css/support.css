@@ -28,3 +28,5 @@
 .support-form{margin-top:18px}
 .support-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
 .support-message:empty{display:none}
+.notification-all{display:flex;justify-content:center;align-items:center;gap:6px;padding:11px;border-top:1px solid var(--line);font-size:13px;color:var(--olive)}
+.notification-all:hover{background:var(--pale)}
