@@ -80,6 +80,7 @@ check("Customer writes to the helpdesk (S-01)", "POST", f"/api/threads/{thread_i
 check("Customer saves a project (C-04)", "POST", "/api/favourites", 200, body={"project_id": 1}, contains="IDP-001")
 check("Customer makes a folder (S-22)", "POST", "/api/collections", 201, body={"name": f"Smoke {uuid.uuid4().hex[:6]}"})
 check("Customer inbox (S-14)", "GET", "/api/inbox", 200, contains=ticket_id)
+check("Customer opens the request page (S-20)", "GET", f"/api/requests/{ticket_id}", 200, contains='"messages"')
 check("Customer offers (S-21)", "GET", "/api/offers", 200, contains='"quotations"')
 check("Customers cannot read reports", "GET", "/api/reports/activity", 403)
 check("Customer logs out", "POST", "/api/auth/logout", 200)

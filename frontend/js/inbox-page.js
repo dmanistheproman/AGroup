@@ -1,6 +1,6 @@
 /* InboxPage boundary for customers (S-14), with the conversation page (S-16), the offer page (S-21) and
    notification preferences (C-12). Tabs follow the hash: #requests, #messages[/CONV-x], #offers, #preferences.
-   Uses AGroupRecords (records.js) for badges, threads and the reason dialog. */
+   Uses AGroupRecords (records.js) for badges, threads and the reason dialog, and AGroupUI.recordPage (ui.js). */
 (() => {
   'use strict';
 
@@ -42,31 +42,49 @@
   function requests() {
     const rows = inbox.requests;
     content.innerHTML = rows.length ? `<ul class="inbox-list">${rows.map(r => `<li>
-        <a href="${r.kind === 'SUPPORT_TICKET' ? `#requests/${esc(r.id)}` : '#requests'}" class="inbox-item ${r.unread ? 'unread' : ''}">
+        <a href="#requests/${esc(r.id)}" class="inbox-item ${r.unread ? 'unread' : ''}">
         <span class="inbox-icon">${icon(r.kind === 'SUPPORT_TICKET' ? 'life-buoy' : 'file-text')}</span>
         <span><b>${esc(r.title)} · ${esc(r.id)}</b><small>${esc(r.summary)}</small></span>
         <span class="inbox-meta">${statusBadge(r.status)}<small>${time(r.created_at)}</small>${r.unread ? `<span class="inbox-unread">${r.unread} new</span>` : ''}</span></a></li>`).join('')}</ul>`
       : '<p class="small-note">No requests yet. Use "Contact support" in the account menu, or send an enquiry from a designer\'s page.</p>';
   }
 
+  // One record page (S-20) for every kind of request: support tickets, enquiries, verification requests.
   async function requestPage(id) {
-    const r = await R.call('GET', `/api/support/tickets/${encodeURIComponent(id)}`);
+    const r = await R.call('GET', `/api/requests/${encodeURIComponent(id)}`);
     if (!r.ok) { content.innerHTML = `<p class="inline-error">${esc(r.data.error || 'This request could not be opened.')}</p>`; return; }
-    const { ticket, messages, history, names } = r.data;
-    const readOnly = ['MERGED', 'CLOSED'].includes(ticket.status);
+    const { messages, history, names } = r.data;
+    const record = r.data.ticket || r.data.request;
+    const isTicket = Boolean(r.data.ticket);
+    const readOnly = ['MERGED', 'CLOSED', 'DECLINED', 'COMPLETED'].includes(record.status);
+    const handler = names[record.handler_id] || (isTicket ? 'Waiting for an agent' : 'Waiting for a designer');
+    const details = isTicket ? [
+      ['Opened', time(record.created_at)], ['Handled by', esc(handler)],
+      record.merged_into_id ? ['Merged into', `<a href="#requests/${esc(record.merged_into_id)}">${esc(record.merged_into_id)}</a>`] : null,
+      record.resolution_note ? ['Resolution', esc(record.resolution_note)] : null,
+      ['Your request', esc(record.details)]] : [
+      ['Designer', esc(handler)], ['Your brief', esc(record.summary)],
+      record.budget ? ['Budget', money(record.budget)] : null,
+      record.decided_at ? ['Decided on', esc(record.decided_at)] : null,
+      record.decision_reason ? ['Reason', esc(record.decision_reason)] : null];
+    const questions = (record.questions || []).length ? `<ul class="notes-panel">${record.questions.map(q => `<li>${icon('message-square')}<div>
+        <p><b>${esc(q.body)}</b></p><p>${q.answer ? esc(q.answer) : '<span class="small-note">Not answered yet.</span>'}</p>
+        <small>${esc(q.asked_at || '')}${q.answered_at ? ` · answered ${esc(q.answered_at)}` : ''}</small></div></li>`).join('')}</ul>` : '';
+    const reply = readOnly ? '<p class="small-note">This request is closed.</p>'
+      : `<form class="reply-form" data-inbox-form="ticket-reply" data-thread="${esc(record.thread_id)}">
+          <label class="visually-hidden" for="ticket-reply">Reply</label><textarea id="ticket-reply" name="body" maxlength="2000" required placeholder="${isTicket ? 'Reply to the helpdesk' : 'Write to your designer'}"></textarea>
+          <button class="button" type="submit">${icon('send')} Send</button></form>`;
     content.innerHTML = `<a class="text-button" href="#requests">${icon('arrow-left')} All requests</a>
-      <article class="record-page inbox-record"><div class="record-header"><div><p class="eyebrow">${esc(ticket.id)} · ${esc(ticket.type_label)}</p>
-        <h2>${esc(ticket.related_project_title || ticket.type_label)}</h2></div>${statusBadge(ticket.status)}</div>
-        <dl class="detail-list"><dt>Opened</dt><dd>${time(ticket.created_at)}</dd>
-          <dt>Handled by</dt><dd>${esc(names[ticket.handler_id] || 'Waiting for an agent')}</dd>
-          ${ticket.merged_into_id ? `<dt>Merged into</dt><dd><a href="#requests/${esc(ticket.merged_into_id)}">${esc(ticket.merged_into_id)}</a></dd>` : ''}
-          ${ticket.resolution_note ? `<dt>Resolution</dt><dd>${esc(ticket.resolution_note)}</dd>` : ''}
-          <dt>Your request</dt><dd>${esc(ticket.details)}</dd></dl>
-        <h3>${icon('message-square')} Conversation with the helpdesk</h3>${R.messageThread(messages, me().id, names)}
-        ${readOnly ? '<p class="small-note">This request is closed.</p>' : `<form class="reply-form" data-inbox-form="ticket-reply" data-thread="${esc(ticket.thread_id)}">
-          <label class="visually-hidden" for="ticket-reply">Reply</label><textarea id="ticket-reply" name="body" maxlength="2000" required placeholder="Reply to the helpdesk"></textarea>
-          <button class="button" type="submit">${icon('send')} Send</button></form>`}
-        <h3>${icon('history')} Progress</h3>${R.historyTimeline(history, names)}</article>`;
+      <div class="inbox-record">${window.AGroupUI.recordPage({
+        eyebrow: `${record.id} · ${isTicket ? record.type_label : record.title}`,
+        title: isTicket ? (record.related_project_title || record.type_label)
+          : record.kind === 'ENQUIRY' && record.handler_id ? `Your enquiry to ${handler}` : record.title,
+        status: record.status, details,
+        sections: [
+          questions ? { title: 'Your questions', icon: 'file-text', body: questions } : null,
+          { title: isTicket ? 'Conversation with the helpdesk' : 'Conversation with your designer', icon: 'message-square',
+            body: R.messageThread(messages, me().id, names, { reportable: !isTicket }) + reply },
+          { title: 'Progress', icon: 'history', body: R.historyTimeline(history, names) }] })}</div>`;
   }
 
   // ---------- Messages with designers (S-16) ----------

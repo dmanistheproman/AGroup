@@ -1,12 +1,13 @@
 /* Shared workspace pages in the portal, on the real APIs (S-01, S-02, S-04, S-05, S-15, S-16, S-20, HD-05, HD-08, HD-09).
    portal.js asks SharedWorkspace.handles(role, section) and calls render(role, section) for:
      helpdesk: overview, tickets (active queue), resolved, complaints (reports), uploads (failed uploads)
-     designer: messages (private conversations with customers)
+     designer: messages (private conversations with customers, and the threads of enquiries they handle)
    The ticket page opens in the portal's #modal. Buttons use data-shared (portal.js owns data-action). */
 (() => {
   'use strict';
 
   const R = window.AGroupRecords;
+  const UI = window.AGroupUI;   // ListPage parts (S-05): state, pager, listPage
   const { esc, icon, statusBadge } = R;
   const HANDLED = { helpdesk: ['overview', 'tickets', 'resolved', 'complaints', 'uploads'], designer: ['messages'] };
   const ACTIVE = ['OPEN', 'AWAITING_INFO', 'ESCALATED'];
@@ -49,7 +50,7 @@
   // ---------- Helpdesk overview ----------
   async function overview(stillHere) {
     main().innerHTML = title('helpdesk', 'Your support desk, at a glance.', 'Live numbers from the ticket queue.') +
-      '<p class="small-note">Loading…</p>';
+      UI.state('loading');
     const count = async q => ((await R.call('GET', `/api/support/tickets?page_size=1&${q}`)).data.total || 0);
     const [active, unassigned, waiting, escalated, reports, failures, mine] = await Promise.all([
       count('scope=active'), count('scope=active&handler=none'), count('status=AWAITING_INFO'),
@@ -97,7 +98,7 @@
     const statuses = list.section === 'resolved' ? DONE : ACTIVE;
     const r = await R.call('GET', `/api/support/tickets?${query()}`);
     if (!stillHere()) return;
-    if (!r.ok) { main().innerHTML = title('helpdesk', heading[0], heading[1]) + `<p class="inline-error">${esc(r.data.error || 'Could not load tickets.')}</p>`; return; }
+    if (!r.ok) { main().innerHTML = title('helpdesk', heading[0], heading[1]) + UI.state('error', r.data.error || 'Could not load tickets.'); return; }
     const d = r.data;
     const option = (value, text, current) => `<option value="${value}" ${current === value ? 'selected' : ''}>${text}</option>`;
     main().innerHTML = title('helpdesk', heading[0], heading[1]) +
@@ -107,10 +108,8 @@
         ${list.section === 'complaints' ? '' : `<label>TYPE<select name="type">${option('', 'All types', list.type)}${Object.entries(TYPES).map(([k, v]) => option(k, v, list.type)).join('')}</select></label>`}
         <label>HANDLER<select name="handler">${option('', 'Anyone', list.handler)}${option('me', 'Claimed by me', list.handler)}${option('none', 'Not claimed', list.handler)}</select></label>
         <button class="button outline" type="submit">${icon('search')} Apply</button></form>` +
-      `<section class="panel"><div class="panel-heading"><h2>${d.total} ticket${d.total === 1 ? '' : 's'}</h2><small>Page ${d.page} of ${d.pages}</small></div>
-        ${d.items.length ? ticketTable(d.items) : '<div class="panel-body"><p class="small-note">No tickets match these filters.</p></div>'}
-        <div class="pager"><button class="text-button" data-shared="page" data-page="${d.page - 1}" ${d.page <= 1 ? 'disabled' : ''}>${icon('arrow-left')} Previous</button>
-          <button class="text-button" data-shared="page" data-page="${d.page + 1}" ${d.page >= d.pages ? 'disabled' : ''}>Next ${icon('arrow-right')}</button></div></section>`;
+      UI.listPage({ total: d.total, noun: 'ticket', page: d.page, pages: d.pages, body: ticketTable(d.items),
+                    empty: 'No tickets match these filters.', pageAttrs: n => `data-shared="page" data-page="${n}"` });
   }
 
   // ---------- Ticket page (RecordPage) ----------
@@ -180,39 +179,57 @@
     const d = r.data;
     main().innerHTML = title('helpdesk', 'Upload diagnostics', 'Files the platform refused, with who tried and why.') +
       `<form class="portal-toolbar" data-shared-form="uploads"><label>SEARCH<input name="q" value="${esc(uploadsQuery.q)}" placeholder="File name, reason, user or project"></label>
-        <button class="button outline" type="submit">${icon('search')} Search</button></form>
-      <section class="panel"><div class="panel-heading"><h2>${d.total || 0} failed upload${d.total === 1 ? '' : 's'}</h2><small>Page ${d.page || 1} of ${d.pages || 1}</small></div>
-      ${(d.items || []).length ? `<div class="table-wrap"><table><thead><tr><th>When</th><th>File</th><th>User</th><th>Project</th><th>Reason</th></tr></thead><tbody>
-        ${d.items.map(f => `<tr><td>${time(f.occurred_at)}</td><td>${esc(f.file_name)}</td><td>${esc(f.user_id || '—')}</td><td>${esc(f.project_id || '—')}</td><td>${esc(f.reason)}</td></tr>`).join('')}
-      </tbody></table></div>` : '<div class="panel-body"><p class="small-note">No failed uploads.</p></div>'}
-      <div class="pager"><button class="text-button" data-shared="uploads-page" data-page="${(d.page || 1) - 1}" ${(d.page || 1) <= 1 ? 'disabled' : ''}>${icon('arrow-left')} Previous</button>
-        <button class="text-button" data-shared="uploads-page" data-page="${(d.page || 1) + 1}" ${(d.page || 1) >= (d.pages || 1) ? 'disabled' : ''}>Next ${icon('arrow-right')}</button></div></section>`;
+        <button class="button outline" type="submit">${icon('search')} Search</button></form>` +
+      UI.listPage({ total: d.total || 0, noun: 'failed upload', page: d.page || 1, pages: d.pages || 1, empty: 'No failed uploads.',
+        body: UI.table([{ label: 'When', cell: f => time(f.occurred_at) }, { label: 'File', cell: f => esc(f.file_name) },
+                        { label: 'User', cell: f => esc(f.user_id || '—') }, { label: 'Project', cell: f => esc(f.project_id || '—') },
+                        { label: 'Reason', cell: f => esc(f.reason) }], d.items || []),
+        pageAttrs: n => `data-shared="uploads-page" data-page="${n}"` });
   }
 
-  // ---------- Designer: private conversations (S-16) ----------
+  // ---------- Designer: private conversations (S-16) and enquiry threads (S-01) ----------
   async function messages(stillHere) {
-    const r = await R.call('GET', '/api/conversations');
+    const [c, inbox] = await Promise.all([R.call('GET', '/api/conversations'), R.call('GET', '/api/inbox')]);
     if (!stillHere()) return;
-    const conversations = r.ok ? r.data.conversations : [];
-    if (!openConversation && conversations.length) openConversation = conversations[0];
+    const conversations = (c.ok ? c.data.conversations : []).map(x => ({ ...x, kind: 'conversation', name: x.customer_name || x.customer_id }));
+    const enquiries = (inbox.ok ? inbox.data.requests : []).filter(r => r.kind === 'ENQUIRY')
+      .map(r => ({ id: r.id, kind: 'enquiry', name: `${r.id} · ${r.summary}`, status: r.status, unread: r.unread }));
+    const all = [...conversations, ...enquiries];
+    if (openConversation) openConversation = all.find(x => x.kind === openConversation.kind && x.id === openConversation.id) || null;
+    if (!openConversation && all.length) openConversation = all[0];
     let thread = '';
-    if (openConversation) {
+    if (openConversation && openConversation.kind === 'conversation') {
       const m = await R.call('GET', `/api/threads/${openConversation.thread_id}/messages`);
       if (!stillHere()) return;
-      const names = { [openConversation.customer_id]: openConversation.customer_name };
-      thread = `<h2>${esc(openConversation.customer_name || openConversation.customer_id)}</h2>
-        ${R.messageThread(m.ok ? m.data.messages : [], me().id, names, { reportable: true })}
-        <form class="reply-form" data-shared-form="conversation"><label class="visually-hidden" for="conv-body">Reply</label>
-          <textarea id="conv-body" name="body" maxlength="2000" required placeholder="Write to the customer"></textarea>
-          <button class="button" type="submit">${icon('send')} Send</button></form>`;
+      thread = threadPanel(openConversation.name, m.ok ? m.data.messages : [],
+                           { [openConversation.customer_id]: openConversation.customer_name }, 'Write to the customer');
+    } else if (openConversation) {
+      const page = await R.call('GET', `/api/requests/${encodeURIComponent(openConversation.id)}`);
+      if (!stillHere()) return;
+      if (page.ok) {
+        const req = page.data.request;
+        openConversation.thread_id = req.thread_id;
+        thread = `<p class="eyebrow">ENQUIRY ${esc(req.id)} · ${statusBadge(req.status)}</p>` +
+          threadPanel(req.client_name, page.data.messages, page.data.names, 'Write to the client') +
+          `<p class="small-note">Decisions, questions and quotations for this enquiry are under <a href="#designer/enquiries">Leads &amp; enquiries</a>.</p>`;
+      } else thread = `<p class="inline-error">${esc(page.data.error || 'Could not open the enquiry.')}</p>`;
     }
-    main().innerHTML = title('designer', 'Messages', 'Private conversations with customers.') +
-      `<div class="conversation-layout"><ul class="conversation-list">${conversations.map(c => `<li>
-          <button class="${openConversation && c.id === openConversation.id ? 'active' : ''}" data-shared="conversation" data-id="${esc(c.id)}">
-          <b>${esc(c.customer_name || c.customer_id)}</b><small>${c.last_message_at ? time(c.last_message_at) : 'No messages yet'}</small></button></li>`).join('')
-        || '<li class="small-note">No conversations yet. Customers start them from your company profile.</li>'}</ul>
+    const item = x => `<li><button class="${openConversation && x.kind === openConversation.kind && x.id === openConversation.id ? 'active' : ''}"
+        data-shared="conversation" data-kind="${x.kind}" data-id="${esc(x.id)}"><b>${esc(x.name)}</b>
+        <small>${x.unread ? `${x.unread} new · ` : ''}${x.kind === 'conversation' ? (x.last_message_at ? time(x.last_message_at) : 'No messages yet') : R.label(x.status)}</small></button></li>`;
+    main().innerHTML = title('designer', 'Messages', 'Private conversations with customers, and the messages on enquiries you handle.') +
+      `<div class="conversation-layout"><ul class="conversation-list">
+          <li class="eyebrow">CUSTOMERS</li>${conversations.map(item).join('') || '<li class="small-note">No conversations yet. Customers start them from your company profile.</li>'}
+          <li class="eyebrow">ENQUIRIES</li>${enquiries.map(item).join('') || '<li class="small-note">No enquiries assigned to you yet.</li>'}</ul>
         <section class="panel conversation-thread"><div class="panel-body">${thread || '<p class="small-note">Choose a conversation.</p>'}</div></section></div>`;
-    window.__conversations = conversations;
+    window.__conversations = all;
+  }
+
+  function threadPanel(heading, list, names, placeholder) {
+    return `<h2>${esc(heading)}</h2>${R.messageThread(list, me().id, names, { reportable: true })}
+      <form class="reply-form" data-shared-form="conversation"><label class="visually-hidden" for="conv-body">Reply</label>
+        <textarea id="conv-body" name="body" maxlength="2000" required placeholder="${esc(placeholder)}"></textarea>
+        <button class="button" type="submit">${icon('send')} Send</button></form>`;
   }
 
   // ---------- events ----------
@@ -238,7 +255,7 @@
       if (reason === null) return;
       afterChange(await R.call('POST', `/api/projects/${button.dataset.project}/status`, { status: 'HIDDEN', reason }), 'Project hidden.');
     } else if (action === 'conversation') {
-      openConversation = (window.__conversations || []).find(c => c.id === button.dataset.id) || null;
+      openConversation = (window.__conversations || []).find(c => c.kind === button.dataset.kind && c.id === button.dataset.id) || null;
       render('designer', 'messages');
     }
   });

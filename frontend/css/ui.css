@@ -1,0 +1,100 @@
+/* Shared UI components (js/ui.js): list page, upload widget, period selector, trend chart, project card and
+   gallery, category picker, rating, form messages, record page. Builds on styles.css and records.css. */
+
+/* Base look for pages without portal.css (customer site, ui-kit): status badge and list panel */
+.record-status{font-size:11px;display:inline-block;border:1px solid #d2d2d2;border-radius:4px;background:#f6f6f6;padding:3px 8px;white-space:nowrap;letter-spacing:0;font-weight:400;color:var(--ink)}
+.record-status.dark{background:#333;color:#fff;border-color:#333}
+.ui-list{background:var(--white);border:1px solid var(--line);border-radius:6px;margin-bottom:24px;overflow:hidden}
+.ui-list .panel-heading{padding:17px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:15px;align-items:center}
+.ui-list .panel-heading h2{font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:600;letter-spacing:0;margin:0}
+.ui-list .panel-heading small{font-size:10px}
+
+/* S-05 ListPage */
+.ui-toolbar{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:18px}
+.ui-toolbar label{min-width:150px}
+.ui-toolbar label:first-child{flex:1;max-width:420px}
+.ui-toolbar input,.ui-toolbar select{font-size:12px}
+.list-state{padding:28px 22px;text-align:center;color:var(--muted);font-size:13px}
+.list-state.error{color:#8e2d20;display:flex;gap:8px;justify-content:center;align-items:center}
+.list-state.loading p::after{content:"";display:inline-block;width:12px;height:12px;margin-left:8px;border:2px solid var(--line);border-top-color:var(--olive);border-radius:50%;animation:ui-spin .8s linear infinite;vertical-align:-2px}
+@keyframes ui-spin{to{transform:rotate(360deg)}}
+.pager span{font-size:12px;color:var(--muted);align-self:center}
+
+/* S-03 UploadWidget */
+.upload-widget{display:grid;gap:8px}
+.upload-drop{display:flex;gap:14px;align-items:center;border:1px dashed #b9bfae;border-radius:8px;padding:16px;background:#fafaf6;cursor:pointer;font-weight:400}
+.upload-drop:hover,.upload-drop:focus-within{border-color:var(--olive)}
+.upload-drop .icon{width:24px;height:24px;color:var(--olive)}
+.upload-drop span{display:grid;gap:2px}
+.upload-drop input{position:absolute;opacity:0;width:1px;height:1px}
+.upload-files{list-style:none;padding:0;margin:0;display:grid;gap:4px;font-size:12px}
+.upload-files li small{margin-left:6px}
+.upload-files li.bad{color:#8e2d20}
+.upload-files li.bad small{color:#8e2d20}
+.upload-progress{width:100%;height:8px;accent-color:var(--olive)}
+
+/* S-06 PeriodSelector and TrendChart */
+.period-selector{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px}
+.period-selector label{min-width:140px}
+.period-selector label[hidden]{display:none}
+.trend-chart{margin:0}
+.trend-chart svg{width:100%;height:auto;display:block}
+.trend-chart polyline{fill:none;stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.trend-chart .grid{stroke:var(--line);stroke-width:1}
+.trend-chart .axis{font-size:10px;fill:var(--muted)}
+.trend-chart .series-0{stroke:#4d6044;color:#4d6044}
+.trend-chart .series-1{stroke:#b07d3a;color:#b07d3a}
+.trend-chart .series-2{stroke:#4f7c95;color:#4f7c95}
+.trend-chart figcaption{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;margin-top:6px}
+.trend-chart .legend::before{content:"";display:inline-block;width:14px;height:3px;border-radius:2px;background:currentColor;margin-right:6px;vertical-align:middle}
+.trend-chart details{margin-top:8px;font-size:12px}
+.trend-chart summary{cursor:pointer;color:var(--olive)}
+
+/* S-08 ProjectCard and ImageGallery */
+.ui-project-card .save-button{pointer-events:none}
+.image-gallery{display:grid;gap:10px}
+.gallery-main{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:6px;background:#e4e5de}
+.gallery-thumbs{display:flex;gap:8px;flex-wrap:wrap}
+.gallery-thumbs button{padding:0;border:2px solid transparent;border-radius:4px;background:none;line-height:0}
+.gallery-thumbs button[aria-current="true"]{border-color:var(--olive)}
+.gallery-thumbs img{width:76px;height:52px;object-fit:cover;border-radius:3px}
+
+/* S-10 CategoryPicker */
+.category-picker{border:0;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:8px}
+.category-picker legend{font-size:11px;font-weight:600;margin-bottom:8px;padding:0}
+.category-chip{display:inline-flex;font-weight:400;font-size:12px}
+.category-chip input{position:absolute;opacity:0;width:1px;height:1px}
+.category-chip span{border:1px solid var(--line);border-radius:999px;padding:6px 12px;background:var(--white);cursor:pointer}
+.category-chip input:checked+span{background:var(--olive);border-color:var(--olive);color:#fff}
+.category-chip input:focus-visible+span{outline:3px solid #82966f;outline-offset:2px}
+
+/* S-11 Rating */
+.rating-input{border:0;padding:0;margin:0}
+.rating-input legend{font-size:11px;font-weight:600;margin-bottom:6px;padding:0}
+.rating-input .stars{display:inline-flex;flex-direction:row-reverse;gap:2px}
+.rating-input input{position:absolute;opacity:0;width:1px;height:1px}
+.rating-input label{cursor:pointer;color:#c9cdbf;display:inline-flex}
+.rating-input label .icon{width:28px;height:28px}
+.rating-input input:checked~label,.rating-input label:hover,.rating-input label:hover~label{color:#c08a2b}
+.rating-input input:checked~label .icon,.rating-input label:hover .icon,.rating-input label:hover~label .icon{fill:currentColor}
+.rating-input input:focus-visible+label{outline:3px solid #82966f;outline-offset:2px;border-radius:4px}
+.rating-display{display:inline-flex;align-items:center;gap:6px;font-size:13px}
+.stars-track{position:relative;display:inline-block;white-space:nowrap;line-height:0}
+.stars-track .icon{width:16px;height:16px}
+.stars-base{color:#c9cdbf}
+.stars-fill{position:absolute;inset:0 auto 0 0;overflow:hidden;color:#c08a2b}
+.stars-fill .icon{fill:currentColor}
+
+/* S-12 FormView */
+.field-error{display:block;color:#8e2d20;font-size:12px;font-weight:600;margin-top:2px}
+[aria-invalid="true"]{border-color:#8e2d20}
+.form-message{font-size:13px;padding:10px 12px;border-radius:6px;margin:0}
+.form-message.success{background:#edf0e7;color:#34452e}
+.form-message.error{background:#fbf1ef;color:#8e2d20}
+
+/* S-20 RecordPage */
+.record-section{margin-top:4px}
+.record-page .detail-list{display:grid;grid-template-columns:140px 1fr;gap:8px 14px;font-size:13px;margin:16px 0}
+.record-page .detail-list dt{color:var(--muted)}
+.record-page .detail-list dd{margin:0}
+@media(max-width:700px){.record-page .detail-list{grid-template-columns:100px 1fr}}
