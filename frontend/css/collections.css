@@ -1,0 +1,13 @@
+/* CollectionView (S-22): folders on the Saved page. Builds on styles.css. */
+.folder-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 22px}
+.folder-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--white);border-radius:30px;padding:7px 13px;font-size:13px;color:var(--ink);cursor:pointer}
+.folder-chip span{color:var(--muted);font-size:12px}
+.folder-chip.active,.folder-chip:hover,.folder-chip:focus-visible{border-color:var(--olive);color:var(--olive)}
+.folder-chip .icon{width:15px;height:15px}
+.folder-new{display:inline-flex;align-items:center;gap:6px;margin-left:6px}
+.folder-new input{border:1px solid var(--line);border-radius:30px;padding:7px 12px;font:inherit;font-size:13px;width:150px;background:var(--white)}
+.folder-tools{display:inline-flex;gap:12px;margin-left:auto}
+.folder-card-tools{margin-top:10px;font-size:13px}
+.folder-add{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.folder-add select{border:1px solid var(--line);border-radius:20px;padding:5px 10px;font:inherit;font-size:13px;background:var(--white);color:var(--ink)}
+.folder-remove{font-size:13px}
