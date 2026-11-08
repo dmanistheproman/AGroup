@@ -142,6 +142,14 @@ def _enquiries_are_handled_by_designers(rows):
             if r["role"] != "DESIGNER"]
 
 
+def _folders_hold_saved_projects_of_their_owner(rows):
+    return [f"Folder {r['collection_id']} holds project {r['project_id']}, which its owner has not saved."
+            for r in rows("SELECT c.collection_id, i.project_id FROM collection_item i "
+                          "JOIN collection c ON c.collection_id = i.collection_id "
+                          "LEFT JOIN favourite f ON f.customer_id = c.customer_id AND f.project_id = i.project_id "
+                          "WHERE c.kind = 'FOLDER' AND i.item_type = 'PROJECT' AND f.favourite_id IS NULL")]
+
+
 def _each_thread_has_one_owner(rows):
     return [f"Thread {r['thread_id']} belongs to both a request and a private conversation."
             for r in rows("SELECT thread_id FROM request WHERE thread_id IS NOT NULL "
@@ -152,4 +160,4 @@ RULES = (_statuses_are_known, _merged_tickets_point_at_a_live_ticket, _audited_c
          _favourites_point_at_projects, _notifications_have_a_recipient, _payments_belong_to_accepted_quotations,
          _quotations_answer_enquiries, _conversations_have_real_participants,
          _ticket_messages_come_from_the_requester_or_helpdesk, _notes_are_written_by_staff,
-         _enquiries_are_handled_by_designers, _each_thread_has_one_owner)
+         _enquiries_are_handled_by_designers, _each_thread_has_one_owner, _folders_hold_saved_projects_of_their_owner)

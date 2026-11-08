@@ -25,7 +25,7 @@ MARKER = "generated_data"
 # Full-scale amounts (scale=1.0). Each is at least 100 for the main entities, as the specification asks.
 FULL = {"customers": 150, "designers": 100, "agents": 3, "categories": 92, "projects": 100, "enquiries": 120,
         "quotations": 110, "proposals": 110, "reviews": 150, "tickets": 200, "merges": 8, "notes": 110,
-        "conversations": 110, "favourites": 300, "preferences": 40, "upload_failures": 100}
+        "conversations": 110, "favourites": 300, "collections": 110, "preferences": 40, "upload_failures": 100}
 
 FIRST = ["Aaron", "Bea", "Chloe", "Daniel", "Elena", "Farah", "Gavin", "Hana", "Isaac", "Jia Hui", "Kumar", "Lina",
          "Marcus", "Nadia", "Oscar", "Priya", "Qi", "Rachel", "Samuel", "Tara", "Umar", "Vera", "Wei Ming",
@@ -124,6 +124,8 @@ def count_records(path):
         "conversations": "SELECT COUNT(*) FROM conversation",
         "internal_notes": "SELECT COUNT(*) FROM internal_note",
         "favourites": "SELECT COUNT(*) FROM favourite",
+        "collections": "SELECT COUNT(*) FROM collection",
+        "collection_items": "SELECT COUNT(*) FROM collection_item",
         "notifications": "SELECT COUNT(*) FROM notification",
         "upload_failures": "SELECT COUNT(*) FROM upload_failure",
         "audit_logs": "SELECT COUNT(*) FROM audit_log",
@@ -172,7 +174,7 @@ class _Generator:
     def run(self):
         for step in (self.people, self.categories, self.projects, self.activity, self.enquiries, self.offers,
                      self.reviews, self.verifications, self.tickets, self.conversations, self.favourites,
-                     self.preferences, self.upload_failures):
+                     self.collections, self.preferences, self.upload_failures):
             self.log(f"  {step.__name__} ...")
             step()
 
@@ -424,6 +426,21 @@ class _Generator:
         while saved < self.n["favourites"]:
             result = self.r.favourites.add_favourite(self.pick(self.customers).id, self.pick(self.visible))
             saved += result["success"]
+
+    def collections(self):
+        """Folders of saved projects, and a few moodboards with a colour and a note (S-22)."""
+        names = ["Kitchen ideas", "Living room", "Bedroom", "Bathroom", "Shortlist", "For the new flat"]
+        owners = [c for c in self.customers if self.s.collections.favourites.get_by_customer(c.id).project_ids]
+        for k in range(self.n["collections"]):
+            customer = self.pick(owners)
+            kind = "MOODBOARD" if k % 10 == 9 else "FOLDER"
+            collection = self.s.collections.create(customer, f"{self.pick(names)} {k + 1}", kind)
+            saved = self.s.collections.favourites.get_by_customer(customer.id).project_ids
+            for project_id in self.rng.sample(saved, min(len(saved), self.rng.randint(1, 3))):
+                self.s.collections.add_item(customer, collection.id, "PROJECT", project_id)
+            if kind == "MOODBOARD":
+                self.s.collections.add_item(customer, collection.id, "COLOUR", colour=self.pick(["#d9c7a7", "#6b7a5a", "#f2efe8"]))
+                self.s.collections.add_item(customer, collection.id, "NOTE", note="Warm wood with soft lighting.")
 
     def preferences(self):
         for customer in self.rng.sample(self.customers, min(self.n["preferences"], len(self.customers))):
