@@ -26,7 +26,15 @@ class MessageRepo:
         return [Message(r["message_id"], r["thread_id"], r["author_id"], r["body"], r["sent_at"]) for r in rows]
 
     def move_thread(self, from_thread_id, to_thread_id):
-        """Move every message of one thread into another (merging duplicate requests). Returns the count."""
+        """Move every message of one thread into another (merging duplicate requests). Returns the moved IDs."""
         with self.store.transaction(write=True) as connection:
-            return connection.execute("UPDATE message SET thread_id = ? WHERE thread_id = ?",
-                                      (to_thread_id, from_thread_id)).rowcount
+            ids = [r["message_id"] for r in connection.execute("SELECT message_id FROM message WHERE thread_id = ?",
+                                                               (from_thread_id,))]
+            connection.execute("UPDATE message SET thread_id = ? WHERE thread_id = ?", (to_thread_id, from_thread_id))
+        return ids
+
+    def move_messages(self, message_ids, to_thread_id):
+        """Move the given messages to a thread (used to undo a move)."""
+        with self.store.transaction(write=True) as connection:
+            connection.executemany("UPDATE message SET thread_id = ? WHERE message_id = ?",
+                                   [(to_thread_id, i) for i in message_ids])

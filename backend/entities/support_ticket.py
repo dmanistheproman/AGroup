@@ -74,6 +74,10 @@ class SupportTicket(Request):
         self.thread_id = thread_id
         self.attachment_group_id = attachment_group_id
 
+    def is_duplicate_of(self, other):
+        """HD-05: duplicates come from the same requester about the same IDP."""
+        return (self.requester_id, self.related_project_id) == (other.requester_id, other.related_project_id)
+
     def is_report(self):
         return self.ticket_type in self.REPORT_TYPES
 

@@ -82,7 +82,6 @@ from backend.seed import seed_demo
 from backend.storage import SQLiteStore
 
 # ----- Helpdesk -----
-from backend.repositories.ticket_memory_repo import TicketMemoryRepo
 from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
 from backend.boundary.helpdesk_routes import create_helpdesk_blueprint
 
@@ -193,8 +192,9 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.message_repo = MessageRepo(store)
     shared.messages = PostMessageController(shared.threads, shared.message_repo, shared.rules)
     shared.messages.register_owner(shared.tickets.find_by_thread, staff_roles=(UserAccount.ROLE_HELPDESK,))
-    shared.notes = AddInternalNoteController(InternalNoteRepo(store), {"REQUEST": shared.requests.find,
-                                                                      "USER_ACCOUNT": user_accounts.get})
+    shared.note_repo = InternalNoteRepo(store)
+    shared.notes = AddInternalNoteController(shared.note_repo, {"REQUEST": shared.requests.find,
+                                                               "USER_ACCOUNT": user_accounts.get})
     shared.reports = ReportService(store)
     shared.category_lookup = CategoryLookupController(store)
     app.extensions['shared'] = shared
@@ -224,8 +224,8 @@ def create_app(registry=None, admin_provider=None, config=None):
     app.register_blueprint(create_management_blueprint(build_management_controllers(store), store, login))
 
     # ----- Helpdesk -----
-    ticket_repo = TicketMemoryRepo()
-    app.register_blueprint(create_helpdesk_blueprint(MergeTicketController(ticket_repo), ticket_repo, login))
+    merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)
+    app.register_blueprint(create_helpdesk_blueprint(merge_tickets, login))
 
     @app.get('/')
     def home():
