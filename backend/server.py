@@ -6,7 +6,7 @@ import os
 import secrets
 from pathlib import Path
 from types import SimpleNamespace
-from flask import Flask, session
+from flask import Flask, has_request_context, session
 
 # ----- Shared: login -----
 from backend.database import install_schema
@@ -29,6 +29,7 @@ from backend.controllers.shared.status_change_service import StatusChangeService
 from backend.controllers.shared.ticket_lifecycle import TicketLifecycle
 from backend.boundary.shared_routes import create_shared_blueprint
 from backend.repositories.message_repo import MessageRepo
+from backend.repositories.upload_failure_repo import UploadFailureRepo
 from backend.repositories.internal_note_repo import InternalNoteRepo
 from backend.controllers.shared.post_message_controller import PostMessageController
 from backend.controllers.shared.add_internal_note_controller import AddInternalNoteController
@@ -182,11 +183,12 @@ def create_app(registry=None, admin_provider=None, config=None):
     app.extensions['management_store'] = store
 
     # ----- shared services -----
-    upload_service = FileUploadService(upload_folder=str(UPLOAD_DIR))
+    upload_service = FileUploadService(upload_folder=str(UPLOAD_DIR), failure_repo=UploadFailureRepo(store))
 
     # ----- Shared: login (X-03) -----
     user_accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
     login = LoginController(user_accounts, lambda: session)
+    upload_service.current_user = lambda: login.current_user() if has_request_context() else None
     app.extensions['login'] = login   # for role guards in other blueprints
 
     # ----- Shared services (S-01 to S-22), offered to every role as app.extensions['shared'] -----
@@ -214,6 +216,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.preference_repo = NotificationPreferenceRepo(store)
     shared.rules.preferences = shared.preference_repo
     shared.preferences = NotificationPreferenceController(shared.preference_repo)
+    shared.uploads, shared.upload_failures = upload_service, upload_service.failures
     shared.reports = ReportService(store)
     shared.category_lookup = CategoryLookupController(store)
     app.extensions['shared'] = shared

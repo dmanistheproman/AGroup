@@ -241,6 +241,14 @@ CREATE TABLE IF NOT EXISTS notification_preference (
     is_enabled INTEGER NOT NULL,
     PRIMARY KEY (customer_id, event_type)
 );
+CREATE TABLE IF NOT EXISTS upload_failure (
+    failure_id TEXT PRIMARY KEY,
+    user_id TEXT,
+    project_id TEXT,
+    file_name TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    occurred_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS message_by_thread ON message(thread_id, sent_at);
 CREATE INDEX IF NOT EXISTS payment_by_offer ON payment_milestone(offer_id, due_date);
 CREATE INDEX IF NOT EXISTS notification_by_recipient ON notification(recipient_id, created_at);

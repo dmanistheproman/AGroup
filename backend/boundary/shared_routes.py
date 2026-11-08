@@ -233,6 +233,16 @@ def create_shared_blueprint(shared):
         proposal = shared.offers.give_feedback(offer_id, login.current_user(), body().get("feedback"))
         return jsonify(proposal=proposal.public_view())
 
+    # ---- Failed-upload log (S-03, HD-08): ?q=&page=&page_size= ----
+    @bp.get("/api/uploads/failures")
+    @require_role(login, UserAccount.ROLE_HELPDESK)
+    def upload_failures():
+        args = request.args
+        rows = [f.public_view() for f in shared.upload_failures.all()]
+        query = PagedQuery.create(args.get("q", ""), {"user_id": args.get("user_id")}, page=args.get("page", 1),
+                                  page_size=args.get("page_size", 20))
+        return jsonify(query.run(rows, search_fields=("file_name", "reason", "user_id", "project_id")))
+
     # ---- Internal notes (NotesPanel, S-02): target_type REQUEST or USER_ACCOUNT ----
     @bp.get("/api/notes/<target_type>/<target_id>")
     @require_role(login, *STAFF)
