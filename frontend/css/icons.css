@@ -1,0 +1,8 @@
+/* Lucide icons: sized and coloured by the surrounding text. */
+.icon{width:1.15em;height:1.15em;vertical-align:-.2em;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.icon.filled{fill:currentColor}
+/* Save (heart) button on project cards: filled when saved. */
+.save-button .icon{width:.82em;height:.82em;vertical-align:0}
+.save-button.saved .icon{fill:currentColor}
+/* Portal sidebar: icon column. */
+.sidebar nav a span:first-child .icon{width:17px;height:17px;vertical-align:-3px}
