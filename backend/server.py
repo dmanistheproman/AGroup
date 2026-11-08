@@ -308,7 +308,8 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.collections.uploads, shared.collections.attachments = upload_service, shared.attachments
     shared.collections.projects = shared.projects
     favourites.collections = shared.collections
-    app.register_blueprint(create_customer_blueprint(favourites, login, shared.collections))
+    app.register_blueprint(create_customer_blueprint(favourites, login, shared.collections,
+                                                     designer.credit_status_controller))
 
     # ----- Helpdesk -----
     merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)

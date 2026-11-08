@@ -6,7 +6,7 @@ from backend.boundary.auth_guard import role_error
 from backend.entities.user_account import UserAccount
 
 
-def create_customer_blueprint(favourites_ctrl, login, collections=None):
+def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_status=None):
     bp = Blueprint("customer", __name__)
 
     @bp.before_request
@@ -111,5 +111,12 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None):
     def reorder_collection(collection_id):
         collections.reorder(login.current_user(), collection_id, body().get("item_ids"))
         return jsonify(collection=collection_view(collections.collections.get(collection_id)))
+
+    # ---- ID-12 task 4: the customer's own credit status and reasons (C-01 preferences page) ----
+    @bp.get("/api/credit-status/me")
+    def own_credit_status():
+        if credit_status is None:
+            return jsonify(error="Credit status is not available."), 404
+        return jsonify(credit_status.own_status(customer_id()))
 
     return bp

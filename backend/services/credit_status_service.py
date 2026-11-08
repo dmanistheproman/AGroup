@@ -13,11 +13,23 @@ class CreditStatusService:
         self._payments = payment_repo
 
     def status_for(self, customer_id, today=None):
+        """ID-12: the designer's view. Only customers who sent the designer a request can be checked."""
         today = today or date.today().isoformat()
-        enquiries = [e for e in self._enquiries.all() if e.id == customer_id]
+        enquiries = self._enquiries_for(customer_id)
         if not enquiries:
             raise ValueError("No request from this customer — credit status is only "
                              "available for customers who sent the designer a request.")
+        return self._compute(customer_id, enquiries, today)
+
+    def own_status(self, customer_id, today=None):
+        """ID-12 task 4: the customer's own view. Always available; no request is required."""
+        today = today or date.today().isoformat()
+        return self._compute(customer_id, self._enquiries_for(customer_id), today)
+
+    def _enquiries_for(self, customer_id):
+        return [e for e in self._enquiries.all() if e.customer_id == customer_id]
+
+    def _compute(self, customer_id, enquiries, today):
         reasons, negatives, positives = [], 0, 0
         completed = [e for e in enquiries if e.status == "COMPLETED"]
         if completed:
