@@ -33,6 +33,7 @@ The terminal shows both addresses:
 | `--port 5100` | Try this port first |
 | `--no-browser` | Don't open the browser |
 | `--page portal` | Open the staff portal instead of the customer website |
+| `--database instance/test-data.sqlite3` | Use another database, for example the generated test data |
 
 Don't use `python -m http.server` for the full app. It serves the pages only, so every feature that calls the backend fails.
 
@@ -103,7 +104,7 @@ Every push and pull request runs the GitHub Actions pipeline in `.github/workflo
 |---|---|
 | CI · tests | `pytest backend/tests` on Ubuntu (Python 3.12, 3.14) and Windows (Python 3.14) |
 | CI · frontend checks | JavaScript syntax check of `frontend/js/*.js` |
-| CD · staging | Builds the `Dockerfile` image, runs it with gunicorn and smoke-tests it with `scripts/smoke_test.py` |
+| CD · staging | Builds the `Dockerfile` image, runs it with gunicorn and smoke-tests it with `scripts/smoke_test.py`, on the demo data and on a generated test-data set |
 | CD · deliver | On `main` only: publishes the image to GitHub Packages (`ghcr.io/dmanistheproman/agroup`) |
 
 Deploying to production is manual, and needs Docker:
@@ -118,16 +119,24 @@ To smoke-test your local server, run `python scripts/smoke_test.py http://127.0.
 
 ```text
 AGroup/
-├── run.py                  one-command launcher
+├── run.py                  one-command launcher (--database to pick a database)
+├── SHARED_PARTS.md         what the shared parts offer each role (handover)
+├── scripts/                smoke_test.py, generate_data.py (test data), build_icons.py
+├── instance/               SQLite databases (created on first run, not in git)
 ├── frontend/               Boundary (UI): static pages, no build step
 │   ├── index.html          customer website
 │   ├── portal.html         partner & staff portal
-│   ├── css/                styles.css, portal.css
-│   ├── js/                 data.js, customer.js, portal.js, suspend-account.js
-│   └── assets/             images
+│   ├── login.html, register.html, notifications.html
+│   ├── css/                one stylesheet per page or feature
+│   ├── js/                 one script per page or feature (account.js, customer.js, portal.js, ...)
+│   └── assets/             images, icons/lucide.svg
 └── backend/
     ├── requirements.txt
     ├── server.py           create_app(): builds repositories and controllers, registers routes
+    ├── database.py         SQLite tables for the shared parts and the designer records
+    ├── storage.py          SQLite store; projects, categories and activity tables
+    ├── data_generator.py   test-data generator (X-05)
+    ├── CONVENTIONS.md      backend rules and the shared services
     ├── boundary/           Boundary (HTTP): Flask routes, one file per role
     ├── controllers/        Control: one class per use case, one folder per role
     │   └── customer/ designer/ helpdesk/ management/ user_admin/
@@ -152,6 +161,7 @@ When you add a use case for your role (`<role>` is one of `customer`, `designer`
 | HTTP routes | `backend/boundary/<role>_routes.py`, returning a Flask `Blueprint` |
 | Register routes | `backend/server.py`, in `create_app()` |
 | Unit tests | `backend/tests/<role>/test_<use_case>_controller.py` |
+| Shared parts (status changes, notifications, messages, notes, requests, ...) | Use them from `app.extensions["shared"]`; see `SHARED_PARTS.md` |
 | Page/UI code | `frontend/js/`, `frontend/css/`, loaded from `index.html` or `portal.html` |
 | Icons | [Lucide](https://lucide.dev) only, no emoji or Unicode symbols: add the name to `scripts/build_icons.py`, run `python scripts/build_icons.py`, then use `AGroupIcons.icon('name')` in JS or `<svg class="icon"><use href="assets/icons/lucide.svg#name"></use></svg>` in HTML |
 
