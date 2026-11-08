@@ -69,6 +69,8 @@ check("Session ended after logout", "GET", "/api/auth/me", 401)
 # ----- shared parts -----
 check("Catalogue lists projects (S-09)", "GET", "/api/catalog", 200, contains='"projects"')
 check("Active categories (S-10)", "GET", "/api/categories", 200, contains="Japandi")
+check("Company reviews are public (C-07)", "GET", "/api/companies/COM-FF/reviews", 200, contains='"average"')
+check("A wrong moodboard link is refused (C-13)", "GET", "/api/moodboards/shared/not-a-real-link", 404)
 email = f"smoke-{uuid.uuid4().hex[:8]}@example.com"
 check("New customer registers (S-13)", "POST", "/api/auth/register", 201,
       body={"name": "Smoke Test", "email": email, "password": "smoke-test-1"}, contains='"CUSTOMER"')

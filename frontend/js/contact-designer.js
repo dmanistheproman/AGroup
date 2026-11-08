@@ -29,3 +29,31 @@
     }
   });
 })();
+
+/* Company reviews (C-07): the company's page shows the average rating and the reviews customers left after a
+   completed project (S-11 RatingDisplay). customer.js leaves a [data-firm-reviews] slot in the page. */
+(() => {
+  'use strict';
+
+  const esc = value => String(value ?? '').replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  async function fill(slot) {
+    if (slot.dataset.loaded) return;
+    slot.dataset.loaded = 'yes';
+    try {
+      const companies = await (await fetch('/api/companies')).json();
+      const company = (companies.companies || []).find(c => c.name === slot.dataset.firmReviews);
+      if (!company) return;   // a sample studio without an account keeps its sample line
+      const data = await (await fetch(`/api/companies/${encodeURIComponent(company.id)}/reviews`)).json();
+      const UI = window.AGroupUI;
+      if (!data.count) { slot.innerHTML = '<small>No reviews yet. Customers can review after a completed project.</small>'; return; }
+      slot.innerHTML = `${UI ? UI.ratingDisplay(data.average, data.count) : `${data.average} / 5 (${data.count})`}
+        <ul class="review-list">${data.reviews.slice(0, 4).map(r => `<li><b>${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</b>
+          <p>${esc(r.comment)}</p><small>${esc(r.customer)} · ${esc(r.date)}</small></li>`).join('')}</ul>`;
+    } catch { /* offline: the sample line stays */ }
+  }
+
+  new MutationObserver(() => document.querySelectorAll('[data-firm-reviews]').forEach(fill))
+    .observe(document.documentElement, { childList: true, subtree: true });
+})();

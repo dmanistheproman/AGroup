@@ -98,3 +98,10 @@
 .record-page .detail-list dt{color:var(--muted)}
 .record-page .detail-list dd{margin:0}
 @media(max-width:700px){.record-page .detail-list{grid-template-columns:100px 1fr}}
+
+/* C-07 reviews on a company's page */
+.firm-reviews{margin:4px 0 18px}
+.review-list{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:10px}
+.review-list li{border-top:1px solid var(--line);padding-top:10px;font-size:13px}
+.review-list b{color:#c08a2b;letter-spacing:1px;font-weight:400}
+.review-list p{margin:4px 0}

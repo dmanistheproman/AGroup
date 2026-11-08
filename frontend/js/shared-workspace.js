@@ -158,6 +158,10 @@
       <form class="reply-form" data-shared-form="note"><label class="visually-hidden" for="note-text">Internal note</label>
         <textarea id="note-text" name="text" maxlength="2000" required placeholder="Add a note for other agents"></textarea>
         <button class="button outline" type="submit">${icon('sticky-note')} Add note</button></form>
+      ${page.data.feedback ? `<h3>${icon('star')} Requester's feedback <small>(staff only)</small></h3>
+        <p>${UI.ratingDisplay(page.data.feedback.score)}</p>${page.data.feedback.comment ? `<p>${esc(page.data.feedback.comment)}</p>` : ''}
+        <small class="small-note">${time(page.data.feedback.submitted_at)}</small>`
+        : ticket.status === 'CLOSED' ? `<p class="small-note">${icon('star')} The requester has been invited to rate this ticket.</p>` : ''}
       <h3>${icon('history')} History</h3>${R.historyTimeline(history, names)}</div>`;
     if (!dialog.open) dialog.showModal();
   }
@@ -210,6 +214,8 @@
         const req = page.data.request;
         openConversation.thread_id = req.thread_id;
         thread = `<p class="eyebrow">ENQUIRY ${esc(req.id)} · ${statusBadge(req.status)}</p>` +
+          (req.status === 'CONFIRMED' ? `<div class="record-actions"><button class="button outline" data-shared="complete-enquiry" data-id="${esc(req.id)}">
+            ${icon('check')} Mark project as completed</button></div>` : '') +
           threadPanel(req.client_name, page.data.messages, page.data.names, 'Write to the client') +
           `<p class="small-note">Decisions, questions and quotations for this enquiry are under <a href="#designer/enquiries">Leads &amp; enquiries</a>.</p>`;
       } else thread = `<p class="inline-error">${esc(page.data.error || 'Could not open the enquiry.')}</p>`;
@@ -254,6 +260,11 @@
         message: 'The project leaves the customer website and its designer is told why.', confirmLabel: 'Hide project' });
       if (reason === null) return;
       afterChange(await R.call('POST', `/api/projects/${button.dataset.project}/status`, { status: 'HIDDEN', reason }), 'Project hidden.');
+    } else if (action === 'complete-enquiry') {
+      if (!confirm(`Mark ${button.dataset.id} as completed? The client will be invited to review your company.`)) return;
+      const r = await R.call('POST', `/api/enquiries/${encodeURIComponent(button.dataset.id)}/complete`);
+      toast(r.ok ? 'Marked as completed. The client can now leave a review.' : (r.data.error || 'Could not update.'));
+      render('designer', 'messages');
     } else if (action === 'conversation') {
       openConversation = (window.__conversations || []).find(c => c.kind === button.dataset.kind && c.id === button.dataset.id) || null;
       render('designer', 'messages');

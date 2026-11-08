@@ -1,0 +1,20 @@
+/* Moodboards on the server (C-11) and the shared read-only view (C-13). Builds on styles.css (board-grid, board-tile). */
+.moodboard-tabs{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:22px}
+.moodboard-tabs>button{border:1px solid var(--line);background:var(--white);border-radius:999px;padding:7px 14px;font-size:13px}
+.moodboard-tabs>button.active{background:var(--olive);border-color:var(--olive);color:#fff}
+.moodboard-tabs>button small{color:inherit;opacity:.75;margin-left:4px}
+.moodboard-new{display:flex;gap:8px;align-items:center;margin-left:auto}
+.moodboard-new input{min-width:240px}
+.board-tile{position:relative}
+.tile-actions{position:absolute;top:8px;right:8px;display:none;gap:4px}
+.board-tile:hover .tile-actions,.board-tile:focus-within .tile-actions{display:flex}
+.tile-actions .icon-button{width:28px;height:28px;font-size:14px}
+.mood-swatch{height:110px;border-radius:3px}
+.mood-note-text{font-family:Georgia,serif;font-size:18px;line-height:1.4;padding:14px 8px;white-space:pre-wrap}
+.moodboard-tools{align-content:start}
+.moodboard-tools form{padding-bottom:16px;border-bottom:1px solid var(--line)}
+.moodboard-share h3{display:flex;gap:8px;align-items:center;font-size:15px;margin-bottom:8px}
+.moodboard-share input{margin:8px 0}
+.shared-surface{margin-top:26px;grid-template-columns:repeat(3,1fr)}
+@media(max-width:800px){.moodboard-new{margin-left:0;width:100%}.moodboard-new input{min-width:0;flex:1}.shared-surface{grid-template-columns:1fr 1fr}}
+@media(hover:none){.tile-actions{display:flex}}

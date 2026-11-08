@@ -144,7 +144,7 @@ def create_designer_blueprint(c, upload_dir, login):
             return jsonify(c.submit_proposal_controller.list_for(current_user_id()))
         data = {"title": request.form.get("title", ""),
                 "description": request.form.get("description", ""),
-                "client_name": request.form.get("client_name", ""),
+                "client_name": request.form.get("client_name", ""), "enquiry_id": request.form.get("enquiry_id", ""),
                 "images": [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images")]}
         try:
             return jsonify({"proposal": c.submit_proposal_controller.create(current_user_id(), data)}), 201

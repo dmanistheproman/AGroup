@@ -84,7 +84,31 @@
           questions ? { title: 'Your questions', icon: 'file-text', body: questions } : null,
           { title: isTicket ? 'Conversation with the helpdesk' : 'Conversation with your designer', icon: 'message-square',
             body: R.messageThread(messages, me().id, names, { reportable: !isTicket }) + reply },
+          rating(r.data, record, isTicket, handler),
           { title: 'Progress', icon: 'history', body: R.historyTimeline(history, names) }] })}</div>`;
+  }
+
+  // Ticket feedback (HD-13) and a review of the designer (C-07), both with the S-11 rating form.
+  function rating(page, record, isTicket, handler) {
+    const UI = window.AGroupUI;
+    if (isTicket) {
+      if (page.can_give_feedback) {
+        return { title: 'How did we do?', icon: 'star', body: UI.ratingForm({ form: { 'data-inbox-form': 'ticket-feedback',
+          'data-id': record.id }, title: 'Rate the help you received', submitLabel: 'Send feedback' }) +
+          '<p class="small-note">Only the helpdesk team sees your rating.</p>' };
+      }
+      return page.feedback_given ? { title: 'Your feedback', icon: 'star', body: '<p class="small-note">Thank you for rating this request.</p>' } : null;
+    }
+    if (page.review) {
+      return { title: 'Your review', icon: 'star', body: `<p>${UI.ratingDisplay(page.review.rating)}</p><p>${esc(page.review.comment || '')}</p>
+        <small>${esc(page.review.date)} · shown on ${esc(handler)}'s profile</small>` };
+    }
+    if (page.can_review) {
+      return { title: `Review ${handler}`, icon: 'star', body: UI.ratingForm({ form: { 'data-inbox-form': 'review', 'data-id': record.id },
+        title: 'How was working with them?', submitLabel: 'Publish review' }) +
+        '<p class="small-note">Your review and your name appear on the designer\'s public profile.</p>' };
+    }
+    return null;
   }
 
   // ---------- Messages with designers (S-16) ----------
@@ -120,7 +144,8 @@
         <button class="button outline" data-inbox="adjust" data-id="${esc(q.id)}">${icon('pencil')} Ask for changes</button></div>` : ''}</article>`;
     const proposalCard = p => `<article class="offer-card"><div class="record-header"><div><p class="eyebrow">${esc(p.id)} · Design proposal · version ${p.version}</p>
         <h3>${esc(p.title)}</h3></div>${statusBadge(p.status)}</div><p>${esc(p.description)}</p>
-      ${p.status === 'UNDER_REVIEW' ? `<form class="reply-form" data-inbox-form="feedback" data-id="${esc(p.id)}">
+      ${p.status === 'UNDER_REVIEW' ? `<div class="record-actions"><button class="button" data-inbox="accept-proposal" data-id="${esc(p.id)}">${icon('check')} Accept proposal</button></div>
+        <form class="reply-form" data-inbox-form="feedback" data-id="${esc(p.id)}">
         <label for="fb-${esc(p.id)}">YOUR FEEDBACK</label><textarea id="fb-${esc(p.id)}" name="feedback" maxlength="2000" required placeholder="What would you like changed?"></textarea>
         <button class="button outline" type="submit">${icon('send')} Send feedback</button></form>` : ''}</article>`;
     content.innerHTML = `<h3 class="inbox-subheading">Quotations</h3>${quotations.length ? quotations.map(quotationCard).join('') : '<p class="small-note">No quotations yet.</p>'}
@@ -147,6 +172,10 @@
       if (!confirm(`Accept quotation ${id}? This records your decision to go ahead; the contract is signed outside the platform.`)) return;
       const r = await R.call('POST', `/api/offers/quotations/${id}/accept`);
       toast(r.ok ? 'Quotation accepted.' : (r.data.error || 'Could not accept.'));
+    } else if (button.dataset.inbox === 'accept-proposal') {
+      if (!confirm(`Accept design proposal ${id}? The designer will be told you are happy with it.`)) return;
+      const r = await R.call('POST', `/api/offers/proposals/${id}/accept`);
+      toast(r.ok ? 'Proposal accepted.' : (r.data.error || 'Could not accept.'));
     } else if (button.dataset.inbox === 'adjust') {
       const note = await R.confirmWithReason({ title: `Ask for changes to ${id}`, confirmLabel: 'Send request',
         placeholder: 'For example: could the material cost come down?' });
@@ -173,8 +202,16 @@
     let r;
     if (kind === 'ticket-reply' || kind === 'message') r = await R.call('POST', `/api/threads/${form.dataset.thread}/messages`, { body: text('body') });
     else if (kind === 'feedback') r = await R.call('POST', `/api/offers/proposals/${form.dataset.id}/feedback`, { feedback: text('feedback') });
+    else if (kind === 'ticket-feedback' || kind === 'review') {
+      const score = form.querySelector('input[name="score"]:checked');
+      if (!score) { window.AGroupUI.formView.message(form, 'Choose a number of stars first.', 'error'); return; }
+      const url = kind === 'review' ? `/api/requests/${form.dataset.id}/review` : `/api/support/tickets/${form.dataset.id}/feedback`;
+      r = await window.AGroupUI.formView.submit(form, 'POST', url, { score: Number(score.value), comment: text('comment') });
+      if (!r.ok) return;
+    }
     if (!r.ok) { toast(r.data.error || 'Could not send.'); return; }
-    toast(kind === 'feedback' ? 'Feedback sent to the designer.' : 'Sent.');
+    toast({ feedback: 'Feedback sent to the designer.', 'ticket-feedback': 'Thank you for your feedback.',
+            review: 'Your review is published.' }[kind] || 'Sent.');
     show();
   });
 
