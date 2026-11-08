@@ -1,8 +1,9 @@
 """<<entity>> DesignProposal — 共享提案（任务原文 shared: offers）。
 设计师侧（ID-05/06）与客户侧（C-06，待实现）共用同一实体与仓库；
 public_view() 是预留给客户端的共享视图。"""
+from backend.entities.offer import Offer
 
-class DesignProposal:
+class DesignProposal(Offer):
     STATUS_DRAFT = "DRAFT"
     STATUS_UNDER_REVIEW = "UNDER_REVIEW"   # UC5 BF4：Under Review
     STATUS_CONFIRMED = "CONFIRMED"         # UC6 AF1 预留（流程属 C-06/后续任务卡）

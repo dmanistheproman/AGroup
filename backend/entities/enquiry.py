@@ -1,9 +1,10 @@
 """<<entity>> Enquiry — C-06 共享请求的最小共享面（ID-07 需要附加于一个 C-06 请求）。
 仅实体与确认语义；客户表单 / SubmitEnquiryController / ENQUIRY 事件仍是 C-06 的任务。"""
 from datetime import date
+from backend.entities.request import Request
 
 
-class Enquiry:
+class Enquiry(Request):
     STATUS_AWAITING_REPLY = "AWAITING_REPLY"
     STATUS_CONFIRMED = "CONFIRMED"   # 需求已确认 —— UC7 报价的前提
     STATUS_DECLINED = "DECLINED"     # ID-10：设计师拒绝合作 —— 决策终局（AF1）

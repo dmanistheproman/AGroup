@@ -5,8 +5,11 @@ Lifecycle: Open -> Awaiting info -> Escalated -> Resolved -> Closed (or Merged).
 """
 from datetime import datetime, timezone
 
+from backend.entities.enums import TicketStatus
+from backend.entities.request import Request
 
-class SupportTicket:
+
+class SupportTicket(Request):
     # request types chosen on the Contact Support form
     TYPE_ACCOUNT = "ACCOUNT"
     TYPE_TECHNICAL = "TECHNICAL"
@@ -21,12 +24,24 @@ class SupportTicket:
     TYPE_LABELS = {TYPE_ACCOUNT: "Account", TYPE_TECHNICAL: "Technical problem", TYPE_PROJECT: "Project or listing",
                    TYPE_OTHER: "Other", TYPE_REPORT_IDP: "Reported IDP", TYPE_REPORT_MESSAGE: "Reported message"}
 
-    STATUS_OPEN = "OPEN"
-    STATUS_AWAITING_INFO = "AWAITING_INFO"
-    STATUS_ESCALATED = "ESCALATED"
-    STATUS_RESOLVED = "RESOLVED"
-    STATUS_CLOSED = "CLOSED"
-    STATUS_MERGED = "MERGED"
+    STATUS_OPEN = TicketStatus.OPEN
+    STATUS_AWAITING_INFO = TicketStatus.AWAITING_INFO
+    STATUS_ESCALATED = TicketStatus.ESCALATED
+    STATUS_RESOLVED = TicketStatus.RESOLVED
+    STATUS_CLOSED = TicketStatus.CLOSED
+    STATUS_MERGED = TicketStatus.MERGED
+
+    # Lifecycle used by StatusChangeService (S-04) through TicketLifecycle.
+    TRANSITIONS = {
+        TicketStatus.OPEN: {TicketStatus.AWAITING_INFO, TicketStatus.ESCALATED, TicketStatus.RESOLVED,
+                            TicketStatus.MERGED},
+        TicketStatus.AWAITING_INFO: {TicketStatus.OPEN, TicketStatus.ESCALATED, TicketStatus.RESOLVED},
+        TicketStatus.ESCALATED: {TicketStatus.AWAITING_INFO, TicketStatus.RESOLVED},
+        TicketStatus.RESOLVED: {TicketStatus.CLOSED, TicketStatus.OPEN},
+    }
+    # Asking for information, escalating, resolving and merging each need a reason for the requester.
+    REASON_REQUIRED = frozenset({TicketStatus.AWAITING_INFO, TicketStatus.ESCALATED, TicketStatus.RESOLVED,
+                                 TicketStatus.MERGED})
 
     PRIORITY_LOW = "LOW"
     PRIORITY_NORMAL = "NORMAL"
@@ -35,7 +50,8 @@ class SupportTicket:
     def __init__(self, ticket_id, requester_id, requester_type, ticket_type, details,
                  related_project_id=None, related_project_title=None, related_message_id=None,
                  related_company_id=None, status=STATUS_OPEN, priority=PRIORITY_NORMAL, handler_id=None,
-                 outcome=None, resolution_note=None, merged_into_id=None, created_at=None):
+                 outcome=None, resolution_note=None, merged_into_id=None, created_at=None,
+                 thread_id=None, attachment_group_id=None):
         self.id = ticket_id
         self.requester_id = requester_id
         self.requester_type = requester_type          # CUSTOMER or DESIGNER
@@ -52,6 +68,8 @@ class SupportTicket:
         self.resolution_note = resolution_note
         self.merged_into_id = merged_into_id
         self.created_at = created_at or datetime.now(timezone.utc).isoformat()
+        self.thread_id = thread_id
+        self.attachment_group_id = attachment_group_id
 
     def is_report(self):
         return self.ticket_type in self.REPORT_TYPES
@@ -65,4 +83,5 @@ class SupportTicket:
                 "requester_id": self.requester_id, "requester_type": self.requester_type,
                 "related_project_id": self.related_project_id,
                 "related_project_title": self.related_project_title,
+                "handler_id": self.handler_id, "resolution_note": self.resolution_note,
                 "created_at": self.created_at}

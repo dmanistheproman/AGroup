@@ -3,8 +3,9 @@
 状态机：DRAFT → WAITING_CLIENT_CONFIRMATION →（C-06 侧）ACCEPTED / ADJUSTMENT_REQUESTED；
 EXPIRED 由到期检查触发。Rule：接受 = 客户决定签约的记录，合同在平台外签署；
 已接受报价的付款计划由 ID-09 跟踪。"""
+from backend.entities.offer import Offer
 
-class Quotation:
+class Quotation(Offer):
     STATUS_DRAFT = "DRAFT"
     STATUS_WAITING = "WAITING_CLIENT_CONFIRMATION"   # UC7 BF5
     STATUS_ADJUSTMENT = "ADJUSTMENT_REQUESTED"       # UC7 AF1（客户请求调整）
