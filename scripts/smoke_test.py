@@ -78,6 +78,9 @@ except (ValueError, KeyError, TypeError):
 check("Customer writes to the helpdesk (S-01)", "POST", f"/api/threads/{thread_id}/messages", 201,
       body={"body": "Smoke test message."})
 check("Customer saves a project (C-04)", "POST", "/api/favourites", 200, body={"project_id": 1}, contains="IDP-001")
+check("Customer makes a folder (S-22)", "POST", "/api/collections", 201, body={"name": f"Smoke {uuid.uuid4().hex[:6]}"})
+check("Customer inbox (S-14)", "GET", "/api/inbox", 200, contains=ticket_id)
+check("Customer offers (S-21)", "GET", "/api/offers", 200, contains='"quotations"')
 check("Customers cannot read reports", "GET", "/api/reports/activity", 403)
 check("Customer logs out", "POST", "/api/auth/logout", 200)
 check("Helpdesk agent logs in", "POST", "/api/auth/login", 200,

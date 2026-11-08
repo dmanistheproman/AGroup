@@ -88,10 +88,12 @@ Every shared part is built once in `server.py` and offered as `app.extensions["s
 | `inbox` | `inbox_for(user)`: the user's requests and conversations with unread counts (S-14) |
 | `preferences` | `list_for(customer)`, `update(customer, event_type, is_enabled)`; notification rules respect them (C-12) |
 | `offers` | `offers_for(customer)`, `accept`, `request_adjustment`, `give_feedback`: the client's answer to quotations and proposals (S-21) |
+| `collections` | `create(customer, name, kind)`, `rename`, `delete`, `add_item`, `remove_item`, `reorder`: folders of favourites and moodboards (S-22) |
+| `companies` | Company records (public list `GET /api/companies`) |
 | `uploads`, `upload_failures` | `FileUploadService` logs refused files with the logged-in user; `upload_failures.all()` is the HD-08 log (S-03) |
 
 For form checks, `ValidationRules` (`controllers/shared/validation_rules.py`: `required`, `max_length`, `is_email`, `is_unique_email`, `is_unique_name`) is what `require_text` / `require_email` and `AccountService` use (S-12).
 
 For lists, `PagedQuery.create(keyword, filters, page, page_size, sort_by).run(rows, search_fields)` (`entities/paged_query.py`) returns `{items, total, page, page_size, pages}` (S-05).
 
-Shared routes (`boundary/shared_routes.py`): `/api/support/tickets` (queue, `?status=&type=&handler=me|none&q=&page=`), `/api/support/tickets/<id>` (page with messages and history), `/<id>/assign`, `/<id>/status`, `/api/support/tickets/merge` (HD-05), `/api/projects/<id>/status`, `/api/threads/<id>/messages`, `/api/notes/<type>/<id>`, `/api/history/<type>/<id>`, `/api/conversations`, `/api/inbox`, `/api/notification-preferences`, `/api/offers` (customers), `/api/uploads/failures` (helpdesk), `/api/notifications`, `/api/favourites` (customers), `/api/categories`, `/api/reports/activity`.
+Shared routes (`boundary/shared_routes.py`): `/api/support/tickets` (queue, `?status=&type=&handler=me|none&q=&page=`), `/api/support/tickets/<id>` (page with messages and history), `/<id>/assign`, `/<id>/status`, `/api/support/tickets/merge` (HD-05), `/api/projects/<id>/status`, `/api/threads/<id>/messages`, `/api/notes/<type>/<id>`, `/api/history/<type>/<id>`, `/api/conversations`, `/api/companies`, `/api/reports/messages/<id>`, `/api/collections` (customers), `/api/inbox`, `/api/notification-preferences`, `/api/offers` (customers), `/api/uploads/failures` (helpdesk), `/api/notifications`, `/api/favourites` (customers), `/api/categories`, `/api/reports/activity`.

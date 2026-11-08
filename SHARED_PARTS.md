@@ -43,15 +43,19 @@ Ready (backend and API):
 | Feature | API |
 |---|---|
 | Register (S-13) | `POST /api/auth/register` |
-| Contact support, report a project (S-15) | `POST /api/support/tickets`, `POST /api/reports/projects/<id>` |
+| Contact support, report a project or a message (S-15) | `POST /api/support/tickets`, `POST /api/reports/projects/<id>`, `POST /api/reports/messages/<message_id> {reason}` |
 | Favourites (C-04) | `GET/POST /api/favourites`, `DELETE /api/favourites/<IDP-xxx>`; the customer site already uses them |
+| Folders for favourites (S-22, C-04 "organise") | `GET/POST /api/collections`, `PATCH/DELETE /api/collections/<id>`, `POST /api/collections/<id>/items`, `DELETE .../items/<item_id>`, `PUT .../order`; shown on the Saved page |
+| Find a company to message | `GET /api/companies` (public) |
 | Message a designer (S-16) | `POST /api/conversations {company_id}`, then `GET/POST /api/threads/<thread_id>/messages` |
 | Inbox (S-14) | `GET /api/inbox` |
 | Notification preferences (C-12) | `GET/PUT /api/notification-preferences {event_type, is_enabled}` |
 | Answer offers (S-21) | `GET /api/offers`, `POST /api/offers/quotations/<id>/accept`, `/adjustment {note}`, `POST /api/offers/proposals/<id>/feedback {feedback}` |
 
-Open: pages for inbox, conversations, offers and preferences (the menu items exist); submitting an enquiry
-(C-06) should create it with `shared.requests.open(Enquiry(...))`.
+Pages: `inbox.html` (Requests, Messages, Offers, Preferences tabs; the account menu links to it), folders on the
+Saved page, "Message designer" in a company's page.
+Open: submitting an enquiry (C-06) should create it with `shared.requests.open(Enquiry(...))`; the moodboard page
+still keeps its board in the browser (a `MOODBOARD` collection is ready on the server).
 
 ### Interior Designer
 Ready:
@@ -64,7 +68,8 @@ Ready:
 | Told when the helpdesk hides a project | notification `PROJECT_HIDDEN` / `PROJECT_RESTORED` |
 
 All ID records are stored in SQLite; controllers must call `save()` after changing an entity.
-Open: portal buttons for publish / unpublish and a messages page. Proposals record only `client_name`, so the
+Pages: **Messages** in the portal (private conversations, with Report on customer messages).
+Open: portal buttons for publish / unpublish. Proposals record only `client_name`, so the
 customer side matches proposals by name; adding the enquiry to a proposal would fix that. Quotations do not record
 the designer, so the designer is not notified when a customer accepts.
 
@@ -83,7 +88,9 @@ Ready:
 | Hide / restore a project (HD-09) | `POST /api/projects/<IDP-xxx>/status {status: HIDDEN or PUBLISHED, reason}` |
 | Failed-upload log (HD-08) | `GET /api/uploads/failures?q=&page=` |
 
-Open: the helpdesk portal screens still show browser demo data; they can now load these APIs.
+Pages: the portal's helpdesk **Overview, Active ticket queue, Resolved tickets, Complaints & listings and Upload
+diagnostics** use these APIs; the ticket page (claim, status change with reason, reply, notes, merge, hide project,
+history, reported message) opens from any list. **Verification recommendations** (HD-12) is still a browser demo.
 
 ### User Admin
 Ready: `USER_ACCOUNT` is registered in `StatusChangeService` (suspend / reactivate with a reason, audited);
@@ -124,7 +131,8 @@ customer catalogue now hides projects that are not `PUBLISHED`.
 
 ## 7. Not built yet
 
-- Front-end components: status badge, confirm-with-reason dialog, history timeline, record page (S-04, S-20),
-  helpdesk ticket page, inbox, conversation and offer pages.
-- S-22 collections and moodboards (favourites use their own list for now), reporting a message (S-15), ticket
-  feedback (HD-13).
+- Moodboard on the server (C-11): the API holds `MOODBOARD` collections, the page still uses the browser.
+- Ticket feedback (HD-13), verification recommendations (HD-12).
+
+Shared front-end components you can reuse are in `frontend/js/records.js` (`AGroupRecords.statusBadge`,
+`confirmWithReason`, `historyTimeline`, `messageThread`, `notesPanel`, `call`) with styles in `css/records.css`.
