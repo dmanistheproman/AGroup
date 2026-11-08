@@ -56,18 +56,30 @@ def create_shared_blueprint(shared):
         tickets = shared.requests.list_for_requester(login.current_user().id)
         return jsonify(tickets=[t.public_view() for t in tickets])
 
-    # ---- Helpdesk ticket queue (ListPage, S-05): ?status=&type=&handler=me|none&q=&page=&page_size= ----
+    # ---- Helpdesk ticket queue (ListPage, S-05):
+    #      ?scope=active|done&status=&type=<type>|REPORTS&handler=me|none&q=&page=&page_size= ----
+    DONE = (SupportTicket.STATUS_RESOLVED, SupportTicket.STATUS_CLOSED, SupportTicket.STATUS_MERGED)
+
     @bp.get("/api/support/tickets")
     @require_role(login, UserAccount.ROLE_HELPDESK)
     def ticket_queue():
         args = request.args
         rows = [t.public_view() for t in shared.tickets.all()]
+        scope = args.get("scope", "")
+        if scope not in ("", "active", "done"):
+            raise ValueError("scope must be active or done.")
+        if scope:
+            rows = [r for r in rows if (r["status"] in DONE) == (scope == "done")]
+        kind = args.get("type", "")
+        if kind == "REPORTS":
+            rows = [r for r in rows if r["type"] in SupportTicket.REPORT_TYPES]
+            kind = ""
         handler = args.get("handler")
         if handler == "me":
             rows = [r for r in rows if r["handler_id"] == login.current_user().id]
         elif handler == "none":
             rows = [r for r in rows if r["handler_id"] is None]
-        query = PagedQuery.create(args.get("q", ""), {"status": args.get("status"), "type": args.get("type")},
+        query = PagedQuery.create(args.get("q", ""), {"status": args.get("status"), "type": kind},
                                   page=args.get("page", 1), page_size=args.get("page_size", 20),
                                   sort_by="-created_at")
         return jsonify(query.run(rows, search_fields=("id", "details", "related_project_title")))
