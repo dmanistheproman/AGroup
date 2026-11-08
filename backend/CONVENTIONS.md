@@ -84,7 +84,14 @@ Every shared part is built once in `server.py` and offered as `app.extensions["s
 | `project_status` | `change(user, project_id, status, reason)`: designers publish / unpublish their own projects, the helpdesk hides / restores (S-04, S-17) |
 | `projects`, `category_lookup`, `reports` | Project records, active categories (S-10), activity reports and CSV (S-06) |
 | `threads`, `attachments` | Threads and attachment groups (S-01, S-03) |
+| `conversations` | `start_conversation(customer, company_id)`, `list_conversations(user)`: private customer–designer conversations; post with `messages` (S-16) |
+| `inbox` | `inbox_for(user)`: the user's requests and conversations with unread counts (S-14) |
+| `preferences` | `list_for(customer)`, `update(customer, event_type, is_enabled)`; notification rules respect them (C-12) |
+| `offers` | `offers_for(customer)`, `accept`, `request_adjustment`, `give_feedback`: the client's answer to quotations and proposals (S-21) |
+| `uploads`, `upload_failures` | `FileUploadService` logs refused files with the logged-in user; `upload_failures.all()` is the HD-08 log (S-03) |
+
+For form checks, `ValidationRules` (`controllers/shared/validation_rules.py`: `required`, `max_length`, `is_email`, `is_unique_email`, `is_unique_name`) is what `require_text` / `require_email` and `AccountService` use (S-12).
 
 For lists, `PagedQuery.create(keyword, filters, page, page_size, sort_by).run(rows, search_fields)` (`entities/paged_query.py`) returns `{items, total, page, page_size, pages}` (S-05).
 
-Shared routes (`boundary/shared_routes.py`): `/api/support/tickets` (queue, `?status=&type=&handler=me|none&q=&page=`), `/api/support/tickets/<id>` (page with messages and history), `/<id>/assign`, `/<id>/status`, `/api/support/tickets/merge` (HD-05), `/api/projects/<id>/status`, `/api/threads/<id>/messages`, `/api/notes/<type>/<id>`, `/api/history/<type>/<id>`, `/api/notifications`, `/api/favourites` (customers), `/api/categories`, `/api/reports/activity`.
+Shared routes (`boundary/shared_routes.py`): `/api/support/tickets` (queue, `?status=&type=&handler=me|none&q=&page=`), `/api/support/tickets/<id>` (page with messages and history), `/<id>/assign`, `/<id>/status`, `/api/support/tickets/merge` (HD-05), `/api/projects/<id>/status`, `/api/threads/<id>/messages`, `/api/notes/<type>/<id>`, `/api/history/<type>/<id>`, `/api/conversations`, `/api/inbox`, `/api/notification-preferences`, `/api/offers` (customers), `/api/uploads/failures` (helpdesk), `/api/notifications`, `/api/favourites` (customers), `/api/categories`, `/api/reports/activity`.
