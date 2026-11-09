@@ -92,8 +92,7 @@
             <td><b>${escape(category.name)}</b><small>${escape(category.description)}</small>
               ${category.target ? `<small>Merged into ${escape(category.target)}</small>` : ''}</td>
             <td>${category.count}</td><td>${status(category.status)}</td><td>${category.featured ? 'Featured' : '—'}</td>
-            <td>${button('Manage', 'edit', category.id)} ${button('Projects', 'projects', category.id)}
-              ${category.count === 0 ? button('Delete', 'delete', category.id) : ''}</td>
+            <td>${button('Manage', 'edit', category.id)} ${button('Projects', 'projects', category.id)}</td>
           </tr>`).join('') || '<tr><td colspan="5">No categories match your search and status selection.</td></tr>'}</tbody>
           </table></div>`;
       } catch (error) {
@@ -120,7 +119,7 @@
         ${category ? `<div class="action-list">
           ${category.status === 'Active' ? button('Archive', 'archive', id) + button(category.featured ? 'Unfeature' : 'Feature category', 'feature', id) : ''}
           ${category.status === 'Archived' ? button('Restore category', 'restore', id) : ''}
-          ${button('Review assigned projects', 'projects', id)}${button('Delete category', 'delete', id)}</div>
+          ${button('Review assigned projects', 'projects', id)}</div>
           <p class="hint">${category.target ? `Merged into ${escape(category.target)}.` : 'Review the assigned projects to assess the impact of a change.'}</p>` : ''}`);
     }
 
@@ -130,21 +129,12 @@
       if (token !== generation) return;
       const category = records.categories.find(item => item.id === id);
       if (!category) throw new Error('Category not found.');
-      if (action === 'delete' && category.count > 0) {
-        const instruction = category.status === 'Archived'
-          ? 'Restore this category, then merge its projects into another category before deleting it.'
-          : 'Merge its projects into another category before deleting it.';
-        showDialog(`<h2>Move the projects first</h2><p>${escape(category.name)} has ${category.count} assigned projects.</p>
-          <p>${instruction}</p><div class="action-list">${button('Review assigned projects', 'projects', id)}${button('Close', 'cancel')}</div>`);
-        return;
-      }
       const descriptions = {
         archive: 'Existing project assignments will remain. Designers will no longer be able to select this category for new assignments.',
         restore: 'Designers will be able to select this category again.',
         feature: category.featured ? 'This category will be removed from the featured discovery list.' : 'Customers will see this category in the featured discovery list.',
-        delete: 'This category will move to Deleted categories, where you can review its details and merge destination.',
       };
-      const labels = { archive: 'Archive', restore: 'Restore', feature: category.featured ? 'Unfeature' : 'Feature', delete: 'Delete' };
+      const labels = { archive: 'Archive', restore: 'Restore', feature: category.featured ? 'Unfeature' : 'Feature' };
       const label = labels[action];
       showDialog(`<h2>${label} ${escape(category.name)}?</h2><p>${descriptions[action]}</p>
         <form data-management-form="state" data-id="${escape(id)}" data-version="${category.version}"
@@ -190,51 +180,12 @@
       showDialog(`<h2>Projects in ${escape(result.category.name)}</h2>
         <p>${result.projects.length} assigned projects · ${escape(result.category.status)}</p>
         ${result.target ? `<p>Merged into ${escape(result.target.name)}.
-          ${result.target.deleted_at ? 'The target is listed in Deleted categories.' : button('Review target projects', 'projects', result.target.id)}</p>` : ''}
+          ${button('Review target projects', 'projects', result.target.id)}</p>` : ''}
         <div class="management-project-list">${result.projects.map(project => `
           <article class="management-project"><img src="${escape(project.attachments?.[0] || 'assets/' + (project.image || 'living') + '.jpg')}" alt="" loading="lazy">
             <div><b>${escape(project.title)}</b><p>${[project.firm, project.type, project.location].filter(Boolean).map(escape).join(' · ')}</p>
               <small>${project.categoryNames.map(escape).join(' · ')}</small></div></article>`).join('') ||
           '<p>No projects are currently assigned to this category.</p>'}</div>`);
-    }
-  }
-
-  class DeletedCategoriesPage {
-    constructor() {
-      this.search = '';
-      this.searchGeneration = 0;
-    }
-
-    async render(token) {
-      main.innerHTML = heading('Deleted categories', 'Review categories removed from the directory and their merge destinations.', button('Refresh', 'refresh')) + `
-        <div class="portal-toolbar"><label>SEARCH DELETED CATEGORIES
-          <input id="management-deleted-search" placeholder="Search by category name" value="${escape(this.search)}"></label></div>
-        <p id="management-deleted-error" class="inline-error" role="alert"></p>
-        ${panel('Deleted category history', '<div id="management-deleted" aria-live="polite"><p class="panel-body">Loading deleted categories…</p></div>')}`;
-      await this.refresh(token);
-    }
-
-    async refresh(token = generation) {
-      if (activeSection !== 'deleted') return;
-      const searchToken = ++this.searchGeneration;
-      const query = new URLSearchParams({ search: this.search });
-      try {
-        const result = await api.get(`${base}/categories/deleted?${query}`);
-        if (token !== generation || searchToken !== this.searchGeneration) return;
-        document.querySelector('#management-deleted-error').textContent = '';
-        document.querySelector('#management-deleted').innerHTML = `<div class="table-wrap"><table>
-          <thead><tr><th>Category</th><th>Previous status</th><th>Merged into</th><th>Deleted on</th></tr></thead>
-          <tbody>${result.categories.map(category => `<tr>
-            <td><b>${escape(category.name)}</b><small>${escape(category.description)}</small></td>
-            <td>${status(category.status)}</td><td>${escape(category.target || '—')}</td>
-            <td>${escape(dateLabel(category.deleted_at))}</td></tr>`).join('') ||
-            `<tr><td colspan="4">${this.search ? 'No deleted categories match your search.' : 'No deleted categories yet.'}</td></tr>`}
-          </tbody></table></div>`;
-      } catch (error) {
-        if (token === generation && searchToken === this.searchGeneration) {
-          showError(error, document.querySelector('#management-deleted-error'));
-        }
-      }
     }
   }
 
@@ -340,7 +291,6 @@
   }
 
   const categoryPage = new CategoryManagementPage();
-  const deletedPage = new DeletedCategoriesPage();
   const usagePage = new CategoryUsagePage();
   const reportPage = new ActivityReportPage();
 
@@ -353,7 +303,7 @@
         ['Project views', counts.views, result.period.label], ['Favourite additions', counts.favourites, result.period.label],
         ['Enquiries', counts.enquiries, result.period.label]]) + `<div class="dashboard-columns">` +
       panel('Manage your workspace', '<div class="panel-body"><div class="quick-actions">' +
-        [['categories', 'Project categories'], ['deleted', 'Deleted categories'], ['usage', 'Category usage'], ['reports', 'Activity reports'], ['compare', 'Compare periods']]
+        [['categories', 'Project categories'], ['usage', 'Category usage'], ['reports', 'Activity reports'], ['compare', 'Compare periods']]
           .map(([path, label]) => `<a href="#management/${path}">${label}<span>${AGroupIcons.icon('arrow-right')}</span></a>`).join('') + '</div></div>') +
       panel('Recent category changes', `<div class="panel-body"><ul class="activity-list">${result.recent.map(entry =>
         `<li><span class="activity-dot"></span><div>${escape(entry.action)}<small>${escape(entry.record)} · ${escape(dateLabel(entry.occurred_at))}</small></div></li>`).join('') ||
@@ -372,7 +322,6 @@
       settings = await api.session();
       if (token !== generation) return;
       if (section === 'categories') await categoryPage.render(token);
-      else if (section === 'deleted') await deletedPage.render(token);
       else if (section === 'usage') await usagePage.render(token);
       else if (section === 'reports' || section === 'compare') await reportPage.render(token, section === 'compare');
       else await overview(token);
@@ -401,7 +350,7 @@
     try {
       if (action === 'create') await categoryPage.edit();
       else if (action === 'edit') await categoryPage.edit(selected.dataset.id);
-      else if (['archive', 'restore', 'feature', 'delete'].includes(action)) await categoryPage.confirm(selected.dataset.id, action);
+      else if (['archive', 'restore', 'feature'].includes(action)) await categoryPage.confirm(selected.dataset.id, action);
       else if (action === 'merge') await categoryPage.merge();
       else if (action === 'projects') await categoryPage.projects(selected.dataset.id);
       else if (action === 'export') await reportPage.export();
@@ -412,12 +361,6 @@
 
   let searchTimer;
   document.addEventListener('input', event => {
-    if (event.target.id === 'management-deleted-search') {
-      deletedPage.search = event.target.value;
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => deletedPage.refresh(), 180);
-      return;
-    }
     if (event.target.id !== 'management-search') return;
     categoryPage.search = event.target.value;
     clearTimeout(searchTimer);
@@ -454,10 +397,8 @@
       } else if (kind === 'state') {
         values.version = Number(form.dataset.version);
         if (form.dataset.operation === 'feature') values.featured = form.dataset.featured === 'true';
-        const deleting = form.dataset.operation === 'delete';
-        const endpoint = `${base}/categories/${encodeURIComponent(form.dataset.id)}${deleting ? '' : '/' + form.dataset.operation}`;
-        await api.send(endpoint, values, deleting ? 'DELETE' : 'POST');
-        AG.toast(deleting ? 'Category moved to Deleted categories.' : 'Category updated.');
+        await api.send(`${base}/categories/${encodeURIComponent(form.dataset.id)}/${form.dataset.operation}`, values, 'POST');
+        AG.toast('Category updated.');
       } else if (kind === 'merge') {
         await categoryPage.confirmMerge(values.sourceId, values.targetId);
       }
