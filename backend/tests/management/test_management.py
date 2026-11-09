@@ -112,6 +112,13 @@ class ManagementTests(unittest.TestCase):
         restored = self.send(path + '/restore', {'version': 2}).json['category']
         self.assertEqual(restored['status'], 'Active')
 
+    def test_featured_categories_are_available_to_customer_catalog(self):
+        self.send('/categories/' + self.target['id'] + '/feature', {'featured': True, 'version': 1})
+        catalog = self.client.get('/api/catalog').json
+        featured = [item['id'] for item in catalog['categories'] if item['featured']]
+        self.assertEqual(featured, [self.target['id']])
+        self.assertEqual(catalog['projects'][1]['categoryNames'], ['Modern', 'Modern Style'])
+
     def test_merge_deduplicates_links_and_preserves_projects_and_activity(self):
         before = self.report()['rows']
         self.entity.set_featured(self.source['id'], True, 1)

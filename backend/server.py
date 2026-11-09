@@ -208,6 +208,7 @@ def build_management_controllers(store):
         EditCategoryController=management.EditCategoryController(categories),
         ArchiveCategoryController=management.ArchiveCategoryController(categories),
         RestoreCategoryController=management.RestoreCategoryController(categories),
+        FeatureCategoryController=management.FeatureCategoryController(categories),
         SearchCategoriesController=management.SearchCategoriesController(categories),
         MergeCategoriesController=management.MergeCategoriesController(categories),
         ViewCategoryUsageController=management.ViewCategoryUsageController(store),

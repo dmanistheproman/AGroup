@@ -95,6 +95,13 @@ def create_management_blueprint(c, store, login):
     def restore_category(category_id):
         return jsonify(category=c.RestoreCategoryController.restore_category(category_id, data().get("version")))
 
+    @bp.post("/api/management/categories/<category_id>/feature")
+    def feature_category(category_id):
+        form = data()
+        category = c.FeatureCategoryController.feature_category(
+            category_id, form.get("featured"), form.get("version"))
+        return jsonify(category=category)
+
     @bp.post("/api/management/categories/merge")
     def merge_categories():
         form = data()
@@ -141,7 +148,10 @@ def create_management_blueprint(c, store, login):
             counts["activeCategories"] = connection.execute(
                 "SELECT COUNT(*) FROM categories WHERE status = 'Active' AND deleted_at IS NULL"
             ).fetchone()[0]
-            recent = [dict(row) for row in connection.execute("SELECT * FROM audit ORDER BY id DESC LIMIT 6")]
+            counts["featuredCategories"] = connection.execute(
+                "SELECT COUNT(*) FROM categories WHERE status = 'Active' AND featured = 1 AND deleted_at IS NULL"
+            ).fetchone()[0]
+            recent =[dict(row) for row in connection.execute("SELECT * FROM audit ORDER BY id DESC LIMIT 6")]
         return jsonify(counts=counts, recent=recent, period=period.serialize())
 
     @bp.get("/api/catalog")

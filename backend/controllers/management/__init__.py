@@ -5,6 +5,7 @@ from .archive_category_controller import ArchiveCategoryController
 from .view_report_controller import ViewReportController
 from .view_category_usage_controller import ViewCategoryUsageController
 from .restore_category_controller import RestoreCategoryController
+from .feature_category_controller import FeatureCategoryController
 from .search_categories_controller import SearchCategoriesController
 from .merge_categories_controller import MergeCategoriesController
 from .review_category_projects_controller import ReviewCategoryProjectsController
