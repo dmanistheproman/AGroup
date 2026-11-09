@@ -143,6 +143,11 @@ class NotificationRules:
             self._send(designer, "OFFER_ANSWERED", self._with(f"{offer.client_name} {verb} {name} {offer.id}.", reason),
                        "portal.html#designer/quotations" if target_type == self.TARGET_QUOTATION
                        else "portal.html#designer/proposals", target_type, offer.id)
+        elif new_status == "EXPIRED":   # ID-07: an unanswered quotation passed its validity date; both parties are told
+            self._send(customer, "OFFER_EXPIRED", f"Quotation {offer.id} has expired.", CUSTOMER_OFFERS,
+                       target_type, offer.id)
+            self._send(designer, "OFFER_EXPIRED", f"Quotation {offer.id} for {offer.client_name} has expired.",
+                       "portal.html#designer/quotations", target_type, offer.id)
 
     # ---- messages (S-01, S-16) ----
 

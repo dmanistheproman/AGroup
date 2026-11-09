@@ -68,14 +68,20 @@ class QuotationRepo:
             number = next_number(connection, "quotation", "offer", "offer_id", self.PREFIX, first=self.FIRST_NUMBER)
         return f"{self.PREFIX}{number}"
 
-    def expire_due(self, today=None):
-        """ID-07 task 3: a quotation past its validity date with no answer becomes EXPIRED (shared status change).
+    def expire_due(self, today=None, status_change=None):
+        """ID-07 task 3: a quotation past its validity date with no answer becomes EXPIRED.
+        With the shared StatusChangeService the change is checked, audited (actor "system") and both parties
+        are notified; without it (repository tests) the status is saved directly.
         Returns how many quotations expired now."""
         today = today or datetime.date.today().isoformat()
         expired = 0
         for quotation in self.all():
             if quotation.is_expired_on(today):
-                self.save(quotation.expire())
+                if status_change is not None:
+                    status_change.change_status("QUOTATION", quotation.id, quotation.STATUS_EXPIRED, "system",
+                                                "The validity date has passed.")
+                else:
+                    self.save(quotation.expire())
                 expired += 1
         return expired
 

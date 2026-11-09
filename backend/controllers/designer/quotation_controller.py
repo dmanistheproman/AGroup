@@ -63,7 +63,7 @@ class SubmitQuotationController:
 
     def list_for(self, user_id, today=None):
         # user_id is kept for filtering by owner (same rule as ID-04/05); expiry is checked lazily on read (task 3)
-        self.quotations.expire_due(today)
+        self.quotations.expire_due(today, self.status_change)
         return [self._view(q) for q in self.quotations.all()]
 
     def present(self, user_id, quotation_id):
