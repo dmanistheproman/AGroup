@@ -47,7 +47,8 @@ def create_shared_blueprint(shared):
     @require_role(login, *REQUESTERS)
     def open_support_request():
         data = body()
-        ticket = shared.submit_ticket.submit_ticket(login.current_user(), data.get("type"), data.get("details"))
+        ticket = shared.submit_ticket.submit_ticket(login.current_user(), data.get("type"), data.get("details"),
+                                                    related_customer_id=data.get("related_customer_id"))
         return jsonify(ticket=ticket.public_view()), 201
 
     @bp.get("/api/support/tickets/mine")
@@ -194,7 +195,7 @@ def create_shared_blueprint(shared):
     def move_ticket(ticket_id):
         data = body()
         ticket = shared.ticket_lifecycle.move_to(ticket_id, data.get("status"), login.current_user(),
-                                                 data.get("reason"))
+                                                 data.get("reason"), data.get("outcome"))
         return ticket_page(ticket)
 
     # ---- Project status: publish / unpublish (ID-03), hide / restore (HD-09) ----
