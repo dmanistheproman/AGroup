@@ -80,16 +80,6 @@ def create_management_blueprint(c, store, login):
         category = c.CreateCategoryController.create_category(form.get("name"), form.get("description", ""))
         return jsonify(category=category), 201
 
-    @bp.get("/api/management/categories/deleted")
-    def deleted_categories():
-        records = c.ViewDeletedCategoriesController.view_deleted_categories(request.args.get("search", ""))
-        return jsonify(categories=records)
-
-    @bp.delete("/api/management/categories/<category_id>")
-    def delete_category(category_id):
-        category = c.DeleteCategoryController.delete_category(category_id, data().get("version"))
-        return jsonify(category=category)
-
     @bp.patch("/api/management/categories/<category_id>")
     def edit_category(category_id):
         form = data()
@@ -104,13 +94,6 @@ def create_management_blueprint(c, store, login):
     @bp.post("/api/management/categories/<category_id>/restore")
     def restore_category(category_id):
         return jsonify(category=c.RestoreCategoryController.restore_category(category_id, data().get("version")))
-
-    @bp.post("/api/management/categories/<category_id>/feature")
-    def feature_category(category_id):
-        form = data()
-        category = c.FeatureCategoryController.feature_category(
-            category_id, form.get("featured"), form.get("version"))
-        return jsonify(category=category)
 
     @bp.post("/api/management/categories/merge")
     def merge_categories():
@@ -157,9 +140,6 @@ def create_management_blueprint(c, store, login):
             counts = ActivityReport.build(connection, period, None)
             counts["activeCategories"] = connection.execute(
                 "SELECT COUNT(*) FROM categories WHERE status = 'Active' AND deleted_at IS NULL"
-            ).fetchone()[0]
-            counts["featuredCategories"] = connection.execute(
-                "SELECT COUNT(*) FROM categories WHERE status = 'Active' AND featured = 1 AND deleted_at IS NULL"
             ).fetchone()[0]
             recent = [dict(row) for row in connection.execute("SELECT * FROM audit ORDER BY id DESC LIMIT 6")]
         return jsonify(counts=counts, recent=recent, period=period.serialize())

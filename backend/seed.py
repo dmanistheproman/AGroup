@@ -26,7 +26,7 @@ def seed_demo(store):
                 INSERT INTO categories(id, name, normalized_name, description, status, featured, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (category_ids[name], name, name.casefold(), description,
-                  "Archived" if name == "Retro" else "Active", name in ("Japandi", "Scandinavian"), timestamp(now)))
+                  "Archived" if name == "Retro" else "Active", False, timestamp(now)))
         for project_id in range(1, 121):
             project = dict(originals[(project_id - 1) % len(originals)])
             project["id"] = project_id
