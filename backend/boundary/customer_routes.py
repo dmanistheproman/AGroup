@@ -135,7 +135,7 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
     def compare_designers():
         if compare_controller is None:
             return jsonify(error="Designer comparison is not available."), 404
-        return jsonify(compare_controller.compare(customer_id()))
+        return jsonify(compare_controller.compare(customer_id(), request.args.getlist("designer") or None))
 
     # ---- C-09: data-driven personalised recommendations ----
     @bp.get("/api/recommendations")

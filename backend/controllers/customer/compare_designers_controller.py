@@ -1,16 +1,19 @@
 """<<control>> CompareDesignersController — C-08.
 
 Compare the designers behind a customer's saved projects side by side. One entry per
-designer, even when several saved projects share the same designer.
+designer, even when several saved projects share the same designer. Without a selection the
+designers to pick from are listed; with one, only the two or more picked designers are compared
+(UC-C11), each with the styles that match the customer's preferences.
 """
 class CompareDesignersController:
-    def __init__(self, favourite_repo, project_repo, company_repo, review_repo=None):
+    def __init__(self, favourite_repo, project_repo, company_repo, review_repo=None, customer_profiles=None):
         self.favourites = favourite_repo
         self.projects = project_repo
         self.companies = company_repo
         self.reviews = review_repo
+        self.customer_profiles = customer_profiles   # CustomerRepo: the customer's preferred styles (C-01)
 
-    def compare(self, customer_id):
+    def compare(self, customer_id, designer_ids=None):
         favourite_list = self.favourites.get_by_customer(customer_id)
         designers = {}
         order = []
@@ -29,6 +32,16 @@ class CompareDesignersController:
             if project.get("category_name"):
                 designers[owner_id]["styles"].add(project["category_name"])
 
+        picked = [d for d in dict.fromkeys(d.strip() for d in (designer_ids or []) if d and d.strip())]
+        if designer_ids is not None and picked:
+            if len(picked) < 2:
+                raise ValueError("Select at least two designers to compare.")
+            if any(d not in designers for d in picked):
+                raise ValueError("Choose designers behind your saved projects.")
+            order = picked
+        profile = self.customer_profiles.get(customer_id) if self.customer_profiles is not None else None
+        preferred = set(profile.preferred_styles) if profile is not None else set()
+
         rows = []
         for owner_id in order:
             entry = designers[owner_id]
@@ -40,6 +53,7 @@ class CompareDesignersController:
                 "company_id": company.id if company else None,
                 "name": company.name if company else entry["company_name"],
                 "styles": sorted(entry["styles"]),
+                "matching_styles": sorted(entry["styles"] & preferred),
                 "specialisms": company.specialisms if company else "",
                 "location": company.address if company else "",
                 "saved_projects": entry["saved_projects"],

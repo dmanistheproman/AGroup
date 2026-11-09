@@ -341,7 +341,8 @@ def create_app(registry=None, admin_provider=None, config=None):
     submit_enquiry = SubmitEnquiryController(designer.enquiry_repo, designer.company_repo, shared.requests,
                                              ActivityRecorder(store))
     compare_designers = CompareDesignersController(FavouriteRepository(store), shared.projects,
-                                                   designer.company_repo, designer.list_reviews_controller.reviews)
+                                                   designer.company_repo, designer.list_reviews_controller.reviews,
+                                                   customer_profiles=designer.customer_repo)
     recommendations = ViewRecommendationsController(RecommendationService(FavouriteRepository(store), shared.projects))
     app.register_blueprint(create_customer_blueprint(
         favourites, login, shared.collections,
