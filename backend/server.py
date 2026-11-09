@@ -93,6 +93,7 @@ from backend.storage import SQLiteStore
 from backend.repositories.favourite_repo import FavouriteRepository
 from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
 from backend.controllers.customer.submit_enquiry_controller import SubmitEnquiryController
+from backend.controllers.customer.compare_designers_controller import CompareDesignersController
 from backend.controllers.shared.activity_recorder import ActivityRecorder
 from backend.boundary.customer_routes import create_customer_blueprint
 from backend.entities.project_activity import ProjectActivity
@@ -318,9 +319,12 @@ def create_app(registry=None, admin_provider=None, config=None):
     favourites.collections = shared.collections
     submit_enquiry = SubmitEnquiryController(designer.enquiry_repo, designer.company_repo, shared.requests,
                                              ActivityRecorder(store))   # C-06
+    compare_designers = CompareDesignersController(FavouriteRepository(store), shared.projects,
+                                                   designer.company_repo, designer.list_reviews_controller.reviews)
     app.register_blueprint(create_customer_blueprint(favourites, login, shared.collections,
                                                      designer.credit_status_controller,
-                                                     submit_enquiry=submit_enquiry))
+                                                     submit_enquiry=submit_enquiry,
+                                                     compare_controller=compare_designers))
 
     # ----- Helpdesk -----
     merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)

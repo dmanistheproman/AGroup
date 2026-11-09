@@ -6,7 +6,8 @@ from backend.boundary.auth_guard import role_error
 from backend.entities.user_account import UserAccount
 
 
-def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_status=None, submit_enquiry=None):
+def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_status=None,
+                              submit_enquiry=None, compare_controller=None):
     bp = Blueprint("customer", __name__)
 
     @bp.before_request
@@ -128,5 +129,12 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
         enquiry = submit_enquiry.submit(login.current_user(), data.get("company_id"),
                                         data.get("requirements"), data.get("budget"), data.get("project_id"))
         return jsonify(enquiry=enquiry.public_view()), 201
+
+    # ---- C-08: compare the designers behind the customer's saved projects ----
+    @bp.get("/api/companies/compare")
+    def compare_designers():
+        if compare_controller is None:
+            return jsonify(error="Designer comparison is not available."), 404
+        return jsonify(compare_controller.compare(customer_id()))
 
     return bp
