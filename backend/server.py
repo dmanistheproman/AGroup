@@ -51,7 +51,6 @@ from backend.controllers.shared.report_service import ReportService
 from backend.boundary.report_routes import create_report_blueprint
 
 # ----- User Admin -----
-from backend.repositories.account_repo import UnconnectedAccountRegistry
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController
 from backend.controllers.user_admin.flag_account_controller import FlagAccountController
 from backend.boundary.user_admin_routes import create_user_admin_blueprint
