@@ -59,6 +59,7 @@ class OfferStatus(StrEnum):
     ACCEPTED = "ACCEPTED"
     DECLINED = "DECLINED"
     SUPERSEDED = "SUPERSEDED"  # replaced by a newer revision
+    EXPIRED = "EXPIRED"        # a quotation not answered before its validity date (ID-07)
 
 
 class EventType(StrEnum):
