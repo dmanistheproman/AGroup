@@ -1,5 +1,5 @@
-"""install_schema upgrades a database created before columns were added (PR #34: complaints, verification
-recommendations, account flags), so an existing instance/*.sqlite3 keeps working without being rebuilt."""
+"""install_schema upgrades a database created before columns were added (PR #34: verification recommendations
+and account flags), so an existing instance/*.sqlite3 keeps working without being rebuilt."""
 import re
 import sqlite3
 import tempfile
@@ -11,7 +11,6 @@ from backend.database import SHARED_SCHEMA, install_schema
 from backend.storage import SQLiteStore
 
 ADDED_LATER = {
-    "support_ticket": ["related_customer_id"],
     "verification_request": ["recommendation", "recommendation_reason", "recommended_by", "recommended_at"],
     "user_account": ["flag_reason"],
 }

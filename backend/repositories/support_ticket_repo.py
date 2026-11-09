@@ -10,8 +10,8 @@ from backend.entities.support_ticket import SupportTicket
 
 REQUEST_TYPE = "SUPPORT_TICKET"
 TICKET_COLUMNS = ("merged_into_id", "related_project_id", "related_message_id", "related_company_id",
-                  "related_customer_id", "requester_type", "ticket_type", "priority", "outcome",
-                  "resolution_note", "details", "related_project_title")
+                  "requester_type", "ticket_type", "priority", "outcome", "resolution_note", "details",
+                  "related_project_title")
 SELECT = "SELECT * FROM request r JOIN support_ticket t ON t.request_id = r.request_id"
 
 
@@ -35,8 +35,7 @@ class SupportTicketRepo:
                              row["details"], related_project_id=row["related_project_id"],
                              related_project_title=row["related_project_title"],
                              related_message_id=row["related_message_id"],
-                             related_company_id=row["related_company_id"],
-                             related_customer_id=row["related_customer_id"], status=row["status"],
+                             related_company_id=row["related_company_id"], status=row["status"],
                              priority=row["priority"], handler_id=row["handler_id"], outcome=row["outcome"],
                              resolution_note=row["resolution_note"], merged_into_id=row["merged_into_id"],
                              created_at=row["created_at"], thread_id=row["thread_id"],

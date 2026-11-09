@@ -20,13 +20,9 @@ class SupportTicket(Request):
     TYPE_REPORT_IDP = "REPORT_IDP"
     TYPE_REPORT_MESSAGE = "REPORT_MESSAGE"
     REPORT_TYPES = (TYPE_REPORT_IDP, TYPE_REPORT_MESSAGE)
-    # complaint against a customer (ID-12 signal: a designer complains about a customer)
-    TYPE_COMPLAINT = "COMPLAINT"
-    COMPLAINT_TYPES = (TYPE_COMPLAINT,)
-    TYPES = CONTACT_TYPES + REPORT_TYPES + COMPLAINT_TYPES
+    TYPES = CONTACT_TYPES + REPORT_TYPES
     TYPE_LABELS = {TYPE_ACCOUNT: "Account", TYPE_TECHNICAL: "Technical problem", TYPE_PROJECT: "Project or listing",
-                   TYPE_OTHER: "Other", TYPE_REPORT_IDP: "Reported IDP", TYPE_REPORT_MESSAGE: "Reported message",
-                   TYPE_COMPLAINT: "Complaint against a customer"}
+                   TYPE_OTHER: "Other", TYPE_REPORT_IDP: "Reported IDP", TYPE_REPORT_MESSAGE: "Reported message"}
 
     STATUS_OPEN = TicketStatus.OPEN
     STATUS_AWAITING_INFO = TicketStatus.AWAITING_INFO
@@ -56,8 +52,7 @@ class SupportTicket(Request):
 
     def __init__(self, ticket_id, requester_id, requester_type, ticket_type, details,
                  related_project_id=None, related_project_title=None, related_message_id=None,
-                 related_company_id=None, related_customer_id=None, status=STATUS_OPEN,
-                 priority=PRIORITY_NORMAL, handler_id=None,
+                 related_company_id=None, status=STATUS_OPEN, priority=PRIORITY_NORMAL, handler_id=None,
                  outcome=None, resolution_note=None, merged_into_id=None, created_at=None,
                  thread_id=None, attachment_group_id=None):
         self.id = ticket_id
@@ -69,7 +64,6 @@ class SupportTicket(Request):
         self.related_project_title = related_project_title
         self.related_message_id = related_message_id
         self.related_company_id = related_company_id
-        self.related_customer_id = related_customer_id
         self.status = status
         self.priority = priority
         self.handler_id = handler_id
@@ -96,7 +90,6 @@ class SupportTicket(Request):
                 "requester_id": self.requester_id, "requester_type": self.requester_type,
                 "related_project_id": self.related_project_id,
                 "related_project_title": self.related_project_title,
-                "related_customer_id": self.related_customer_id, "outcome": self.outcome,
                 "handler_id": self.handler_id, "resolution_note": self.resolution_note,
                 "thread_id": self.thread_id, "merged_into_id": self.merged_into_id,
                 "created_at": self.created_at}

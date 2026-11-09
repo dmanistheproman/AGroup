@@ -13,17 +13,11 @@ class SubmitTicketController:
         self.messages = None   # PostMessageController (S-01), set in server.py; needed to report a message
 
     def submit_ticket(self, requester, ticket_type, details, related_project_id=None, related_project_title=None,
-                      related_message_id=None, related_customer_id=None):
+                      related_message_id=None):
         if requester is None or requester.role not in self.ALLOWED_ROLES:
             raise PermissionError("Only customers and interior designers can contact support.")
         if ticket_type not in SupportTicket.TYPES:
             raise ValueError("Choose a request type.")
-        if ticket_type == SupportTicket.TYPE_COMPLAINT:
-            # ID-12: a designer complains about a customer; the helpdesk records the outcome on closing (HD-13)
-            if requester.role != UserAccount.ROLE_DESIGNER:
-                raise PermissionError("Only interior designers can complain about a customer here.")
-            if not related_customer_id:
-                raise ValueError("Choose the customer the complaint is about.")
         is_report = ticket_type in SupportTicket.REPORT_TYPES
         details = (details or "").strip()
         if not details:
@@ -36,7 +30,7 @@ class SubmitTicketController:
         ticket = SupportTicket(self.requests.tickets.next_id(), requester.id, requester.role, ticket_type, details,
                                related_project_id=related_project_id,
                                related_project_title=(related_project_title or "").strip()[:120] or None,
-                               related_message_id=related_message_id, related_customer_id=related_customer_id)
+                               related_message_id=related_message_id)
         return self.requests.open(ticket)
 
     def report_message(self, requester, message_id, reason):

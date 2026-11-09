@@ -1,19 +1,17 @@
 """ID-12 task 1 — CreditStatusService. Rule: use platform activity only —
-completed collaborations (COMPLETED enquiries), payment punctuality (ID-09 milestones),
-a User Admin account flag (UA-09), and a high upheld-complaint rate (HD-10, reported as a
-risk warning without changing the credit level)."""
+completed collaborations (COMPLETED enquiries), payment punctuality (ID-09 milestones)
+and a User Admin account flag (UA-09). Upheld complaints (HD-10) are not implemented yet."""
 from datetime import date
 from backend.entities.payment_milestone import PaymentMilestone
 
 class CreditStatusService:
     GOOD = "Good"; LIMITED = "Limited history"; AT_RISK = "At risk"
 
-    def __init__(self, enquiry_repo, quotation_repo, payment_repo, account_repo=None, complaint_service=None):
+    def __init__(self, enquiry_repo, quotation_repo, payment_repo, account_repo=None):
         self._enquiries = enquiry_repo
         self._quotations = quotation_repo
         self._payments = payment_repo
         self._accounts = account_repo
-        self._complaints = complaint_service
 
     def status_for(self, customer_id, today=None):
         """ID-12: the designer's view. Only customers who sent the designer a request can be checked."""
@@ -22,20 +20,12 @@ class CreditStatusService:
         if not enquiries:
             raise ValueError("No request from this customer — credit status is only "
                              "available for customers who sent the designer a request.")
-        result = self._compute(customer_id, enquiries, today)
-        result["complaint_risk"] = self._complaint_risk(customer_id)
-        return result
+        return self._compute(customer_id, enquiries, today)
 
     def own_status(self, customer_id, today=None):
         """ID-12 task 4: the customer's own view. Always available; no request is required."""
         today = today or date.today().isoformat()
-        result = self._compute(customer_id, self._enquiries_for(customer_id), today)
-        result["complaint_risk"] = self._complaint_risk(customer_id)
-        return result
-
-    def _complaint_risk(self, customer_id):
-        """A high upheld-complaint rate warns the designer without changing the credit level."""
-        return self._complaints.complaint_risk(customer_id) if self._complaints is not None else None
+        return self._compute(customer_id, self._enquiries_for(customer_id), today)
 
     def _enquiries_for(self, customer_id):
         return [e for e in self._enquiries.all() if e.customer_id == customer_id]
