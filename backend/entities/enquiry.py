@@ -51,6 +51,12 @@ class Enquiry(Request):
     def is_confirmed(self):
         return self.status == self.STATUS_CONFIRMED
 
+    def public_view(self):
+        """The fields a customer or designer may see (C-06/C-10)."""
+        return {"id": self.id, "client_name": self.client_name, "requirements": self.requirements,
+                "budget": self.budget, "status": self.status, "customer_id": self.customer_id,
+                "handler_id": self.handler_id, "thread_id": self.thread_id}
+
     def confirm(self):
         """ID-10 task 1: accept the collaboration (accept transition) — opens the ID-07 quotation step."""
         if self.status != self.STATUS_AWAITING_REPLY:

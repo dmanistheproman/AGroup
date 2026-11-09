@@ -5,7 +5,7 @@ enquiry_question and the designer's clarification requests in enquiry_clarificat
 """
 from datetime import date, datetime, timezone
 
-from backend.database import exists, save_request, store_or_memory
+from backend.database import exists, next_number, save_request, store_or_memory
 from backend.entities.enquiry import Enquiry
 
 SEED_ENQUIRY_DATA = [
@@ -28,8 +28,15 @@ QUESTION_COLUMNS = ("question_id", "body", "asked_at", "answer", "answered_at", 
 
 
 class EnquiryRepo:
+    PREFIX = "ENQ-"
+
     def __init__(self, store=None):
         self.store = store_or_memory(store)
+
+    def next_reference(self):
+        """Next enquiry number, ENQ-0001 onwards (C-06)."""
+        with self.store.transaction(write=True) as connection:
+            return f"{self.PREFIX}{next_number(connection, 'enquiry', 'request', 'request_id', self.PREFIX):04d}"
 
     @classmethod
     def from_data(cls, rows, store=None, handler_id=None):

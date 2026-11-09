@@ -25,12 +25,16 @@ class VerificationRepo:
             save_request(connection, request, REQUEST_TYPE, request.submitted_at)
             connection.execute("""
                 INSERT INTO verification_request(request_id, company_id, requested_by, documents, rejection_reason,
-                                                 reviewed_by)
-                VALUES (?, ?, ?, ?, ?, ?)
+                                                 reviewed_by, recommendation, recommendation_reason, recommended_by,
+                                                 recommended_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(request_id) DO UPDATE SET documents = excluded.documents,
-                    rejection_reason = excluded.rejection_reason, reviewed_by = excluded.reviewed_by
+                    rejection_reason = excluded.rejection_reason, reviewed_by = excluded.reviewed_by,
+                    recommendation = excluded.recommendation, recommendation_reason = excluded.recommendation_reason,
+                    recommended_by = excluded.recommended_by, recommended_at = excluded.recommended_at
             """, (request.id, request.company_id, request.requested_by, json.dumps(request.documents),
-                  request.rejection_reason, request.reviewed_by))
+                  request.rejection_reason, request.reviewed_by, request.recommendation,
+                  request.recommendation_reason, request.recommended_by, request.recommended_at))
             # A resubmitted request has a new submission time.
             connection.execute("UPDATE request SET created_at = ? WHERE request_id = ?",
                                (request.submitted_at, request.id))
@@ -62,7 +66,8 @@ class VerificationRepo:
     def _request(row):
         request = VerificationRequest(row["request_id"], row["company_id"], row["requested_by"],
                                       json.loads(row["documents"]), row["status"], row["rejection_reason"],
-                                      row["created_at"], row["reviewed_by"])
+                                      row["created_at"], row["reviewed_by"], row["recommendation"],
+                                      row["recommendation_reason"], row["recommended_by"], row["recommended_at"])
         request.requester_id, request.handler_id = row["requester_id"] or row["requested_by"], row["handler_id"]
         request.attach(row["thread_id"], row["attachment_group_id"])
         return request
