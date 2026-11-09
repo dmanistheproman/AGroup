@@ -91,6 +91,8 @@ from backend.storage import SQLiteStore
 # ----- Customer -----
 from backend.repositories.favourite_repo import FavouriteRepository
 from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
+from backend.controllers.customer.recommendation_service import RecommendationService
+from backend.controllers.customer.view_recommendations_controller import ViewRecommendationsController
 from backend.boundary.customer_routes import create_customer_blueprint
 from backend.entities.project_activity import ProjectActivity
 from backend.repositories.collection_repo import CollectionRepo
@@ -308,7 +310,8 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.collections.uploads, shared.collections.attachments = upload_service, shared.attachments
     shared.collections.projects = shared.projects
     favourites.collections = shared.collections
-    app.register_blueprint(create_customer_blueprint(favourites, login, shared.collections))
+    recommendations = ViewRecommendationsController(RecommendationService(FavouriteRepository(store), shared.projects))
+    app.register_blueprint(create_customer_blueprint(favourites, login, shared.collections, recommendations))
 
     # ----- Helpdesk -----
     merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)
