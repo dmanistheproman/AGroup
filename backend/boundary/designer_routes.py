@@ -286,6 +286,7 @@ def create_designer_blueprint(c, upload_dir, login):
     # ---------- ID-10: review a client's design requirements ----------
     @bp.route("/api/enquiries")
     def api_enquiries():
+        c.review_enquiry_controller.remind_unanswered(handler_id=current_user_id())   # ID-11 task 3
         return jsonify(c.review_enquiry_controller.list_for(current_user_id()))
 
     @bp.route("/api/enquiries/<enquiry_id>/review", methods=["POST"])
