@@ -36,3 +36,12 @@ def test_flag_unknown_account_raises(repo):
     controller = FlagAccountController(repo)
     with pytest.raises(ValueError, match="not found"):
         controller.flag("NO-SUCH", "reason")
+
+
+def test_flagging_an_already_flagged_account_is_refused(repo):
+    """UC-UA09 alternative flow: the system says the account has already been flagged and keeps the first reason."""
+    controller = FlagAccountController(repo)
+    controller.flag("CUS-101", "Suspicious activity")
+    with pytest.raises(ValueError, match="already been flagged"):
+        controller.flag("CUS-101", "Another reason")
+    assert repo.get("CUS-101").flag_reason == "Suspicious activity"
