@@ -254,6 +254,14 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.status_change.register("USER_ACCOUNT", user_accounts.get, user_accounts.save)
     shared.project_status = ProjectStatusController(shared.status_change, shared.projects)   # registers PROJECT
     shared.project_status.on_hidden = shared.ticket_lifecycle.escalate_reports_about   # HD-09 task 3 -> UA-12
+
+    def category_status(category_id):
+        """ID-03.4: the status of a category, or None when it does not exist (PM categories)."""
+        with store.transaction() as connection:
+            row = connection.execute("SELECT status FROM categories WHERE id = ? AND deleted_at IS NULL",
+                                     (category_id,)).fetchone()
+        return row["status"] if row else None
+    shared.project_status.category_status = category_status
     shared.message_repo = MessageRepo(store)
     shared.messages = PostMessageController(shared.threads, shared.message_repo, shared.rules)
     shared.messages.register_owner(shared.tickets.find_by_thread,
