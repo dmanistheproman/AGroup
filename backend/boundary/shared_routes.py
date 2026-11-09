@@ -78,6 +78,9 @@ def create_shared_blueprint(shared):
         if kind == "REPORTS":
             rows = [r for r in rows if r["type"] in SupportTicket.REPORT_TYPES]
             kind = ""
+        requester_type = args.get("requester_type", "")
+        if requester_type:   # HD-06: filter by requester type (CUSTOMER or DESIGNER)
+            rows = [r for r in rows if r["requester_type"] == requester_type]
         handler = args.get("handler")
         if handler == "me":
             rows = [r for r in rows if r["handler_id"] == login.current_user().id]
@@ -86,7 +89,8 @@ def create_shared_blueprint(shared):
         query = PagedQuery.create(args.get("q", ""), {"status": args.get("status"), "type": kind},
                                   page=args.get("page", 1), page_size=args.get("page_size", 20),
                                   sort_by="-created_at")
-        return jsonify(query.run(rows, search_fields=("id", "details", "related_project_title")))
+        # HD-03: search resolved tickets by keyword, IDP or requester
+        return jsonify(query.run(rows, search_fields=("id", "details", "related_project_title", "requester_name")))
 
     def name_of(user_id, cache):
         """Display name of an account (cached per request)."""
