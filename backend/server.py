@@ -193,6 +193,7 @@ def _connect_designer_records(shared, designer):
     designer.verification_controller.shared = designer.review_controller.shared = shared
     designer.submit_quotation_controller.status_change = shared.status_change
     designer.submit_proposal_controller.enquiries = designer.enquiry_repo
+    designer.revise_proposal_controller.enquiries = designer.enquiry_repo   # only the enquiry's designer revises
     designer.submit_proposal_controller.status_change = shared.status_change
     designer.revise_proposal_controller.rules = designer.payment_controller.rules = rules
 

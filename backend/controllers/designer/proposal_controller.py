@@ -10,6 +10,19 @@ def _view(p):
             "attachments": list(p.attachments), "feedback": p.feedback,
             "feedback_history": list(p.feedback_history), "revision_note": p.revision_note}
 
+def _mine(proposal, user_id, enquiries):
+    """A proposal belongs to the designer of the enquiry it answers; one not tied to an enquiry is not restricted."""
+    enquiry = enquiries.get(proposal.request_id) if enquiries is not None and proposal.request_id else None
+    return not user_id or enquiry is None or enquiry.belongs_to_designer(user_id)
+
+def _own(proposals, proposal_id, user_id, enquiries):
+    proposal = proposals.get(proposal_id)
+    if proposal is None:
+        raise ValueError("Proposal not found.")
+    if not _mine(proposal, user_id, enquiries):
+        raise PermissionError("This proposal belongs to another designer.")
+    return proposal
+
 class SubmitProposalController:
     def __init__(self, proposal_repo, upload_service):
         self.proposals = proposal_repo
@@ -19,8 +32,8 @@ class SubmitProposalController:
         self.threads = None         # ThreadRepo (S-01), set in server.py: a sent proposal gets a message thread
 
     def list_for(self, user_id):
-        # user_id is kept for filtering by owner (same rule as ID-04)
-        return [_view(p) for p in self.proposals.all()]
+        """The designer's own proposals: those answering an enquiry they handle (or not tied to an enquiry)."""
+        return [_view(p) for p in self.proposals.all() if _mine(p, user_id, self.enquiries)]
 
     def create(self, user_id, data):
         """UC5 BF1-2: draft a proposal and upload its images one by one (saved as a draft, not sent yet)."""
@@ -32,6 +45,7 @@ class SubmitProposalController:
             enquiry = self.enquiries.get(data["enquiry_id"].strip())
             if enquiry is None:
                 raise ValueError("Enquiry not found.")
+            enquiry.check_designer(user_id)
             data = {**data, "client_name": enquiry.client_name}
         client = require_text(data.get("client_name"), "Client name", 80)
         if not client:
@@ -51,9 +65,7 @@ class SubmitProposalController:
 
     def present(self, user_id, proposal_id):
         """UC5 BF3-4: send to the client and mark it Under Review."""
-        proposal = self.proposals.get(proposal_id)
-        if proposal is None:
-            raise ValueError("Proposal not found.")
+        proposal = _own(self.proposals, proposal_id, user_id, self.enquiries)
         if self.status_change is not None:
             if not proposal.is_draft():
                 raise ValueError("Proposal has already been sent to the client.")
@@ -70,9 +82,7 @@ class SubmitProposalController:
     def supersede(self, user_id, proposal_id, reason=None):
         """UC-ID09 AF: the client has not responded for a long time, so the designer sets the sent proposal to
         Superseded (shared OfferStatus). Only a proposal under review can be superseded; no reminder is sent."""
-        proposal = self.proposals.get(proposal_id)
-        if proposal is None:
-            raise ValueError("Proposal not found.")
+        proposal = _own(self.proposals, proposal_id, user_id, self.enquiries)
         if proposal.status != DesignProposal.STATUS_UNDER_REVIEW:
             raise ValueError("Only a proposal sent to the client can be set to Superseded.")
         if self.status_change is not None:
@@ -88,12 +98,11 @@ class ReviseProposalController:
         self.proposals = proposal_repo
         self.uploads = upload_service
         self.rules = None   # NotificationRules (S-07), set in server.py: the client hears about a new version
+        self.enquiries = None   # EnquiryRepo, set in server.py: only the designer of the enquiry revises
 
     def revise(self, user_id, proposal_id, data):
         """UC6 BF5 / UC5 AF2: revise from the feedback and submit again (new version)."""
-        proposal = self.proposals.get(proposal_id)
-        if proposal is None:
-            raise ValueError("Proposal not found.")
+        proposal = _own(self.proposals, proposal_id, user_id, self.enquiries)
         for image in data.get("images") or []:
             proposal.attachments.append(self.uploads.upload(image, "Proposal", proposal.id))
         proposal.revise(description=(data.get("description") or "").strip() or None,

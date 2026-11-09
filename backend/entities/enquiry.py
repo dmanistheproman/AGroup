@@ -39,6 +39,15 @@ class Enquiry(Request):
     def can_access(self, user_id):
         return user_id is not None and user_id in (self.customer_id, self.handler_id)
 
+    def belongs_to_designer(self, user_id):
+        """The designer it was sent to works on it; a request nobody handles yet can be picked up (S-19)."""
+        return not self.handler_id or self.handler_id == user_id
+
+    def check_designer(self, user_id):
+        if user_id and not self.belongs_to_designer(user_id):
+            raise PermissionError("This request was sent to another designer.")
+        return self
+
     def apply_status(self, status, reason=None, actor_id=None):
         """Called by StatusChangeService after it has checked the transition."""
         if status == self.STATUS_CONFIRMED:

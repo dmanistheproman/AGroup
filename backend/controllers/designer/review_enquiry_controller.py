@@ -24,10 +24,11 @@ class ReviewEnquiryController:
         self._shared = shared
 
     def list_for(self, user_id=None):
-        return [self._view(e) for e in self._repo.all()]
+        """The designer's own requests (ID-10): those sent to them, or not handled by anyone yet."""
+        return [self._view(e) for e in self._repo.all() if not user_id or e.belongs_to_designer(user_id)]
 
     def review(self, enquiry_id, user_id, decision, reason=None):
-        enquiry = self._find(enquiry_id)
+        enquiry = self._find(enquiry_id).check_designer(user_id)
         if decision not in self.DECISIONS:
             raise ValueError("Decision must be accept or decline.")
         if self._shared is not None:
@@ -54,7 +55,7 @@ class ReviewEnquiryController:
 
     def complete(self, enquiry_id, user_id):
         """C-07 T05: the designer marks an accepted enquiry as completed; the client may then review them."""
-        enquiry = self._find(enquiry_id)
+        enquiry = self._find(enquiry_id).check_designer(user_id)
         if enquiry.status != Enquiry.STATUS_CONFIRMED:
             raise ValueError("Only an accepted enquiry can be marked as completed.")
         if self._shared is None:
@@ -68,7 +69,7 @@ class ReviewEnquiryController:
                 "message": "Project marked as completed. The client can now leave a review."}
 
     def clarify(self, enquiry_id, user_id, note):
-        enquiry = self._find(enquiry_id)
+        enquiry = self._find(enquiry_id).check_designer(user_id)
         note = (note or "").strip()
         if not note:
             raise ValueError("Describe what needs clarifying.")
@@ -84,7 +85,7 @@ class ReviewEnquiryController:
                 f"Clarification request sent to {enquiry.client_name} in the enquiry's messages."}
 
     def reply_question(self, enquiry_id, user_id, question_id, answer):
-        enquiry = self._find(enquiry_id)
+        enquiry = self._find(enquiry_id).check_designer(user_id)
         enquiry.answer_question(question_id, answer)
         self._repo.save(enquiry)
         if self._shared is not None:
@@ -95,7 +96,7 @@ class ReviewEnquiryController:
         return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "message": "Reply sent to the client."}
 
     def flag_question(self, enquiry_id, user_id, question_id, reason=None):
-        enquiry = self._find(enquiry_id)
+        enquiry = self._find(enquiry_id).check_designer(user_id)
         enquiry.flag_question(question_id, reason)
         self._repo.save(enquiry)
         return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "message": "Question flagged — transferred to the platform for handling (demo record; notification service not implemented)."}
