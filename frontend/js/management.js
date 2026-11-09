@@ -267,16 +267,20 @@
       const comparison = report.kind === 'comparison';
       const scope = report.category ? report.category.name : 'All categories';
       const periods = comparison ? `Baseline ${report.baselinePeriod.label} · Comparison ${report.period.label}` : report.period.label;
+      const table = rows => `<div class="table-wrap"><table>
+          <thead><tr><th>Metric</th>${comparison ? '<th>Baseline</th><th>Comparison</th><th>Change</th><th>% change</th>' : '<th>Count</th>'}</tr></thead>
+          <tbody>${rows.map(row => `<tr><td>${escape(row.label)}</td>${comparison ?
+            `<td>${row.baseline}</td><td>${row.value}</td><td>${row.difference > 0 ? '+' : ''}${row.difference}</td>
+             <td>${row.percentChange === null ? 'N/A' : `${row.percentChange > 0 ? '+' : ''}${row.percentChange}%`}</td>` :
+            `<td>${row.value}</td>`}</tr>`).join('')}</tbody></table></div>`;
       document.querySelector('#management-report').innerHTML = `<div class="management-report-caption">
         <b>${escape(scope)}</b><p>${escape(periods)} · Singapore time</p><small>Generated ${escape(dateLabel(report.generatedAt))}</small></div>` +
         metrics(report.rows.map(row => [row.label, row.value, comparison ? 'Comparison period' : 'Selected period'])) +
-        panel(comparison ? 'Period comparison' : 'Activity totals', `<div class="table-wrap"><table>
-          <thead><tr><th>Metric</th>${comparison ? '<th>Baseline</th><th>Comparison</th><th>Change</th><th>% change</th>' : '<th>Count</th>'}</tr></thead>
-          <tbody>${report.rows.map(row => `<tr><td>${escape(row.label)}</td>${comparison ?
-            `<td>${row.baseline}</td><td>${row.value}</td><td>${row.difference > 0 ? '+' : ''}${row.difference}</td>
-             <td>${row.percentChange === null ? 'N/A' : `${row.percentChange > 0 ? '+' : ''}${row.percentChange}%`}</td>` :
-            `<td>${row.value}</td>`}</tr>`).join('')}</tbody></table></div>`) +
-        '<p class="small-note">Projects created counts new project records within the period. Activity follows current category assignments. A zero baseline gives N/A for percentage change.</p>';
+        panel(comparison ? 'Period comparison' : 'Activity totals', table(report.rows)) +
+        (report.accounts ? panel('New accounts by role', table(report.accounts)) : '') +
+        '<p class="small-note">Projects created counts new project records within the period. Activity follows current category assignments. ' +
+        (report.accounts ? 'New accounts are counted by the role they were created with.' : 'New accounts belong to no category, so they are shown for all categories only.') +
+        ' A zero baseline gives N/A for percentage change.</p>';
       document.querySelector('#management-export').disabled = false;
     }
 

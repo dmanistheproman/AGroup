@@ -12,6 +12,15 @@ METRICS = (
     ("enquiries", "Enquiries"),
 )
 
+# PM-05 (UC-PM05 BF3): new accounts by role in the report period
+ACCOUNT_LABELS = (
+    ("CUSTOMER", "New customer accounts"),
+    ("DESIGNER", "New designer accounts"),
+    ("HELPDESK", "New helpdesk accounts"),
+    ("USER_ADMIN", "New user admin accounts"),
+    ("PLATFORM_MANAGER", "New platform manager accounts"),
+)
+
 
 class BusinessError(Exception):
     def __init__(self, message, status=400):

@@ -5,7 +5,8 @@ from uuid import uuid4
 from backend.entities.project_category import ProjectCategory
 from backend.entities.interior_design_project import InteriorDesignProject
 from backend.entities.project_activity import ProjectActivity
-from backend.services.management_rules import BusinessError, METRICS, timestamp
+from backend.repositories.user_account_repo import UserAccountRepo
+from backend.services.management_rules import ACCOUNT_LABELS, BusinessError, METRICS, timestamp
 
 
 class ActivityReport:
@@ -24,22 +25,34 @@ class ActivityReport:
                 raise BusinessError("Choose the surviving category for reporting.", 409)
             values = self.build(connection, period, category_id)
             baseline_values = self.build(connection, baseline, category_id) if baseline else None
-            rows = []
-            for key, label in METRICS:
-                row = {"key": key, "label": label, "value": values[key]}
-                if baseline_values is not None:
-                    earlier = baseline_values[key]
-                    difference = values[key] - earlier
-                    row.update(baseline=earlier, difference=difference,
-                               percentChange=round(difference / earlier * 100, 1) if earlier else None)
-                rows.append(row)
+            rows = self.compare_rows(METRICS, values, baseline_values)
+            # UC-PM05 BF3: new accounts by role; accounts belong to no category, so a category report has none
+            accounts = None
+            if category is None:
+                new = UserAccountRepo.count_created_by_role(connection, period.start, period.end)
+                earlier = UserAccountRepo.count_created_by_role(connection, baseline.start, baseline.end)                     if baseline else None
+                accounts = self.compare_rows(ACCOUNT_LABELS, new, earlier)
             snapshot = {"id": str(uuid4()), "kind": "comparison" if baseline else "period",
                         "period": period.serialize(), "baselinePeriod": baseline.serialize() if baseline else None,
                         "category": {"id": category["id"], "name": category["name"]} if category else None,
-                        "rows": rows, "generatedAt": timestamp()}
+                        "rows": rows, "accounts": accounts, "generatedAt": timestamp()}
             connection.execute("INSERT INTO reports VALUES (?, ?, ?)",
                                (snapshot["id"], json.dumps(snapshot), snapshot["generatedAt"]))
             return snapshot
+
+    @staticmethod
+    def compare_rows(labels, values, baseline_values=None):
+        """One row per metric; with a baseline period also the difference and the percentage change (PM-12)."""
+        rows = []
+        for key, label in labels:
+            row = {"key": key, "label": label, "value": values[key]}
+            if baseline_values is not None:
+                earlier = baseline_values[key]
+                difference = values[key] - earlier
+                row.update(baseline=earlier, difference=difference,
+                           percentChange=round(difference / earlier * 100, 1) if earlier else None)
+            rows.append(row)
+        return rows
 
     def to_csv(self, report_id):
         with self.store.transaction() as connection:
@@ -59,8 +72,11 @@ class ActivityReport:
                          ["Metric", "Baseline", "Comparison", "Difference", "Percent change"]])
         else:
             rows.append(["Metric", "Count"])
-        for row in report["rows"]:
-            if comparison:
+        accounts = report.get("accounts")
+        for row in report["rows"] + ([["New accounts by role"]] + accounts if accounts else []):
+            if isinstance(row, list):
+                rows.append(row)
+            elif comparison:
                 rows.append([row["label"], row["baseline"], row["value"], row["difference"],
                              "N/A" if row["percentChange"] is None else row["percentChange"]])
             else:

@@ -92,6 +92,17 @@ class UserAccountRepo:
     def find_by_email(self, email):
         return self._one("email", (email or "").strip().lower())
 
+    @staticmethod
+    def count_created_by_role(connection, start, end):
+        """PM-05 / PM-12: new accounts per role created in [start, end). The times are compared as instants, so
+        the account's +00:00 timestamps and the report period's Z timestamps agree."""
+        rows = connection.execute("""
+            SELECT role, COUNT(*) AS total FROM user_account
+            WHERE julianday(created_at) >= julianday(?) AND julianday(created_at) < julianday(?) GROUP BY role
+        """, (start, end)).fetchall()
+        found = {row["role"]: row["total"] for row in rows}
+        return {role: found.get(role, 0) for role in UserAccount.ROLES}
+
     # ---- UA-01 contract ----
 
     def find_by_id(self, account_id):
