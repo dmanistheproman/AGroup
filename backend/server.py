@@ -255,7 +255,8 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.project_status = ProjectStatusController(shared.status_change, shared.projects)   # registers PROJECT
     shared.message_repo = MessageRepo(store)
     shared.messages = PostMessageController(shared.threads, shared.message_repo, shared.rules)
-    shared.messages.register_owner(shared.tickets.find_by_thread, staff_roles=(UserAccount.ROLE_HELPDESK,))
+    shared.messages.register_owner(shared.tickets.find_by_thread, staff_roles=(UserAccount.ROLE_HELPDESK,),
+                                   on_reply=shared.ticket_lifecycle.on_requester_reply)   # HD-04: replies reopen
     shared.submit_ticket.messages = shared.messages
     shared.note_repo = InternalNoteRepo(store)
     shared.notes = AddInternalNoteController(shared.note_repo, {"REQUEST": shared.requests.find,

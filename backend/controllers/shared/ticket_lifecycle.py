@@ -26,6 +26,12 @@ class TicketLifecycle:
             ticket.resolution_note = (reason or "").strip() or None
         return self.tickets.save(ticket)
 
+    def on_requester_reply(self, ticket, author):
+        """HD-04 task 2: a reply from the requester reopens a ticket that is awaiting information."""
+        if ticket.status == TicketStatus.AWAITING_INFO and author is not None and author.id == ticket.requester_id:
+            self.status_change.change_status(self.TARGET, ticket.id, TicketStatus.OPEN, author.id,
+                                             "The requester replied.")
+
     def allowed_statuses(self, ticket_id):
         return self.status_change.allowed_statuses(self.TARGET, ticket_id)
 

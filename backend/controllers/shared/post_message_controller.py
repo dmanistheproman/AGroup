@@ -17,9 +17,11 @@ class PostMessageController:
         self.rules = notification_rules
         self._owners = []
 
-    def register_owner(self, find_by_thread, staff_roles=(), on_post=None):
-        """on_post(thread_id, sent_at) runs after each new message (e.g. a conversation's last message time)."""
-        self._owners.append((find_by_thread, tuple(staff_roles), on_post))
+    def register_owner(self, find_by_thread, staff_roles=(), on_post=None, on_reply=None):
+        """on_post(thread_id, sent_at) runs after each new message (e.g. a conversation's last message time);
+        on_reply(record, author) runs after each new message with the record that owns the thread and its author
+        (e.g. a support ticket reopens when its requester replies, HD-04)."""
+        self._owners.append((find_by_thread, tuple(staff_roles), on_post, on_reply))
 
     def post_message(self, thread_id, author, body):
         thread, record = self._open(thread_id, author)
@@ -28,9 +30,12 @@ class PostMessageController:
         message = self.messages.create(thread_id, author.id, body)
         thread.is_unanswered = self._is_participant(record, author) and not self._is_handler(record, author)
         self.threads.save(thread)
-        for find, _, on_post in self._owners:
-            if on_post is not None and find(thread_id) is not None:
+        for find, _, on_post, on_reply in self._owners:
+            owner = find(thread_id) if (on_post or on_reply) else None
+            if owner is not None and on_post is not None:
                 on_post(thread_id, message.sent_at)
+            if owner is not None and on_reply is not None:
+                on_reply(owner, author)
         self.rules.on_message_posted(thread_id, author.id, message.body)
         return message
 
@@ -52,7 +57,7 @@ class PostMessageController:
         thread = self.threads.get(thread_id)
         if thread is None:
             raise LookupError(f"Conversation {thread_id} was not found.")
-        for find, staff_roles, _ in self._owners:
+        for find, staff_roles, _, _ in self._owners:
             record = find(thread_id)
             if record is not None:
                 if user is None or not (record.can_access(user.id) or user.role in staff_roles):
