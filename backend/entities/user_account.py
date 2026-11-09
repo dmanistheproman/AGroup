@@ -59,6 +59,8 @@ class UserAccount:
 
     def flag(self, reason):
         """UA-09: mark the account as suspicious with a reason."""
+        if self.flagged:
+            raise ValueError("The account has already been flagged.")   # UC-UA09 alternative flow
         reason = (reason or "").strip()
         if not reason:
             raise ValueError("A flag reason is required.")
