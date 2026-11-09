@@ -13,6 +13,7 @@ from backend.entities.project_category import ProjectCategory
 from backend.entities.interior_design_project import InteriorDesignProject
 from backend.entities.project_activity import ProjectActivity
 from backend.entities.project import Project
+from backend.repositories.company_repo import CompanyRepo
 from backend.entities.activity_report import ActivityReport
 from backend.entities.report_period import Period
 from backend.services.management_rules import BusinessError, SINGAPORE
@@ -151,13 +152,13 @@ def create_management_blueprint(c, store, login):
             counts["featuredCategories"] = connection.execute(
                 "SELECT COUNT(*) FROM categories WHERE status = 'Active' AND featured = 1 AND deleted_at IS NULL"
             ).fetchone()[0]
-            recent =[dict(row) for row in connection.execute("SELECT * FROM audit ORDER BY id DESC LIMIT 6")]
+            recent = [dict(row) for row in connection.execute("SELECT * FROM audit ORDER BY id DESC LIMIT 6")]
         return jsonify(counts=counts, recent=recent, period=period.serialize())
 
     @bp.get("/api/catalog")
     def catalog():
         projects = InteriorDesignProject(store).list_by_category()["projects"]
-        projects = Project.visible_to_customers(projects)
+        projects = Project.visible_to_customers(projects, CompanyRepo(store).names_of_suspended_designers())
         return jsonify(projects=projects, categories=ProjectCategory(store).list_all(status="Active"))
 
     @bp.post("/api/activity")

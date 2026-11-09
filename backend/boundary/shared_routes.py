@@ -271,7 +271,10 @@ def create_shared_blueprint(shared):
     # ---- Public company list (who customers can message; no owner details) ----
     @bp.get("/api/companies")
     def companies():
-        return jsonify(companies=[c.public_view() for c in shared.companies.all()])
+        def shown(company):   # C-05: a suspended designer's company is not listed
+            owner = shared.user_accounts.get(company.owner_id)
+            return owner is None or owner.is_active()
+        return jsonify(companies=[c.public_view() for c in shared.companies.all() if shown(c)])
 
     # ---- Public reviews of a company (C-07, RatingDisplay S-11) ----
     @bp.get("/api/companies/<company_id>/reviews")

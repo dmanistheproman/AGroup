@@ -51,6 +51,14 @@ class CompanyRepo:
     def get_by_owner(self, user_id):
         return self._one("user_id", user_id)
 
+    def names_of_suspended_designers(self):
+        """C-05 task 5: names of companies whose designer account is suspended (UA-01); their projects are
+        linked by firm name, so the shared visibility rule hides projects with these names."""
+        with self.store.transaction() as connection:
+            rows = connection.execute("SELECT c.name FROM designer_company c JOIN user_account a "
+                                      "ON a.user_id = c.user_id WHERE a.status = 'SUSPENDED'").fetchall()
+        return {row["name"] for row in rows}
+
     def all(self):
         with self.store.transaction() as connection:
             rows = connection.execute("SELECT * FROM designer_company ORDER BY company_id").fetchall()
