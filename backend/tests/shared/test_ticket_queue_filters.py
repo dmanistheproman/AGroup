@@ -50,3 +50,15 @@ def test_resolved_tickets_can_be_searched_by_requester(app):
     agent = logged_in(app, "helpdesk@demo.agroup")
     agent.post(f"/api/support/tickets/{customer}/status", json={"status": "RESOLVED", "reason": "Answered."})
     assert customer in ids(agent.get("/api/support/tickets?scope=done&q=Alex"))
+
+
+def test_resolved_tickets_show_their_resolution_date(app):
+    """UC-HD03 BF4: the resolved list shows each ticket's resolution date (from the shared audit log)."""
+    customer, designer = open_tickets(app)
+    shared = app.extensions["shared"]
+    shared.ticket_lifecycle.move_to(customer, "RESOLVED", shared.user_accounts.get("user-helpdesk"), "Answered.")
+    agent = logged_in(app, "helpdesk@demo.agroup")
+    done = {row["id"]: row for row in agent.get("/api/support/tickets?scope=done").get_json()["items"]}
+    assert done[customer]["resolved_at"]
+    active = {row["id"]: row for row in agent.get("/api/support/tickets?scope=active").get_json()["items"]}
+    assert active[designer].get("resolved_at") is None
