@@ -3,6 +3,8 @@
    Uses AGroupRecords (records.js) for badges, threads and the reason dialog, and AGroupUI.recordPage (ui.js). */
 (() => {
   'use strict';
+  // C-10: customers see a confirmed enquiry as Accepted (Awaiting reply, Accepted, Declined, Completed)
+  const customerStatus = (kind, status) => (kind === 'ENQUIRY' && status === 'CONFIRMED' ? 'ACCEPTED' : status);
 
   const R = window.AGroupRecords;
   const { esc, icon, statusBadge, time } = R;
@@ -45,7 +47,7 @@
         <a href="#requests/${esc(r.id)}" class="inbox-item ${r.unread ? 'unread' : ''}">
         <span class="inbox-icon">${icon(r.kind === 'SUPPORT_TICKET' ? 'life-buoy' : 'file-text')}</span>
         <span><b>${esc(r.title)} · ${esc(r.id)}</b><small>${esc(r.summary)}</small></span>
-        <span class="inbox-meta">${statusBadge(r.status)}<small>${time(r.created_at)}</small>${r.unanswered ? '<span class="inbox-unread">Awaiting your reply</span>' : ''}${r.unread ? `<span class="inbox-unread">${r.unread} new</span>` : ''}</span></a></li>`).join('')}</ul>`
+        <span class="inbox-meta">${statusBadge(customerStatus(r.kind, r.status))}<small>${time(r.created_at)}</small>${r.responded ? '<span class="inbox-unread">ID responded</span>' : ''}${r.unanswered ? '<span class="inbox-unread">Awaiting your reply</span>' : ''}${r.unread ? `<span class="inbox-unread">${r.unread} new</span>` : ''}</span></a></li>`).join('')}</ul>`
       : '<p class="small-note">No requests yet. Use "Contact support" in the account menu, or send an enquiry from a designer\'s page.</p>';
   }
 
@@ -79,7 +81,7 @@
         eyebrow: `${record.id} · ${isTicket ? record.type_label : record.title}`,
         title: isTicket ? (record.related_project_title || record.type_label)
           : record.kind === 'ENQUIRY' && record.handler_id ? `Your enquiry to ${handler}` : record.title,
-        status: record.status, details,
+        status: customerStatus(record.kind, record.status), details,
         sections: [
           questions ? { title: 'Your questions', icon: 'file-text', body: questions } : null,
           { title: isTicket ? 'Conversation with the helpdesk' : 'Conversation with your designer', icon: 'message-square',

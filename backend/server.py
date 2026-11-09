@@ -314,7 +314,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.companies = designer.company_repo
     shared.conversations = StartConversationController(shared.conversation_repo, designer.company_repo, shared.threads)
     shared.inbox = InboxService(shared.tickets, designer.enquiry_repo, designer.verification_repo,
-                                shared.conversation_repo, shared.notifications, shared.threads)
+                                shared.conversation_repo, shared.notifications, shared.threads, shared.message_repo)
     shared.offers = OfferService(designer.quotation_repo, designer.proposal_repo, shared.status_change, shared.rules)
     _connect_designer_records(shared, designer)
     shared.reviews = SubmitReviewController(designer.list_reviews_controller.reviews, designer.enquiry_repo,

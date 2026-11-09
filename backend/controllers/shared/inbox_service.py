@@ -8,8 +8,9 @@ SUMMARY = 80
 
 
 class InboxService:
-    def __init__(self, tickets, enquiries, verifications, conversations, notifications, threads=None):
+    def __init__(self, tickets, enquiries, verifications, conversations, notifications, threads=None, messages=None):
         self.threads = threads   # ThreadRepo (S-01): is_unanswered is set when the asking side writes last
+        self.messages = messages   # MessageRepo (S-01): has the designer written in an enquiry's thread (C-10)
         self.tickets = tickets
         self.enquiries = enquiries
         self.verifications = verifications
@@ -38,9 +39,11 @@ class InboxService:
         for e in self.enquiries.all():
             # Seeded enquiries use the customer's ID as their own ID.
             if user.id in (e.requester_id, e.handler_id, e.id):
-                requests.append(self._row("ENQUIRY", e.id, "Enquiry", e.requirements, e.status, e.created_at,
-                                          e.thread_id, count(("ENQUIRY", e.id), ("THREAD", e.thread_id)),
-                                          waiting(e.thread_id, e.handler_id)))
+                row = self._row("ENQUIRY", e.id, "Enquiry", e.requirements, e.status, e.created_at,
+                                e.thread_id, count(("ENQUIRY", e.id), ("THREAD", e.thread_id)),
+                                waiting(e.thread_id, e.handler_id))
+                row["responded"] = self._designer_responded(e)
+                requests.append(row)
         for v in self.verifications.all():
             if user.id in (v.requested_by, v.handler_id):
                 requests.append(self._row("VERIFICATION_REQUEST", v.id, "Verification request",
@@ -58,10 +61,20 @@ class InboxService:
                 "unread": {"requests": sum(r["unread"] for r in requests),
                            "conversations": sum(c["unread"] for c in conversations)}}
 
+    def _designer_responded(self, enquiry):
+        """C-10: the ID has responded once they decided, answered a question or wrote in the enquiry's thread."""
+        if enquiry.status != enquiry.STATUS_AWAITING_REPLY:
+            return True
+        if any(q.get("answer") for q in enquiry.questions):
+            return True
+        if self.messages is None or not enquiry.thread_id or not enquiry.handler_id:
+            return False
+        return any(m.author_id == enquiry.handler_id for m in self.messages.find_by_thread(enquiry.thread_id))
+
     @staticmethod
     def _row(kind, record_id, title, summary, status, created_at, thread_id, unread, unanswered=False):
         summary = summary or ""
         return {"kind": kind, "id": record_id, "title": title,
                 "summary": summary if len(summary) <= SUMMARY else summary[:SUMMARY - 1] + "…",
                 "status": status, "created_at": created_at, "thread_id": thread_id, "unread": unread,
-                "unanswered": unanswered}
+                "unanswered": unanswered, "responded": False}
