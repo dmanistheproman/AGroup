@@ -6,7 +6,7 @@ from backend.boundary.auth_guard import role_error
 from backend.entities.user_account import UserAccount
 
 
-def create_customer_blueprint(favourites_ctrl, login, collections=None):
+def create_customer_blueprint(favourites_ctrl, login, collections=None, compare_controller=None):
     bp = Blueprint("customer", __name__)
 
     @bp.before_request
@@ -111,5 +111,12 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None):
     def reorder_collection(collection_id):
         collections.reorder(login.current_user(), collection_id, body().get("item_ids"))
         return jsonify(collection=collection_view(collections.collections.get(collection_id)))
+
+    # ---- C-08: compare the designers behind the customer's saved projects ----
+    @bp.get("/api/companies/compare")
+    def compare_designers():
+        if compare_controller is None:
+            return jsonify(error="Designer comparison is not available."), 404
+        return jsonify(compare_controller.compare(customer_id()))
 
     return bp
