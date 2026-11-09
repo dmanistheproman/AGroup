@@ -253,9 +253,11 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.ticket_lifecycle = TicketLifecycle(shared.status_change, shared.tickets)   # registers SUPPORT_TICKET
     shared.status_change.register("USER_ACCOUNT", user_accounts.get, user_accounts.save)
     shared.project_status = ProjectStatusController(shared.status_change, shared.projects)   # registers PROJECT
+    shared.project_status.on_hidden = shared.ticket_lifecycle.escalate_reports_about   # HD-09 task 3 -> UA-12
     shared.message_repo = MessageRepo(store)
     shared.messages = PostMessageController(shared.threads, shared.message_repo, shared.rules)
-    shared.messages.register_owner(shared.tickets.find_by_thread, staff_roles=(UserAccount.ROLE_HELPDESK,),
+    shared.messages.register_owner(shared.tickets.find_by_thread,
+                                   staff_roles=(UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN),
                                    on_reply=shared.ticket_lifecycle.on_requester_reply)   # HD-04: replies reopen
     shared.submit_ticket.messages = shared.messages
     shared.note_repo = InternalNoteRepo(store)

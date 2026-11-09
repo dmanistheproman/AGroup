@@ -61,12 +61,14 @@ def create_shared_blueprint(shared):
     DONE = (SupportTicket.STATUS_RESOLVED, SupportTicket.STATUS_CLOSED, SupportTicket.STATUS_MERGED)
 
     @bp.get("/api/support/tickets")
-    @require_role(login, UserAccount.ROLE_HELPDESK)
+    @require_role(login, UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN)
     def ticket_queue():
         args = request.args
         names = {}
         rows = [{**t.public_view(), "requester_name": name_of(t.requester_id, names),
                  "handler_name": name_of(t.handler_id, names)} for t in shared.tickets.all()]
+        if login.current_user().role == UserAccount.ROLE_USER_ADMIN:   # UA-12: tickets escalated to the User Admin
+            rows = [r for r in rows if r["status"] == SupportTicket.STATUS_ESCALATED]
         scope = args.get("scope", "")
         if scope not in ("", "active", "done"):
             raise ValueError("scope must be active or done.")
@@ -110,7 +112,7 @@ def create_shared_blueprint(shared):
                        messages=[m.public_view() for m in messages],
                        history=[e.public_view() for e in history], names=names,
                        reported_message=reported.public_view() if reported else None,
-                       allowed_statuses=shared.ticket_lifecycle.allowed_statuses(ticket.id) if is_agent else [],
+                       allowed_statuses=shared.ticket_lifecycle.allowed_for(ticket.id, user),
                        feedback=feedback.public_view() if feedback and is_agent else None,
                        feedback_given=feedback is not None,
                        can_give_feedback=(ticket.requester_id == user.id and feedback is None
@@ -123,11 +125,14 @@ def create_shared_blueprint(shared):
         return ticket
 
     @bp.get("/api/support/tickets/<ticket_id>")
-    @require_role(login, *REQUESTERS, UserAccount.ROLE_HELPDESK)
+    @require_role(login, *REQUESTERS, UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN)
     def view_ticket(ticket_id):
         ticket = find_ticket(ticket_id)
         user = login.current_user()
-        if user.role != UserAccount.ROLE_HELPDESK and not ticket.can_access(user.id):
+        if user.role == UserAccount.ROLE_USER_ADMIN:
+            if not shared.ticket_lifecycle.was_escalated(ticket.id):   # UA-12: escalated tickets only
+                raise PermissionError("The User Admin sees tickets escalated by the helpdesk.")
+        elif user.role != UserAccount.ROLE_HELPDESK and not ticket.can_access(user.id):
             raise PermissionError("You can only view your own requests.")
         return ticket_page(ticket)
 
@@ -190,7 +195,7 @@ def create_shared_blueprint(shared):
 
     # ---- Move a ticket (ConfirmWithReasonDialog -> TicketLifecycle -> StatusChangeService) ----
     @bp.post("/api/support/tickets/<ticket_id>/status")
-    @require_role(login, UserAccount.ROLE_HELPDESK)
+    @require_role(login, UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN)
     def move_ticket(ticket_id):
         data = body()
         ticket = shared.ticket_lifecycle.move_to(ticket_id, data.get("status"), login.current_user(),
@@ -199,7 +204,7 @@ def create_shared_blueprint(shared):
 
     # ---- Project status: publish / unpublish (ID-03), hide / restore (HD-09) ----
     @bp.post("/api/projects/<project_id>/status")
-    @require_role(login, UserAccount.ROLE_DESIGNER, UserAccount.ROLE_HELPDESK)
+    @require_role(login, UserAccount.ROLE_DESIGNER, UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN)
     def change_project_status(project_id):
         data = body()
         project = shared.project_status.change(login.current_user(), project_id, data.get("status"),
