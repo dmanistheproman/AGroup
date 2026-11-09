@@ -91,6 +91,8 @@ from backend.storage import SQLiteStore
 # ----- Customer -----
 from backend.repositories.favourite_repo import FavouriteRepository
 from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
+from backend.controllers.customer.submit_enquiry_controller import SubmitEnquiryController
+from backend.controllers.shared.activity_recorder import ActivityRecorder
 from backend.boundary.customer_routes import create_customer_blueprint
 from backend.entities.project_activity import ProjectActivity
 from backend.repositories.collection_repo import CollectionRepo
@@ -98,6 +100,7 @@ from backend.controllers.shared.collection_service import CollectionService
 
 # ----- Helpdesk -----
 from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
+from backend.controllers.helpdesk.recommend_verification_controller import RecommendVerificationController
 from backend.controllers.helpdesk.ticket_feedback_controller import TicketFeedbackController
 from backend.controllers.customer.submit_review_controller import SubmitReviewController
 from backend.repositories.ticket_feedback_repo import TicketFeedbackRepo
@@ -272,7 +275,9 @@ def create_app(registry=None, admin_provider=None, config=None):
     app.register_blueprint(create_shared_blueprint(shared))
 
     # ----- User Admin -----
-    account_registry = registry if registry is not None else UnconnectedAccountRegistry()
+    # UA-01: suspend the real accounts. Pass `registry` to override in tests; the default is
+    # the connected UserAccountRepo, so a suspension persists and is audited (no more 503).
+    account_registry = registry if registry is not None else user_accounts
     suspend_account = SuspendAccountController(account_registry)
     app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider))
 
@@ -308,12 +313,16 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.collections.uploads, shared.collections.attachments = upload_service, shared.attachments
     shared.collections.projects = shared.projects
     favourites.collections = shared.collections
+    submit_enquiry = SubmitEnquiryController(designer.enquiry_repo, designer.company_repo, shared.requests,
+                                             ActivityRecorder(store))   # C-06
     app.register_blueprint(create_customer_blueprint(favourites, login, shared.collections,
-                                                     designer.credit_status_controller))
+                                                     designer.credit_status_controller,
+                                                     submit_enquiry=submit_enquiry))
 
     # ----- Helpdesk -----
     merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)
-    app.register_blueprint(create_helpdesk_blueprint(merge_tickets, login))
+    recommend_verification = RecommendVerificationController(designer.verification_repo)
+    app.register_blueprint(create_helpdesk_blueprint(merge_tickets, login, recommend_verification))
 
     @app.get('/')
     def home():

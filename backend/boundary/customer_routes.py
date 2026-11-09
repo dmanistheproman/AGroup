@@ -6,7 +6,7 @@ from backend.boundary.auth_guard import role_error
 from backend.entities.user_account import UserAccount
 
 
-def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_status=None):
+def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_status=None, submit_enquiry=None):
     bp = Blueprint("customer", __name__)
 
     @bp.before_request
@@ -118,5 +118,15 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
         if credit_status is None:
             return jsonify(error="Credit status is not available."), 404
         return jsonify(credit_status.own_status(customer_id()))
+
+    # ---- C-06: submit a consultation / quotation request to a designer company ----
+    @bp.post("/api/enquiries")
+    def submit_enquiry_request():
+        if submit_enquiry is None:
+            return jsonify(error="Enquiries are not available."), 404
+        data = request.get_json(silent=True) or {}
+        enquiry = submit_enquiry.submit(login.current_user(), data.get("company_id"),
+                                        data.get("requirements"), data.get("budget"), data.get("project_id"))
+        return jsonify(enquiry=enquiry.public_view()), 201
 
     return bp

@@ -10,8 +10,13 @@ class VerificationRequest(Request):
     TRANSITIONS = {STATUS_PENDING: {STATUS_APPROVED, STATUS_REJECTED}, STATUS_REJECTED: {STATUS_PENDING}}
     REASON_REQUIRED = frozenset({STATUS_REJECTED})
 
+    RECOMMEND_APPROVE = "APPROVE"
+    RECOMMEND_REJECT = "REJECT"
+    RECOMMENDATIONS = (RECOMMEND_APPROVE, RECOMMEND_REJECT)
+
     def __init__(self, request_id, company_id, requested_by, documents=None,
-                 status="PENDING_REVIEW", rejection_reason=None, submitted_at=None, reviewed_by=None):
+                 status="PENDING_REVIEW", rejection_reason=None, submitted_at=None, reviewed_by=None,
+                 recommendation=None, recommendation_reason=None, recommended_by=None, recommended_at=None):
         self.id = request_id
         self.company_id = company_id
         self.requested_by = requested_by
@@ -21,6 +26,10 @@ class VerificationRequest(Request):
         self.rejection_reason = rejection_reason
         self.submitted_at = submitted_at or time.strftime("%Y-%m-%d %H:%M")
         self.reviewed_by = reviewed_by
+        self.recommendation = recommendation
+        self.recommendation_reason = recommendation_reason
+        self.recommended_by = recommended_by
+        self.recommended_at = recommended_at
 
     def is_owned_by(self, company_id):
         return self.company_id == company_id
@@ -36,6 +45,21 @@ class VerificationRequest(Request):
         if not (reason or "").strip():
             raise ValueError("A rejection reason is required.")
         self.status, self.reviewed_by, self.rejection_reason = "REJECTED", reviewer, reason.strip()
+
+    def recommend(self, agent, decision, reason):
+        """HD-12: a helpdesk agent records a recommendation for the User Admin (UA-13)."""
+        if self.status != self.STATUS_PENDING:
+            raise ValueError("Only pending requests can be recommended.")
+        if decision not in self.RECOMMENDATIONS:
+            raise ValueError("Recommendation must be approve or reject.")
+        reason = (reason or "").strip()
+        if not reason:
+            raise ValueError("A recommendation reason is required.")
+        self.recommendation = decision
+        self.recommendation_reason = reason
+        self.recommended_by = agent
+        self.recommended_at = time.strftime("%Y-%m-%d %H:%M")
+        return self
 
     def apply_status(self, status, reason=None, actor_id=None):
         """Called by StatusChangeService after it has checked the transition; the actor is the reviewer."""
@@ -59,4 +83,6 @@ class VerificationRequest(Request):
     def public_view(self):
         return {"id": self.id, "company_id": self.company_id, "status": self.status,
                 "documents": list(self.documents), "rejection_reason": self.rejection_reason,
-                "submitted_at": self.submitted_at, "reviewed_by": self.reviewed_by}
+                "submitted_at": self.submitted_at, "reviewed_by": self.reviewed_by,
+                "recommendation": self.recommendation, "recommendation_reason": self.recommendation_reason,
+                "recommended_by": self.recommended_by, "recommended_at": self.recommended_at}

@@ -148,7 +148,11 @@ CREATE TABLE IF NOT EXISTS verification_request (
     requested_by TEXT,
     documents TEXT NOT NULL DEFAULT '[]',
     rejection_reason TEXT,
-    reviewed_by TEXT
+    reviewed_by TEXT,
+    recommendation TEXT,
+    recommendation_reason TEXT,
+    recommended_by TEXT,
+    recommended_at TEXT
 );
 CREATE TABLE IF NOT EXISTS offer (
     offer_id TEXT PRIMARY KEY,
