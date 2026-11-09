@@ -10,12 +10,16 @@ class RecommendationService:
         self.favourites = favourite_repo
         self.projects = project_repo
 
+    MAX_LIMIT = 20
+
     def recommend(self, customer_id, limit=5):
+        limit = self._check_limit(limit)
         favourite = self.favourites.get_by_customer(customer_id)
         return self._recommend_for_refs(list(favourite.project_ids), limit)
 
     def evaluate(self, customer_id, limit=5):
         """Offline hit-rate@5: hide the latest favourite and see if it is recovered."""
+        limit = self._check_limit(limit)
         refs = list(self.favourites.get_by_customer(customer_id).project_ids)
         if len(refs) < 2:
             return {"hit": None, "baseline_hit": None,
@@ -41,6 +45,12 @@ class RecommendationService:
         candidates = [p for p in self.projects.all() if p.get("status") == "PUBLISHED"]
         ranked = sorted(candidates, key=self._popularity, reverse=True)
         return [self._view(p) for p in ranked[:limit]]
+
+    @classmethod
+    def _check_limit(cls, limit):
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= cls.MAX_LIMIT:
+            raise ValueError(f"The number of recommendations must be between 1 and {cls.MAX_LIMIT}.")
+        return limit
 
     @staticmethod
     def _popularity(project):

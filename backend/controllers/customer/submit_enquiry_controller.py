@@ -19,6 +19,7 @@ class SubmitEnquiryController:
         requirements = (requirements or "").strip()
         if not requirements:
             raise ValueError("Describe your project before sending the request.")
+        budget = self._budget(budget)
         company = self.companies.get(company_id)
         if company is None:
             raise ValueError("Designer company not found.")
@@ -36,3 +37,18 @@ class SubmitEnquiryController:
                                    f"New enquiry from {customer.name}: {requirements[:120]}",
                                    "portal.html#designer/enquiries", "ENQUIRY", saved.id)
         return saved
+
+    @staticmethod
+    def _budget(value):
+        """UC-C10 BF4: the estimated budget is optional; when given it must be a positive number."""
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return None
+        try:
+            if isinstance(value, bool):
+                raise TypeError
+            budget = round(float(value), 2)
+        except (TypeError, ValueError):
+            raise ValueError("Budget must be a number.") from None
+        if budget <= 0:
+            raise ValueError("Budget must be more than 0.")
+        return budget

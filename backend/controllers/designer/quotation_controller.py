@@ -92,7 +92,7 @@ class SubmitQuotationController:
 
     def revise(self, user_id, quotation_id, data):
         # Expire first: a quotation past its validity date that still awaits confirmation cannot be revised (quote again)
-        self.quotations.expire_due()
+        self.quotations.expire_due(status_change=self.status_change)
         quotation = self._own(quotation_id, user_id)
         answered = quotation.status == Quotation.STATUS_ADJUSTMENT
         quotation.revise(

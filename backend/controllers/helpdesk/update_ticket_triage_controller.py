@@ -28,10 +28,10 @@ class UpdateTicketTriageController:
             raise LookupError(f"Ticket {ticket_id} was not found.")
         if ticket.status in SupportTicket.READ_ONLY_STATUSES:
             raise ValueError("A closed or merged ticket cannot be updated.")
-        priority = (priority or ticket.priority or "").strip().upper()
+        priority = str(priority or ticket.priority or "").strip().upper()
         if priority not in self.PRIORITIES:
             raise ValueError("Priority must be LOW, NORMAL or HIGH.")
-        assignee_id = (assignee_id or "").strip()
+        assignee_id = str(assignee_id or "").strip()
         if assignee_id and assignee_id not in {a["id"] for a in self.agents()}:
             raise ValueError("Choose a helpdesk agent as the assignee.")
         ticket.priority = priority
