@@ -1,4 +1,4 @@
-"""C-12 (UC-C13): customers can be told about new projects in their preferred styles and can turn this off.
+"""C-12 (UC-C17): customers can be told about new projects in their preferred styles and can turn this off.
 
 When a project is published (first time, or again after being unpublished), customers whose preferred styles
 include its category get NEW_PROJECT, unless they turned that kind of update off on the preferences page.

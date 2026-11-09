@@ -3,7 +3,7 @@
 Compare the designers behind a customer's saved projects side by side. One entry per
 designer, even when several saved projects share the same designer. Without a selection the
 designers to pick from are listed; with one, only the two or more picked designers are compared
-(UC-C11), each with the styles that match the customer's preferences.
+(UC-C12), each with the styles that match the customer's preferences.
 """
 class CompareDesignersController:
     def __init__(self, favourite_repo, project_repo, company_repo, review_repo=None, customer_profiles=None):

@@ -1,4 +1,4 @@
-"""C-08 (UC-C11): the customer picks two or more of the designers behind their saved IDPs and compares only those,
+"""C-08 (UC-C12): the customer picks two or more of the designers behind their saved IDPs and compares only those,
 including how well each designer matches the customer's preferred styles. Fewer than two is refused.
 """
 import pytest
