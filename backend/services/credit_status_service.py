@@ -13,10 +13,13 @@ class CreditStatusService:
         self._payments = payment_repo
         self._accounts = account_repo
 
-    def status_for(self, customer_id, today=None):
-        """ID-12: the designer's view. Only customers who sent the designer a request can be checked."""
+    def status_for(self, customer_id, today=None, designer_id=None):
+        """ID-12: the designer's view. Only customers who sent the designer a request can be checked; with
+        designer_id, the request must be one this designer handles. The status uses all of the customer's activity."""
         today = today or date.today().isoformat()
         enquiries = self._enquiries_for(customer_id)
+        if designer_id is not None and not any(e.handler_id == designer_id for e in enquiries):
+            enquiries = []
         if not enquiries:
             raise ValueError("No request from this customer — credit status is only "
                              "available for customers who sent the designer a request.")
