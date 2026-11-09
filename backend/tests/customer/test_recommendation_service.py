@@ -57,3 +57,13 @@ def test_evaluate_requires_at_least_two_favourites(service):
     out = svc.evaluate("CUS-101")
     assert out["hit"] is None
     assert "at least two" in out["note"]
+
+
+@pytest.mark.parametrize("limit", [0, -3, 21])
+def test_the_number_of_recommendations_is_between_1_and_20(service, limit):
+    svc, favourites = service
+    _save(favourites, "CUS-101", ["IDP-001", "IDP-002"])
+    with pytest.raises(ValueError, match="between 1 and 20"):
+        svc.recommend("CUS-101", limit=limit)
+    with pytest.raises(ValueError, match="between 1 and 20"):
+        svc.evaluate("CUS-101", limit=limit)

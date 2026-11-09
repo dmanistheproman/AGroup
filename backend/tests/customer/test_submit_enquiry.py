@@ -50,3 +50,19 @@ def test_submit_generates_a_unique_reference():
     second = controller.submit(SimpleNamespace(id="CUS-2", name="B"), "COM-FF", "second")
     assert first.id != second.id
     assert first.id.startswith("ENQ-")
+
+
+@pytest.mark.parametrize("budget", ["abc", -5, 0, True])
+def test_a_budget_that_is_not_a_positive_number_is_refused(budget):
+    """UC-C10 BF4: the system validates the input before the enquiry is recorded."""
+    controller, enquiries, opened, notified, customer = _build()
+    with pytest.raises(ValueError, match="Budget"):
+        controller.submit(customer, "COM-FF", "A kitchen", budget=budget)
+    assert opened == [] and notified == []
+
+
+def test_the_budget_is_optional_and_stored_as_a_number():
+    controller, enquiries, opened, notified, customer = _build()
+    assert controller.submit(customer, "COM-FF", "A kitchen").budget is None
+    assert controller.submit(customer, "COM-FF", "A kitchen", budget="").budget is None
+    assert controller.submit(customer, "COM-FF", "A kitchen", budget="45000").budget == 45000

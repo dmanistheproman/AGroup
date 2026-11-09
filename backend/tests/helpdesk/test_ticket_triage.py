@@ -67,3 +67,10 @@ def test_only_helpdesk_agents_triage(app):
     ticket_id = new_ticket(app)
     customer = logged_in(app, "customer@demo.agroup")
     assert customer.post(f"/api/support/tickets/{ticket_id}/triage", json={"priority": "HIGH"}).status_code == 403
+
+
+def test_a_priority_or_assignee_that_is_not_text_is_refused(app):
+    ticket_id = new_ticket(app)
+    agent = logged_in(app, "helpdesk@demo.agroup")
+    assert agent.post(f"/api/support/tickets/{ticket_id}/triage", json={"priority": 3}).status_code == 400
+    assert agent.post(f"/api/support/tickets/{ticket_id}/triage", json={"assignee_id": 7}).status_code == 400

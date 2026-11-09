@@ -298,3 +298,21 @@ def test_an_overdue_quotation_expires_through_the_shared_status_change(shared, d
     assert (entry.to_status, entry.actor_id) == ("EXPIRED", "system")
     assert "OFFER_EXPIRED" in kinds(shared, "CUS-101")
     assert "OFFER_EXPIRED" in kinds(shared, "user-form-field")
+
+
+def test_an_overdue_quotation_found_when_revising_also_expires_through_the_shared_status_change(shared,
+                                                                                               designer_side):
+    """ID-07 task 3: the expiry check before a revision works like the one on read: audited, both parties told,
+    and the expired quotation is not revised."""
+    shared.requests.assign_handler("CUS-101", "user-form-field")   # seeded as confirmed
+    controller = designer_side.submit_quotation_controller
+    data = {"enquiry_id": "CUS-101", "design_fee": 3000, "material_cost": 20000, "construction_fee": 15000,
+            "valid_until": "2000-01-01", "payment_schedule": "30/40/30"}
+    q = controller.create("user-form-field", data)
+    controller.present("user-form-field", q["id"])
+    with pytest.raises(ValueError, match="revised"):
+        controller.revise("user-form-field", q["id"], data)
+    entry = shared.status_change.history_of("QUOTATION", q["id"])[-1]
+    assert (entry.to_status, entry.actor_id) == ("EXPIRED", "system")
+    assert "OFFER_EXPIRED" in kinds(shared, "CUS-101")
+    assert "OFFER_EXPIRED" in kinds(shared, "user-form-field")
