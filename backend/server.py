@@ -78,6 +78,7 @@ from backend.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
 from backend.repositories.payment_repo import PaymentRepo
 from backend.services.file_upload_service import FileUploadService
 from backend.services.credit_status_service import CreditStatusService
+from backend.controllers.shared.complaint_service import ComplaintService
 from backend.controllers.designer.credit_status_controller import ViewCreditStatusController
 from backend.controllers.designer.statistics_controller import ViewProjectStatisticsController
 from backend.boundary.designer_routes import create_designer_blueprint
@@ -115,7 +116,7 @@ FRONTEND_DIR = ROOT / 'frontend'
 UPLOAD_DIR = ROOT / 'backend' / 'uploads'
 
 
-def build_designer_controllers(upload_service, store, account_repo=None):
+def build_designer_controllers(upload_service, store, account_repo=None, ticket_repo=None):
     """ID-01 … ID-13 wiring, moved from the ID branch's run.py."""
     company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA, store)
     verification_repo = VerificationRepo(store)
@@ -139,8 +140,9 @@ def build_designer_controllers(upload_service, store, account_repo=None):
     c.revise_proposal_controller = ReviseProposalController(proposal_repo, upload_service)
     c.submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
     c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10: requirement review (accept/decline/clarify)
+    complaint_service = ComplaintService(ticket_repo, enquiry_repo) if ticket_repo is not None else None
     c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo,
-                                                                                account_repo))
+                                                                                account_repo, complaint_service))
     c.statistics_controller = ViewProjectStatisticsController(ProjectActivityRepo(store), projects_repo)
     c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store))
     # ---------- ID-09: payment progress (the platform records payments but never collects them; milestones belong to accepted quotations) ----------
@@ -288,7 +290,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider, flag_account))
 
     # ----- Interior Designer -----
-    designer = build_designer_controllers(upload_service, store, user_accounts)
+    designer = build_designer_controllers(upload_service, store, user_accounts, shared.tickets)
 
     # ----- Shared: login and Create Account (X-03, S-13) -----
     accounts = AccountService(user_accounts, designer.customer_repo, designer.company_repo)

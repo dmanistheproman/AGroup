@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS support_ticket (
     related_project_id TEXT,
     related_message_id TEXT,
     related_company_id TEXT,
+    related_customer_id TEXT,
     requester_type TEXT,
     ticket_type TEXT NOT NULL,
     priority TEXT NOT NULL,
