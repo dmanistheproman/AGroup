@@ -67,8 +67,12 @@ class PostMessageController:
 
     @staticmethod
     def _is_participant(record, user):
-        return record is not None and getattr(record, "requester_id", None) == user.id
+        """The side that asks: a request's requester, or the customer in a private conversation (S-16)."""
+        return record is not None and user.id in (getattr(record, "requester_id", None),
+                                                   getattr(record, "customer_id", None))
 
     @staticmethod
     def _is_handler(record, user):
-        return record is not None and getattr(record, "handler_id", None) == user.id
+        """The side that answers: a request's handler, or the designer in a private conversation (S-16)."""
+        return record is not None and user.id in (getattr(record, "handler_id", None),
+                                                   getattr(record, "designer_id", None))

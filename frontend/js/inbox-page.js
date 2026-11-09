@@ -45,7 +45,7 @@
         <a href="#requests/${esc(r.id)}" class="inbox-item ${r.unread ? 'unread' : ''}">
         <span class="inbox-icon">${icon(r.kind === 'SUPPORT_TICKET' ? 'life-buoy' : 'file-text')}</span>
         <span><b>${esc(r.title)} · ${esc(r.id)}</b><small>${esc(r.summary)}</small></span>
-        <span class="inbox-meta">${statusBadge(r.status)}<small>${time(r.created_at)}</small>${r.unread ? `<span class="inbox-unread">${r.unread} new</span>` : ''}</span></a></li>`).join('')}</ul>`
+        <span class="inbox-meta">${statusBadge(r.status)}<small>${time(r.created_at)}</small>${r.unanswered ? '<span class="inbox-unread">Awaiting your reply</span>' : ''}${r.unread ? `<span class="inbox-unread">${r.unread} new</span>` : ''}</span></a></li>`).join('')}</ul>`
       : '<p class="small-note">No requests yet. Use "Contact support" in the account menu, or send an enquiry from a designer\'s page.</p>';
   }
 

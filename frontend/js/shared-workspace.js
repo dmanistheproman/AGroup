@@ -199,10 +199,12 @@
     const [c, inbox, sent] = await Promise.all([R.call('GET', '/api/conversations'), R.call('GET', '/api/inbox'),
                                                 R.call('GET', '/api/proposals')]);
     if (!stillHere()) return;
-    const conversations = (c.ok ? c.data.conversations : []).map(x => ({ ...x, kind: 'conversation', name: x.customer_name || x.customer_id }));
+    // ID-11: the inbox marks conversations and enquiries waiting for the designer's reply and lists them first
+    const conversations = (inbox.ok ? inbox.data.conversations : c.ok ? c.data.conversations : [])
+      .map(x => ({ ...x, kind: 'conversation', name: x.customer_name || x.customer_id }));
     const requests = inbox.ok ? inbox.data.requests : [];
     const enquiries = requests.filter(r => r.kind === 'ENQUIRY')
-      .map(r => ({ id: r.id, kind: 'enquiry', name: `${r.id} · ${r.summary}`, status: r.status, unread: r.unread }));
+      .map(r => ({ id: r.id, kind: 'enquiry', name: `${r.id} · ${r.summary}`, status: r.status, unread: r.unread, unanswered: r.unanswered }));
     const proposals = (sent.ok && Array.isArray(sent.data) ? sent.data : []).filter(p => p.thread_id)
       .map(p => ({ id: p.id, kind: 'proposal', name: `${p.title} · ${p.client_name}`, status: p.status, thread_id: p.thread_id,
                    client_name: p.client_name }));
@@ -256,7 +258,7 @@
     }
     const item = x => `<li><button class="${openConversation && x.kind === openConversation.kind && x.id === openConversation.id ? 'active' : ''}"
         data-shared="conversation" data-kind="${x.kind}" data-id="${esc(x.id)}"><b>${esc(x.name)}</b>
-        <small>${x.unread ? `${x.unread} new · ` : ''}${x.kind === 'conversation' ? (x.last_message_at ? time(x.last_message_at) : 'No messages yet') : R.label(x.status)}</small></button></li>`;
+        <small>${x.unanswered ? 'Awaiting your reply · ' : ''}${x.unread ? `${x.unread} new · ` : ''}${x.kind === 'conversation' ? (x.last_message_at ? time(x.last_message_at) : 'No messages yet') : R.label(x.status)}</small></button></li>`;
     main().innerHTML = title('designer', 'Messages', 'Conversations with customers, messages on your enquiries and proposals, and your requests to the helpdesk.') +
       `<div class="conversation-layout"><ul class="conversation-list">
           <li class="eyebrow">CUSTOMERS</li>${conversations.map(item).join('') || '<li class="small-note">No conversations yet. Customers start them from your company profile.</li>'}
