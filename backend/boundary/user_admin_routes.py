@@ -54,7 +54,7 @@ def create_user_admin_blueprint(controller: SuspendAccountController, admin_prov
             return jsonify(error='Account flagging is not available.', code='UNAVAILABLE'), 503
         data = request.get_json(silent=True) or {}
         try:
-            account = flag_controller.flag(account_id, data.get('reason'))
+            account = flag_controller.flag(account_id, data.get('reason'), admin['id'])
             return jsonify(message='Account flagged.', account=account.public_view()), 200
         except ValueError as err:
             return jsonify(error=str(err)), 400
@@ -67,7 +67,7 @@ def create_user_admin_blueprint(controller: SuspendAccountController, admin_prov
         if flag_controller is None:
             return jsonify(error='Account flagging is not available.', code='UNAVAILABLE'), 503
         try:
-            account = flag_controller.unflag(account_id)
+            account = flag_controller.unflag(account_id, admin['id'])
             return jsonify(message='Account unflagged.', account=account.public_view()), 200
         except ValueError as err:
             return jsonify(error=str(err)), 400

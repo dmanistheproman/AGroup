@@ -295,7 +295,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     # the connected UserAccountRepo, so a suspension persists and is audited (no more 503).
     account_registry = registry if registry is not None else user_accounts
     suspend_account = SuspendAccountController(account_registry)
-    flag_account = FlagAccountController(user_accounts)   # UA-09: flag / unflag a suspicious account
+    flag_account = FlagAccountController(user_accounts, shared.status_change.audit)   # UA-09: flag / unflag, audited
     if admin_provider is None:
         def admin_provider():
             """UA-01 / UA-09: the administrator is the logged-in account (shared Log In)."""
