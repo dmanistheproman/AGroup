@@ -114,6 +114,10 @@ def create_management_blueprint(c, store, login):
     def category_usage():
         return jsonify(categories=c.ViewCategoryUsageController.view_category_usage())
 
+    @bp.get("/api/management/categories/trending")
+    def trending_categories():
+        return jsonify(c.ViewCategoryUsageController.trending())
+
     @bp.get("/api/management/categories/<category_id>/projects")
     def category_projects(category_id):
         return jsonify(c.ReviewCategoryProjectsController.review_projects(category_id))

@@ -82,19 +82,28 @@
       const searchToken = ++this.searchGeneration;
       const query = new URLSearchParams({ search: this.search, status: this.status });
       try {
-        const result = await api.get(`${base}/categories?${query}`);
+        const [result, trending] = await Promise.all([api.get(`${base}/categories?${query}`),
+                                                      api.get(`${base}/categories/trending`)]);
         if (token !== generation || searchToken !== this.searchGeneration || activeSection !== 'categories') return;
         this.categories = result.categories;
+        // PM-14: rank of each Active category by views, favourites and enquiries in the last 30 days
+        const trend = Object.fromEntries(trending.categories.map(item => [item.id, item]));
+        const trendCell = category => {
+          const item = trend[category.id];
+          return item ? `#${item.trendingRank}<small>${item.views} views · ${item.favourites} saves · ${item.enquiries} enquiries</small>` : '—';
+        };
         document.querySelector('#management-list-error').textContent = '';
         document.querySelector('#management-categories').innerHTML = `<div class="table-wrap"><table>
-          <thead><tr><th>Category</th><th>Projects</th><th>Status</th><th>Featured</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Category</th><th>Projects</th><th>Status</th><th>Trending (${trending.days} days)</th><th>Featured</th><th>Actions</th></tr></thead>
           <tbody>${this.categories.map(category => `<tr>
             <td><b>${escape(category.name)}</b><small>${escape(category.description)}</small>
               ${category.target ? `<small>Merged into ${escape(category.target)}</small>` : ''}</td>
-            <td>${category.count}</td><td>${status(category.status)}</td><td>${category.featured ? 'Featured' : '—'}</td>
-            <td>${button('Manage', 'edit', category.id)} ${button('Projects', 'projects', category.id)}</td>
-          </tr>`).join('') || '<tr><td colspan="5">No categories match your search and status selection.</td></tr>'}</tbody>
-          </table></div>`;
+            <td>${category.count}</td><td>${status(category.status)}</td><td>${trendCell(category)}</td>
+            <td>${category.featured ? 'Featured' : '—'}</td>
+            <td>${button('Manage', 'edit', category.id)} ${button('Projects', 'projects', category.id)}
+              ${category.status === 'Active' ? button(category.featured ? 'Unfeature' : 'Feature', 'feature', category.id) : ''}</td>
+          </tr>`).join('') || '<tr><td colspan="6">No categories match your search and status selection.</td></tr>'}</tbody>
+          </table></div>${trending.noRecentActivity ? `<p class="hint">No category has activity in the last ${trending.days} days. You can still feature a category.</p>` : ''}`;
       } catch (error) {
         if (token === generation && searchToken === this.searchGeneration) {
           showError(error, document.querySelector('#management-list-error'));
