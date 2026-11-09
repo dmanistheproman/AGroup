@@ -16,6 +16,12 @@ SEED_COMPANY_DATA = [
 
 COLUMNS = ("company_id", "user_id", "name", "description", "address", "contact_email", "specialisms", "logo")
 
+# UA-13: a company is Verified once one of its verification requests is approved (not a stored column, so the
+# status always follows the decisions made through StatusChangeService).
+SELECT_COMPANY = ("SELECT c.*, EXISTS (SELECT 1 FROM verification_request v JOIN request r "
+                  "ON r.request_id = v.request_id WHERE v.company_id = c.company_id AND r.status = 'APPROVED') "
+                  "AS verified FROM designer_company c")
+
 
 class CompanyRepo:
     def __init__(self, store=None):
@@ -38,11 +44,12 @@ class CompanyRepo:
     @staticmethod
     def _company(row):
         return DesignerCompany(row["company_id"], row["user_id"], row["name"], row["description"], row["address"],
-                               row["contact_email"], row["specialisms"], row["logo"])
+                               row["contact_email"], row["specialisms"], row["logo"],
+                               verified=bool(row["verified"]) if "verified" in row.keys() else False)
 
     def _one(self, column, value):
         with self.store.transaction() as connection:
-            row = connection.execute(f"SELECT * FROM designer_company WHERE {column} = ?", (value,)).fetchone()
+            row = connection.execute(f"{SELECT_COMPANY} WHERE c.{column} = ?", (value,)).fetchone()
         return self._company(row) if row else None
 
     def get(self, company_id):
@@ -61,7 +68,7 @@ class CompanyRepo:
 
     def all(self):
         with self.store.transaction() as connection:
-            rows = connection.execute("SELECT * FROM designer_company ORDER BY company_id").fetchall()
+            rows = connection.execute(f"{SELECT_COMPANY} ORDER BY c.company_id").fetchall()
         return [self._company(row) for row in rows]
 
     def save(self, company):

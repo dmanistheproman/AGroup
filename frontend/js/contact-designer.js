@@ -57,3 +57,24 @@
   new MutationObserver(() => document.querySelectorAll('[data-firm-reviews]').forEach(fill))
     .observe(document.documentElement, { childList: true, subtree: true });
 })();
+
+/* Verified badge (UA-13): a studio with an account shows Verified once the User Admin approved its verification
+   request, otherwise Unverified. customer.js leaves a [data-firm-verified] badge on the company card and page. */
+(() => {
+  'use strict';
+
+  let companies = null;
+  const load = () => (companies ||= fetch('/api/companies').then(res => res.json())
+    .then(data => data.companies || []).catch(() => { companies = null; return []; }));
+
+  async function fill(badge) {
+    if (badge.dataset.loaded) return;
+    badge.dataset.loaded = 'yes';
+    const company = (await load()).find(c => c.name === badge.dataset.firmVerified);
+    if (!company) return;   // a sample studio without an account keeps its sample badge
+    badge.textContent = company.verification_status;
+  }
+
+  new MutationObserver(() => document.querySelectorAll('[data-firm-verified]').forEach(fill))
+    .observe(document.documentElement, { childList: true, subtree: true });
+})();
