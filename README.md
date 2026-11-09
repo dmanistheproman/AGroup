@@ -69,9 +69,9 @@ The demo accounts above work on the test database too; generated accounts (for e
 
 ## Platform Management
 
-Start the shared application with `python run.py`, log in as `manager@demo.agroup` with password `demo`, then open **Project categories**. The workspace supports the 14 management stories, including reports, category merging, and the additional Deleted categories page.
+Start the shared application with `python run.py`, log in as `manager@demo.agroup` with password `demo`, then open **Project categories**. The workspace supports the 14 management stories (PM-01 to PM-14), including reports, category merging and featured categories.
 
-Category merging transfers the source assignments to the target, removes duplicate links and marks the source as merged. You can then delete the empty source category to move it to **Deleted categories**. A category containing projects must have those projects transferred before deletion.
+Category merging transfers the source assignments to the target, removes duplicate links and marks the source as merged.
 
 The controller follows the merge sequence diagram through `find_pair`, validation, `merge_into`, `ProjectCategoryAssignment.reassign` and `_mark_merged`. Reading, validation and all writes share one database transaction. Failed writes roll back the operation, and category versions reject stale submissions.
 

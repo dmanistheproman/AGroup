@@ -77,16 +77,16 @@ Ready:
 | Delete own project (ID-03) | `DELETE /api/projects/<IDP-xxx>?confirm_impact=true`: it leaves customers' favourites, folders and moodboards; its activity stays for reports |
 | Publish / unpublish own project (ID-03) | `POST /api/projects/<IDP-xxx>/status {status: PUBLISHED or UNPUBLISHED}` |
 | Conversations with customers (S-16, ID-11) | `GET /api/conversations`, `GET/POST /api/threads/<thread_id>/messages` |
-| Inbox | `GET /api/inbox` (enquiries, verification requests, tickets, conversations) |
+| Inbox | `GET /api/inbox` (enquiries, verification requests, tickets, conversations); rows waiting for your reply have `unanswered: true` and come first (ID-11) |
 | Enquiry thread with the client (S-01) | `GET /api/requests/<enquiry_id>` (creates the thread if missing), then `/api/threads/<thread_id>/messages` |
 | Proposal for an enquiry (S-21) | `POST /api/proposals` with `enquiry_id`: the client name comes from the enquiry and the client sees it in their inbox |
 | Thread of a sent proposal with the client (S-01) | `thread_id` on each proposal (`GET /api/proposals`), then `/api/threads/<thread_id>/messages` |
 | Mark an accepted enquiry completed (C-07) | `POST /api/enquiries/<id>/complete`; the client is invited to review |
-| Notifications | `NEW_ENQUIRY`, `OFFER_ANSWERED` (accepted, changes asked, proposal accepted or feedback), `VERIFICATION_STATUS`, `PAYMENT_OVERDUE` (once per milestone), `PROJECT_HIDDEN` / `PROJECT_RESTORED`, `NEW_MESSAGE` |
+| Notifications | `NEW_ENQUIRY`, `OFFER_ANSWERED` (accepted, changes asked, proposal accepted or feedback), `VERIFICATION_STATUS`, `PAYMENT_OVERDUE` (once per milestone), `OFFER_EXPIRED` (a quotation passed its validity date), `PROJECT_HIDDEN` / `PROJECT_RESTORED`, `NEW_MESSAGE` |
 
 All ID records are stored in SQLite; controllers must call `save()` after changing an entity.
 Status changes of enquiries (accept / decline), verification requests (approve / reject / resubmit), quotations (send,
-revised after changes) and proposals (send) now go through `StatusChangeService`, so they are audited and the other
+revised after changes, expired when viewed after the validity date) and proposals (send) now go through `StatusChangeService`, so they are audited and the other
 side is notified. The designer who first answers an enquiry becomes its handler; a clarification request is also posted
 in the enquiry's thread; a payment reminder reaches the client when the client has an account. Every accepted upload
 (project images, logo, proposal images, verification documents, moodboard photos) is also kept as an `Attachment` of
@@ -114,14 +114,15 @@ Ready:
 | Merge duplicates (HD-05) | `POST /api/support/tickets/merge {main_ticket_id, other_ticket_id, reason}` |
 | Reply to the requester | `POST /api/threads/<thread_id>/messages` |
 | Internal notes (HD-02) | `GET/POST /api/notes/REQUEST/<id>` |
-| Hide / restore a project (HD-09) | `POST /api/projects/<IDP-xxx>/status {status: HIDDEN or PUBLISHED, reason}` |
+| Hide / restore a project (HD-09) | `POST /api/projects/<IDP-xxx>/status {status: HIDDEN or PUBLISHED, reason}`; hiding escalates the project's open reports to the User Admin |
+| Request more information (HD-04) | move the ticket to `AWAITING_INFO` with a reason; the requester's reply moves it back to `OPEN` automatically |
 | Failed-upload log (HD-08) | `GET /api/uploads/failures?q=&page=` |
 
 Pages: the portal's helpdesk **Overview, Active ticket queue, Resolved tickets, Complaints & listings and Upload
 diagnostics** use these APIs; the ticket page (claim, status change with reason, reply, notes, merge, hide project,
 history, reported message, and the requester's feedback once a closed ticket is rated) opens from any list.
-Closing a resolved ticket invites the requester to rate it (HD-13). **Verification recommendations** (HD-12) is still a
-browser demo.
+Closing a resolved ticket invites the requester to rate it (HD-13). Verification recommendations (HD-12) have a backend
+(`POST /api/admin/verifications/<id>/recommend {decision, reason}`); the page is still a browser demo.
 
 ### User Admin
 Ready: `USER_ACCOUNT` is registered in `StatusChangeService` (suspend / reactivate with a reason, audited);
@@ -129,9 +130,14 @@ Ready: `USER_ACCOUNT` is registered in `StatusChangeService` (suspend / reactiva
 `shared.account_service.create_account(name, email, password, role)` for UA-03. Verification decisions
 (`POST /api/admin/verifications/<id>/review`) are audited as `VERIFICATION_REQUEST`, and user admins get
 `NEW_VERIFICATION` when a company submits or resubmits.
-Open: `UserAccountRepo` already implements the UA-01 contract (`find_by_id`, `commit_suspension`, which also writes
-the audit log). The app still passes `UnconnectedAccountRegistry` by default; passing `user_accounts` as the registry
-in `create_app` connects suspension to real accounts.
+Suspend (UA-01, `POST /api/user-admin/accounts/<id>/suspend`) and flag (UA-09, `POST/DELETE .../flag`) work on the
+real accounts; the administrator is the logged-in User Admin (other roles get 403, nobody acts without logging in).
+Escalated tickets (UA-12): `GET /api/support/tickets` lists only escalated tickets for the User Admin, the ticket page
+opens them, the User Admin can write in their thread and resolve them with a note
+(`POST /api/support/tickets/<id>/status {status: RESOLVED, reason}`), and can restore a hidden IDP
+(`POST /api/projects/<IDP-xxx>/status {status: PUBLISHED}`).
+Open: an account list, search, filter, details, update, role change and reactivation have no routes or pages yet
+(UA-02 to UA-08); the admin portal's account and escalation pages still use sample data.
 
 ### Platform Manager
 Ready: the PM workspace (#24) is unchanged. Shared extras: `GET /api/categories` (active categories),
@@ -145,19 +151,19 @@ databases are updated on start).
 
 | Record | Statuses (reason required) |
 |---|---|
-| Support ticket | OPEN → AWAITING_INFO\*, ESCALATED\*, RESOLVED\*, MERGED\* → CLOSED; RESOLVED → OPEN (reopen). MERGED and CLOSED are read-only |
+| Support ticket | OPEN → AWAITING_INFO\*, ESCALATED\*, RESOLVED\*, MERGED\* → CLOSED; RESOLVED → OPEN (reopen); AWAITING_INFO → OPEN when the requester replies. MERGED and CLOSED are read-only |
 | Project | DRAFT → PUBLISHED ⇄ UNPUBLISHED; PUBLISHED → HIDDEN\* → PUBLISHED |
 | User account | ACTIVE ⇄ SUSPENDED\* (both ways) |
 | Quotation | DRAFT → WAITING_CLIENT_CONFIRMATION → ACCEPTED, ADJUSTMENT_REQUESTED\*, EXPIRED; ADJUSTMENT_REQUESTED → WAITING |
 | Design proposal | DRAFT → UNDER_REVIEW → CONFIRMED (a revision keeps UNDER_REVIEW with a new version) |
 | Enquiry | AWAITING_REPLY → CONFIRMED, DECLINED\*; CONFIRMED → COMPLETED |
 | Verification request | PENDING_REVIEW → APPROVED, REJECTED\*; REJECTED → PENDING_REVIEW (resubmitted) |
-| Category (PM, audit only) | ACTIVE ⇄ ARCHIVED; ACTIVE → MERGED; → DELETED |
+| Category (PM, audit only) | ACTIVE ⇄ ARCHIVED; ACTIVE → MERGED |
 
 ## 5. Data
 
-- Everything is in SQLite (`instance/agroup.sqlite3`) except the UA account registry. Delete the file to go back to
-  the demo data.
+- Everything is in SQLite (`instance/agroup.sqlite3`). Delete the file to go back to the demo data. A database made
+  before a column was added gains it on start (`install_schema` adds missing columns).
 - Tests get a fresh temporary database each (`backend/tests/conftest.py`); they never touch the demo database.
 - Test data: `python scripts/generate_data.py` → `instance/test-data.sqlite3` (at least 100 records per main
   entity, 90 days of activity). Open it with `python run.py --database instance/test-data.sqlite3`. Generated
@@ -171,7 +177,9 @@ databases are updated on start).
 
 ## 7. Not built yet
 
-- Verification recommendations (HD-12), submitting an enquiry from the customer site (C-06).
+- Pages for the backends of C-06 (submit an enquiry), C-08 (compare designers), C-09 (recommendations), HD-12
+  (verification recommendation), UA-09 (flag an account) and UA-12 (escalated tickets).
+- ID-14 (blacklist a customer), UA-02 to UA-08 (account management).
 
 ## 8. Shared front-end components
 
