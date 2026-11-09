@@ -7,7 +7,7 @@ from backend.entities.user_account import UserAccount
 
 
 def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_status=None,
-                              submit_enquiry=None, compare_controller=None):
+                              submit_enquiry=None, compare_controller=None, recommendations_controller=None):
     bp = Blueprint("customer", __name__)
 
     @bp.before_request
@@ -136,5 +136,20 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
         if compare_controller is None:
             return jsonify(error="Designer comparison is not available."), 404
         return jsonify(compare_controller.compare(customer_id()))
+
+    # ---- C-09: data-driven personalised recommendations ----
+    @bp.get("/api/recommendations")
+    def recommendations():
+        if recommendations_controller is None:
+            return jsonify(error="Recommendations are not available."), 404
+        limit = request.args.get("limit", 5, type=int)
+        return jsonify(recommendations=recommendations_controller.recommend(customer_id(), limit))
+
+    @bp.get("/api/recommendations/evaluate")
+    def evaluate_recommendations():
+        if recommendations_controller is None:
+            return jsonify(error="Recommendations are not available."), 404
+        limit = request.args.get("limit", 5, type=int)
+        return jsonify(recommendations_controller.evaluate(customer_id(), limit))
 
     return bp
