@@ -19,7 +19,7 @@
                        CLOSED: 'Close', OPEN: 'Reopen', MERGED: 'Mark as merged' };
 
   let generation = 0;                // ignore answers that arrive after the user moved on
-  let list = { section: '', page: 1, q: '', status: '', type: '', handler: '' };
+  let list = { section: '', page: 1, q: '', status: '', type: '', handler: '', requester_type: '' };
   let openTicket = null;             // ticket shown in the modal
   let openConversation = null;       // designer messages page
 
@@ -43,7 +43,7 @@
     if (role === 'helpdesk' && section === 'overview') return overview(stillHere);
     if (role === 'helpdesk' && section === 'uploads') return uploads(stillHere);
     if (role === 'helpdesk') {
-      if (list.section !== section) list = { section, page: 1, q: '', status: '', type: '', handler: '' };
+      if (list.section !== section) list = { section, page: 1, q: '', status: '', type: '', handler: '', requester_type: '' };
       return ticketList(stillHere);
     }
     if (role === 'designer' && section === 'messages') return messages(stillHere);
@@ -79,18 +79,19 @@
     if (list.section === 'resolved') p.set('scope', 'done');
     if (list.section === 'complaints') { p.set('type', 'REPORTS'); }
     else if (list.type) p.set('type', list.type);
-    for (const key of ['q', 'status', 'handler']) if (list[key]) p.set(key, list[key]);
+    for (const key of ['q', 'status', 'handler', 'requester_type']) if (list[key]) p.set(key, list[key]);
     return p.toString();
   }
 
   function ticketTable(items) {
+    const done = items.some(t => 'resolved_at' in t);   // HD-03: the resolved list shows the resolution date
     return `<div class="table-wrap"><table><thead><tr><th>Reference</th><th>Request</th><th>Requester</th><th>Status</th>
-      <th>Priority</th><th>Assignee</th><th>Opened</th><th></th></tr></thead><tbody>${items.map(t => `<tr>
+      <th>Priority</th><th>Assignee</th><th>Opened</th>${done ? '<th>Resolved</th>' : ''}<th></th></tr></thead><tbody>${items.map(t => `<tr>
         <td>${esc(t.id)}</td>
         <td><b>${esc(t.type_label || TYPES[t.type] || t.type)}</b><small>${esc(t.related_project_title ? `${t.related_project_title} · ` : '')}${esc((t.details || '').slice(0, 90))}</small></td>
         <td>${esc(t.requester_name || t.requester_id)}<small>${esc(t.requester_type === 'DESIGNER' ? 'Interior designer' : 'Customer')}</small></td>
         <td>${statusBadge(t.status)}</td><td>${esc(PRIORITY[t.priority] || t.priority || '')}</td>
-        <td>${esc(t.handler_name || 'Not claimed')}</td><td>${time(t.created_at)}</td>
+        <td>${esc(t.handler_name || 'Not claimed')}</td><td>${time(t.created_at)}</td>${done ? `<td>${t.resolved_at ? time(t.resolved_at) : '—'}</td>` : ''}
         <td><button class="text-button" data-shared="open-ticket" data-id="${esc(t.id)}">Open ${icon('arrow-right')}</button></td>
       </tr>`).join('')}</tbody></table></div>`;
   }
@@ -110,6 +111,7 @@
         <label>SEARCH<input name="q" value="${esc(list.q)}" placeholder="Reference, details or project"></label>
         <label>STATUS<select name="status">${option('', 'All', list.status)}${statuses.map(s => option(s, R.label(s), list.status)).join('')}</select></label>
         ${list.section === 'complaints' ? '' : `<label>TYPE<select name="type">${option('', 'All types', list.type)}${Object.entries(TYPES).map(([k, v]) => option(k, v, list.type)).join('')}</select></label>`}
+        <label>REQUESTER<select name="requester_type">${option('', 'Anyone', list.requester_type)}${option('CUSTOMER', 'Customers', list.requester_type)}${option('DESIGNER', 'Interior designers', list.requester_type)}</select></label>
         <label>HANDLER<select name="handler">${option('', 'Anyone', list.handler)}${option('me', 'Claimed by me', list.handler)}${option('none', 'Not claimed', list.handler)}</select></label>
         <button class="button outline" type="submit">${icon('search')} Apply</button></form>` +
       UI.listPage({ total: d.total, noun: 'ticket', page: d.page, pages: d.pages, body: ticketTable(d.items),
@@ -328,7 +330,14 @@
     const kind = form.dataset.sharedForm;
     const value = name => (form.elements[name] ? form.elements[name].value.trim() : '');
     if (kind === 'filters') {
-      Object.assign(list, { q: value('q'), status: value('status'), type: value('type'), handler: value('handler'), page: 1 });
+      const criteria = { q: value('q'), status: value('status'), type: value('type'), handler: value('handler'),
+                         requester_type: value('requester_type') };
+      // UC-HD03 AF: searching resolved tickets needs at least one criterion
+      if (list.section === 'resolved' && !Object.values(criteria).some(Boolean)) {
+        toast('Enter at least one search criterion: a keyword, project or requester.');
+        return;
+      }
+      Object.assign(list, criteria, { page: 1 });
       render('helpdesk', list.section);
     } else if (kind === 'uploads') { uploadsQuery = { q: value('q'), page: 1 }; render('helpdesk', 'uploads'); }
     else if (kind === 'reply') afterChange(await R.call('POST', `/api/threads/${openTicket.thread_id}/messages`, { body: value('body') }), 'Reply sent.');

@@ -74,6 +74,9 @@ def create_shared_blueprint(shared):
             raise ValueError("scope must be active or done.")
         if scope:
             rows = [r for r in rows if (r["status"] in DONE) == (scope == "done")]
+        if scope == "done":   # HD-03 (UC-HD03 BF4): when each ticket was resolved, from the shared audit log
+            for r in rows:
+                r["resolved_at"] = resolved_at(r["id"])
         kind = args.get("type", "")
         if kind == "REPORTS":
             rows = [r for r in rows if r["type"] in SupportTicket.REPORT_TYPES]
@@ -91,6 +94,11 @@ def create_shared_blueprint(shared):
                                   sort_by="-created_at")
         # HD-03: search resolved tickets by keyword, IDP or requester
         return jsonify(query.run(rows, search_fields=("id", "details", "related_project_title", "requester_name")))
+
+    def resolved_at(ticket_id):
+        moves = [e for e in shared.status_change.history_of("SUPPORT_TICKET", ticket_id)
+                 if e.to_status in (SupportTicket.STATUS_RESOLVED, SupportTicket.STATUS_MERGED)]
+        return moves[-1].created_at if moves else None
 
     def name_of(user_id, cache):
         """Display name of an account (cached per request)."""
