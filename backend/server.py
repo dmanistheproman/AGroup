@@ -285,6 +285,13 @@ def create_app(registry=None, admin_provider=None, config=None):
     account_registry = registry if registry is not None else user_accounts
     suspend_account = SuspendAccountController(account_registry)
     flag_account = FlagAccountController(user_accounts)   # UA-09: flag / unflag a suspicious account
+    if admin_provider is None:
+        def admin_provider():
+            """UA-01 / UA-09: the administrator is the logged-in account (shared Log In)."""
+            user = login.current_user()
+            if user is None:
+                return None
+            return {"id": user.id, "role": "User Admin" if user.role == UserAccount.ROLE_USER_ADMIN else user.role}
     app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider, flag_account))
 
     # ----- Interior Designer -----

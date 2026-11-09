@@ -123,10 +123,6 @@ def main():
     if args.database:
         os.environ["AGROUP_DATABASE"] = str(Path(args.database).resolve())
 
-    # Lets the User Admin demo actions work from this machine only
-    # (the backend accepts it for requests from 127.0.0.1 / ::1).
-    os.environ.setdefault("AGROUP_LOCAL_DEV_ADMIN", "1")
-
     port = find_free_port(args.port)
     base = f"http://{HOST}:{port}"
     app = load_app()

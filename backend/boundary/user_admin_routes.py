@@ -1,5 +1,7 @@
-"""Boundary: HTTP routes for the User Admin role."""
-import os
+"""Boundary: HTTP routes for the User Admin role.
+
+The administrator is the logged-in account (shared Log In), given by `admin_provider`; the frontend is never
+trusted to identify or authorise the administrator."""
 from flask import Blueprint, jsonify, request
 from backend.repositories.account_repo import AccountStoreNotConnected
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController, SuspensionError
@@ -9,11 +11,7 @@ def create_user_admin_blueprint(controller: SuspendAccountController, admin_prov
     bp = Blueprint('user_admin', __name__)
 
     def _admin():
-        admin = admin_provider() if admin_provider else None
-        if admin is None and os.getenv('AGROUP_LOCAL_DEV_ADMIN') == '1':
-            if request.remote_addr in ('127.0.0.1', '::1'):
-                admin = {'id': 'LOCAL-ADMIN', 'role': 'User Admin'}
-        return admin
+        return admin_provider() if admin_provider else None
 
     def _require_admin():
         admin = _admin()
@@ -25,15 +23,9 @@ def create_user_admin_blueprint(controller: SuspendAccountController, admin_prov
 
     @bp.post('/api/user-admin/accounts/<account_id>/suspend')
     def suspend_account(account_id):
-        # The frontend is not trusted to identify or authorise the administrator.
-        admin = admin_provider() if admin_provider else None
-        if admin is None and os.getenv('AGROUP_LOCAL_DEV_ADMIN') == '1':
-            if request.remote_addr in ('127.0.0.1', '::1'):
-                admin = {'id': 'LOCAL-ADMIN', 'role': 'User Admin'}
+        admin, error, status = _require_admin()
         if admin is None:
-            return jsonify(error='Sign in as a User Admin.', code='UNAUTHENTICATED'), 401
-        if admin.get('role') != 'User Admin':
-            return jsonify(error='User Admin permission required.', code='FORBIDDEN'), 403
+            return error, status
 
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
