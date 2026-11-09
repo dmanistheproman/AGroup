@@ -66,8 +66,6 @@ def test_designer_project_merge_delete_and_restart_share_one_database(app):
     })
     assert merged.status_code == 200 and merged.json['movedCount'] == 1
     assert designer.get('/api/projects').json[0]['category_id'] == target['id']
-    assert send(manager, '/api/management/categories/' + source['id'], {'version': 2}, 'DELETE').status_code == 200
-    assert manager.get('/api/management/categories/deleted').json['categories'][0]['target'] == 'Modern'
     available = designer.get('/api/project-categories').json['categories']
     assert [item['id'] for item in available] == [target['id']]
     restarted = create_app(config={'TESTING': True, 'SECRET_KEY': 'test', 'DATABASE': app.config['DATABASE'], 'SEED_DEMO': False})

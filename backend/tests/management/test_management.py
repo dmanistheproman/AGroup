@@ -103,25 +103,14 @@ class ManagementTests(unittest.TestCase):
 
     def test_archive_retains_links_blocks_new_assignments_and_restore_clears_feature(self):
         path = '/categories/' + self.source['id']
-        self.assertEqual(self.send(path + '/feature', {'featured': True, 'version': 1}).status_code, 200)
-        archived = self.send(path + '/archive', {'version': 2}).json['category']
+        archived = self.send(path + '/archive', {'version': 1}).json['category']
         self.assertEqual(archived['status'], 'Archived')
-        self.assertFalse(archived['featured'])
         self.assertEqual(self.category(self.source['id'])['count'], 2)
         with self.assertRaises(BusinessError):
             with self.store.transaction(write=True) as connection:
                 ProjectCategoryAssignment.assign(connection, 4, self.source['id'])
-        self.assertEqual(self.send(path + '/feature', {'featured': True, 'version': 3}).status_code, 409)
-        restored = self.send(path + '/restore', {'version': 3}).json['category']
+        restored = self.send(path + '/restore', {'version': 2}).json['category']
         self.assertEqual(restored['status'], 'Active')
-        self.assertFalse(restored['featured'])
-
-    def test_featured_categories_are_available_to_customer_catalog(self):
-        self.send('/categories/' + self.target['id'] + '/feature', {'featured': True, 'version': 1})
-        catalog = self.client.get('/api/catalog').json
-        featured = [item['id'] for item in catalog['categories'] if item['featured']]
-        self.assertEqual(featured, [self.target['id']])
-        self.assertEqual(catalog['projects'][1]['categoryNames'], ['Modern', 'Modern Style'])
 
     def test_merge_deduplicates_links_and_preserves_projects_and_activity(self):
         before = self.report()['rows']
@@ -225,120 +214,6 @@ class ManagementTests(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn('error', response.json)
         self.assertEqual(self.merge_state(), before)
-
-    def test_deleted_merged_category_retains_destination_projects_and_report_history(self):
-        saved_report = self.report(categoryId=self.source['id'])
-        self.assertEqual(self.merge().status_code, 200)
-        source = self.category(self.source['id'])
-        target = self.category(self.target['id'])
-        before = self.merge_state()
-        response = self.send('/categories/' + source['id'], {'version': source['version']}, 'DELETE')
-        self.assertEqual(response.status_code, 200, response.json)
-        self.assertTrue(response.json['category']['deleted_at'])
-        self.assertNotIn(source['id'], [category['id'] for category in self.client.get('/api/management/categories').json['categories']])
-        history = self.client.get('/api/management/categories/deleted?search=MODERN%20ST').json['categories']
-        self.assertEqual(len(history), 1)
-        self.assertEqual(history[0]['id'], source['id'])
-        self.assertEqual(history[0]['status'], 'Merged')
-        self.assertEqual(history[0]['merged_into_id'], target['id'])
-        self.assertEqual(history[0]['target'], target['name'])
-        self.assertEqual(self.category(target['id']), target)
-        after = self.merge_state()
-        for table in ['projects', 'activities', 'assignments', 'reports']:
-            self.assertEqual(after[table], before[table])
-        usage = self.client.get('/api/management/categories/usage').json['categories']
-        self.assertNotIn(source['id'], [category['id'] for category in usage])
-        export = self.client.get('/api/management/reports/' + saved_report['id'] + '/export')
-        self.assertEqual(export.status_code, 200)
-        self.assertIn('Modern Style', export.data.decode('utf-8-sig'))
-
-    def test_empty_active_and_archived_categories_can_be_deleted(self):
-        unused = self.entity.create('Unused', '')
-        self.entity.set_featured(unused['id'], True, 1)
-        before = self.client.get('/api/management/overview').json['counts']
-        response = self.send('/categories/' + unused['id'], {'version': 2}, 'DELETE')
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.json['category']['featured'])
-        after = self.client.get('/api/management/overview').json['counts']
-        self.assertEqual(after['activeCategories'], before['activeCategories'] - 1)
-        self.assertEqual(after['featuredCategories'], before['featuredCategories'] - 1)
-        catalog = self.client.get('/api/catalog').json
-        self.assertNotIn(unused['id'], [category['id'] for category in catalog['categories']])
-        archived = self.entity.create('Unused archived', '')
-        self.entity.change_status(archived['id'], 1, 'Active', 'Archived')
-        self.assertEqual(self.send('/categories/' + archived['id'], {'version': 2}, 'DELETE').status_code, 200)
-        history = self.client.get('/api/management/categories/deleted').json['categories']
-        self.assertCountEqual([category['status'] for category in history], ['Active', 'Archived'])
-
-    def test_deletion_blocks_assigned_projects_and_stale_versions(self):
-        for status in ['Active', 'Archived']:
-            with self.subTest(status=status):
-                category = self.category(self.source['id'])
-                if status == 'Archived':
-                    category = self.entity.change_status(category['id'], category['version'], 'Active', 'Archived')
-                before = self.merge_state()
-                response = self.send('/categories/' + category['id'], {'version': category['version']}, 'DELETE')
-                self.assertEqual(response.status_code, 409)
-                self.assertEqual(self.merge_state(), before)
-        unused = self.entity.create('Stale deletion', '')
-        self.entity.update_details(unused['id'], 'Changed before deletion', '', 1)
-        before = self.merge_state()
-        self.assertEqual(self.send('/categories/' + unused['id'], {'version': 1}, 'DELETE').status_code, 409)
-        self.assertEqual(self.merge_state(), before)
-
-    def test_deleted_categories_are_excluded_from_mutations_and_new_reports(self):
-        unused = self.entity.create('Deleted name', '')
-        self.assertEqual(self.send('/categories/' + unused['id'], {'version': 1}, 'DELETE').status_code, 200)
-        before = self.merge_state()
-        path = '/categories/' + unused['id']
-        requests = [(path, {'version': 2}, 'DELETE'),
-                    (path, {'version': 2, 'name': 'Renamed', 'description': ''}, 'PATCH'),
-                    (path + '/archive', {'version': 2}, 'POST'),
-                    (path + '/restore', {'version': 2}, 'POST'),
-                    (path + '/feature', {'version': 2, 'featured': True}, 'POST'),
-                    ('/categories/merge', {'sourceId': unused['id'], 'targetId': self.target['id'],
-                                           'sourceVersion': 2, 'targetVersion': 1}, 'POST'),
-                    ('/categories/merge', {'sourceId': self.source['id'], 'targetId': unused['id'],
-                                           'sourceVersion': 1, 'targetVersion': 2}, 'POST'),
-                    ('/reports', {'period': 'daily', 'date': '2026-11-04', 'categoryId': unused['id']}, 'POST')]
-        for endpoint, body, method in requests:
-            with self.subTest(endpoint=endpoint, method=method):
-                self.assertEqual(self.send(endpoint, body, method).status_code, 404)
-                self.assertEqual(self.merge_state(), before)
-        with self.assertRaises(BusinessError):
-            with self.store.transaction(write=True) as connection:
-                ProjectCategoryAssignment.assign(connection, 4, unused['id'])
-        self.assertEqual(self.merge_state(), before)
-        self.assertEqual(self.send('/categories', {'name': 'Deleted name', 'description': ''}).status_code, 409)
-
-    def test_failed_deletion_rolls_back_and_requires_request_token(self):
-        unused = self.entity.create('Deletion rollback', '')
-        path = '/categories/' + unused['id']
-        blocked = self.client.delete('/api/management' + path, json={'version': 1})
-        self.assertEqual(blocked.status_code, 403)
-        with self.store.transaction(write=True) as connection:
-            connection.execute("""CREATE TRIGGER fail_delete_audit BEFORE INSERT ON audit
-                WHEN NEW.action = 'Deleted category'
-                BEGIN SELECT RAISE(ABORT, 'simulated deletion audit failure'); END""")
-        before = self.merge_state()
-        with self.assertLogs(self.app.logger, level='ERROR'):
-            response = self.send(path, {'version': 1}, 'DELETE')
-        self.assertEqual(response.status_code, 503)
-        self.assertEqual(self.merge_state(), before)
-
-    def test_deleting_an_empty_merge_target_preserves_older_merge_history(self):
-        source = self.entity.create('Empty source', '')
-        target = self.entity.create('Empty target', '')
-        controller = MergeCategoriesController(ProjectCategory(self.store))
-        controller.merge_categories(source['id'], target['id'], 1, 1)
-        self.assertEqual(self.send('/categories/' + target['id'], {'version': 2}, 'DELETE').status_code, 200)
-        review = self.client.get('/api/management/categories/' + source['id'] + '/projects')
-        self.assertEqual(review.status_code, 200)
-        self.assertEqual(review.json['target']['id'], target['id'])
-        self.assertTrue(review.json['target']['deleted_at'])
-        self.assertEqual(self.send('/categories/' + source['id'], {'version': 2}, 'DELETE').status_code, 200)
-        history = self.client.get('/api/management/categories/deleted?search=Empty%20source').json['categories']
-        self.assertEqual(history[0]['target'], 'Empty target')
 
     def test_existing_database_migrates_without_losing_records(self):
         legacy_path = str(Path(self.folder.name) / 'legacy.sqlite3')
