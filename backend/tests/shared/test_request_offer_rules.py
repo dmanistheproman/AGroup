@@ -282,3 +282,19 @@ def test_an_expired_quotation_uses_a_shared_offer_status():
     from backend.entities.quotation import Quotation
     assert OfferStatus.EXPIRED == "EXPIRED"
     assert Quotation.STATUS_EXPIRED == OfferStatus.EXPIRED
+
+
+def test_an_overdue_quotation_expires_through_the_shared_status_change(shared, designer_side):
+    """ID-07 task 3 and the ID-07 use case: past its validity date an unanswered quotation becomes Expired,
+    the change is audited, and both the customer and the designer are told."""
+    shared.requests.assign_handler("CUS-101", "user-form-field")   # seeded as confirmed
+    q = designer_side.submit_quotation_controller.create("user-form-field", {
+        "enquiry_id": "CUS-101", "design_fee": 3000, "material_cost": 20000, "construction_fee": 15000,
+        "valid_until": "2099-01-01", "payment_schedule": "30/40/30"})
+    designer_side.submit_quotation_controller.present("user-form-field", q["id"])
+    designer_side.submit_quotation_controller.list_for("user-form-field", today="2099-06-01")
+    assert designer_side.submit_quotation_controller.quotations.get(q["id"]).status == "EXPIRED"
+    entry = shared.status_change.history_of("QUOTATION", q["id"])[-1]
+    assert (entry.to_status, entry.actor_id) == ("EXPIRED", "system")
+    assert "OFFER_EXPIRED" in kinds(shared, "CUS-101")
+    assert "OFFER_EXPIRED" in kinds(shared, "user-form-field")
