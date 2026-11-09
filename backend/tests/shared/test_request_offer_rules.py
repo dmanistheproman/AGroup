@@ -274,3 +274,11 @@ def test_turning_off_offer_updates_stops_them(shared, designer_side):
         "valid_until": "2099-01-01", "payment_schedule": "all at once"})
     designer_side.submit_quotation_controller.present("user-form-field", q["id"])
     assert "OFFER_SENT" not in kinds(shared, "CUS-101")
+
+
+def test_an_expired_quotation_uses_a_shared_offer_status():
+    """Final task list, Offers: status Draft/Sent/Accepted/Declined/Superseded, plus Expired for quotations (ID-07)."""
+    from backend.entities.enums import OfferStatus
+    from backend.entities.quotation import Quotation
+    assert OfferStatus.EXPIRED == "EXPIRED"
+    assert Quotation.STATUS_EXPIRED == OfferStatus.EXPIRED
