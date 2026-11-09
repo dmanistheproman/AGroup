@@ -67,6 +67,22 @@ class SubmitProposalController:
         self.proposals.save(proposal)
         return _view(proposal)
 
+    def supersede(self, user_id, proposal_id, reason=None):
+        """UC-ID09 AF: the client has not responded for a long time, so the designer sets the sent proposal to
+        Superseded (shared OfferStatus). Only a proposal under review can be superseded; no reminder is sent."""
+        proposal = self.proposals.get(proposal_id)
+        if proposal is None:
+            raise ValueError("Proposal not found.")
+        if proposal.status != DesignProposal.STATUS_UNDER_REVIEW:
+            raise ValueError("Only a proposal sent to the client can be set to Superseded.")
+        if self.status_change is not None:
+            self.status_change.change_status("DESIGN_PROPOSAL", proposal.id, DesignProposal.STATUS_SUPERSEDED,
+                                             user_id, (reason or "").strip() or None)
+            return _view(self.proposals.get(proposal.id))
+        proposal.status = DesignProposal.STATUS_SUPERSEDED
+        self.proposals.save(proposal)
+        return _view(proposal)
+
 class ReviseProposalController:
     def __init__(self, proposal_repo, upload_service):
         self.proposals = proposal_repo

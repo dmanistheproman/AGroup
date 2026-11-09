@@ -195,6 +195,14 @@ def create_designer_blueprint(c, upload_dir, login):
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
+    @bp.route("/api/proposals/<proposal_id>/supersede", methods=["POST"])
+    def api_supersede_proposal(proposal_id):
+        try:
+            return jsonify(c.submit_proposal_controller.supersede(current_user_id(), proposal_id,
+                                                                  request.form.get("reason", "")))
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+
     @bp.route("/api/proposals/<proposal_id>/revise", methods=["POST"])
     def api_revise_proposal(proposal_id):
         data = {"description": request.form.get("description", ""),
