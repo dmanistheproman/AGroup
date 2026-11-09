@@ -24,6 +24,7 @@
   let openConversation = null;       // designer messages page
 
   const main = () => document.querySelector('#portal-main');
+  const PRIORITY = { LOW: 'Low', NORMAL: 'Normal', HIGH: 'High' };   // HD-01
   const me = () => (window.AGroupAccount && window.AGroupAccount.current()) || {};
   const toast = text => (window.AG && window.AG.toast ? window.AG.toast(text) : alert(text));
   const time = R.time;
@@ -84,11 +85,12 @@
 
   function ticketTable(items) {
     return `<div class="table-wrap"><table><thead><tr><th>Reference</th><th>Request</th><th>Requester</th><th>Status</th>
-      <th>Handler</th><th>Opened</th><th></th></tr></thead><tbody>${items.map(t => `<tr>
+      <th>Priority</th><th>Assignee</th><th>Opened</th><th></th></tr></thead><tbody>${items.map(t => `<tr>
         <td>${esc(t.id)}</td>
         <td><b>${esc(t.type_label || TYPES[t.type] || t.type)}</b><small>${esc(t.related_project_title ? `${t.related_project_title} · ` : '')}${esc((t.details || '').slice(0, 90))}</small></td>
         <td>${esc(t.requester_name || t.requester_id)}<small>${esc(t.requester_type === 'DESIGNER' ? 'Interior designer' : 'Customer')}</small></td>
-        <td>${statusBadge(t.status)}</td><td>${esc(t.handler_name || 'Not claimed')}</td><td>${time(t.created_at)}</td>
+        <td>${statusBadge(t.status)}</td><td>${esc(PRIORITY[t.priority] || t.priority || '')}</td>
+        <td>${esc(t.handler_name || 'Not claimed')}</td><td>${time(t.created_at)}</td>
         <td><button class="text-button" data-shared="open-ticket" data-id="${esc(t.id)}">Open ${icon('arrow-right')}</button></td>
       </tr>`).join('')}</tbody></table></div>`;
   }
@@ -118,8 +120,10 @@
   function modal() { return { dialog: document.querySelector('#modal'), content: document.querySelector('#modal-content') }; }
 
   async function showTicket(id) {
-    const [page, notes] = await Promise.all([R.call('GET', `/api/support/tickets/${encodeURIComponent(id)}`),
-                                            R.call('GET', `/api/notes/REQUEST/${encodeURIComponent(id)}`)]);
+    const agent = me().role === 'helpdesk';   // HD-01: only helpdesk agents set the priority and assignee
+    const [page, notes, staff] = await Promise.all([R.call('GET', `/api/support/tickets/${encodeURIComponent(id)}`),
+                                            R.call('GET', `/api/notes/REQUEST/${encodeURIComponent(id)}`),
+                                            agent ? R.call('GET', '/api/support/agents') : null]);
     if (!page.ok) { toast(page.data.error || 'Could not open the ticket.'); return; }
     const { ticket, messages, history, allowed_statuses: allowed, names } = page.data;
     openTicket = ticket;
@@ -134,7 +138,8 @@
       <dl class="detail-list">
         <dt>Requester</dt><dd>${esc(names[ticket.requester_id] || ticket.requester_id)} (${ticket.requester_type === 'DESIGNER' ? 'interior designer' : 'customer'})</dd>
         <dt>Opened</dt><dd>${time(ticket.created_at)}</dd>
-        <dt>Handler</dt><dd>${esc(names[ticket.handler_id] || 'Not claimed')}</dd>
+        <dt>Priority</dt><dd>${esc(PRIORITY[ticket.priority] || ticket.priority)}</dd>
+        <dt>Assignee</dt><dd>${esc(names[ticket.handler_id] || 'Not claimed')}</dd>
         ${project ? `<dt>Project</dt><dd>${esc(ticket.related_project_title || project)} (${esc(project)}) · <a href="index.html#project-${projectNumber}" target="_blank" rel="noopener">View project</a></dd>` : ''}
         ${ticket.merged_into_id ? `<dt>Merged into</dt><dd><button class="text-button" data-shared="open-ticket" data-id="${esc(ticket.merged_into_id)}">${esc(ticket.merged_into_id)}</button></dd>` : ''}
         ${ticket.resolution_note ? `<dt>Resolution</dt><dd>${esc(ticket.resolution_note)}</dd>` : ''}
@@ -146,6 +151,12 @@
         ${allowed.filter(s => s !== 'MERGED').map(s => `<button class="button outline" data-shared="move" data-status="${s}">${esc(MOVE_LABEL[s] || R.label(s))}</button>`).join('')}
         ${project && ticket.type === 'REPORT_IDP' ? `<button class="button outline" data-shared="hide-project" data-project="${esc(project)}">${icon('eye-off')} Hide project</button>` : ''}
       </div>
+      ${agent && !readOnly && staff && staff.ok ? `<form class="merge-form" data-shared-form="triage">
+        <label>PRIORITY<select name="priority">${Object.entries(PRIORITY).map(([v, l]) =>
+          `<option value="${v}" ${v === ticket.priority ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label>ASSIGNEE<select name="assignee_id"><option value="">Not claimed</option>${staff.data.agents.map(a =>
+          `<option value="${esc(a.id)}" ${a.id === ticket.handler_id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
+        <button class="button outline" type="submit">Save priority and assignee</button></form>` : ''}
       ${!readOnly ? `<form class="merge-form" data-shared-form="merge">
         <label>MERGE A DUPLICATE INTO THIS TICKET<input name="other" placeholder="Duplicate ticket reference, e.g. TKT-1002" required></label>
         <button class="button outline" type="submit">${icon('merge')} Merge</button></form>` : ''}
@@ -321,6 +332,8 @@
       render('helpdesk', list.section);
     } else if (kind === 'uploads') { uploadsQuery = { q: value('q'), page: 1 }; render('helpdesk', 'uploads'); }
     else if (kind === 'reply') afterChange(await R.call('POST', `/api/threads/${openTicket.thread_id}/messages`, { body: value('body') }), 'Reply sent.');
+    else if (kind === 'triage') afterChange(await R.call('POST', `/api/support/tickets/${openTicket.id}/triage`,
+      { priority: value('priority'), assignee_id: value('assignee_id') }), 'Priority and assignee saved.');
     else if (kind === 'note') afterChange(await R.call('POST', `/api/notes/REQUEST/${openTicket.id}`, { text: value('text') }), 'Note added.');
     else if (kind === 'merge') {
       const other = value('other').toUpperCase();

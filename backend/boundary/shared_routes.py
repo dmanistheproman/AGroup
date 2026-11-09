@@ -197,6 +197,19 @@ def create_shared_blueprint(shared):
         find_ticket(ticket_id)
         return ticket_page(shared.requests.assign_handler(ticket_id, login.current_user().id))
 
+    # ---- HD-01: set a ticket's priority and assignee (any helpdesk agent) ----
+    @bp.get("/api/support/agents")
+    @require_role(login, UserAccount.ROLE_HELPDESK)
+    def helpdesk_agents():
+        return jsonify(agents=shared.ticket_triage.agents())
+
+    @bp.post("/api/support/tickets/<ticket_id>/triage")
+    @require_role(login, UserAccount.ROLE_HELPDESK)
+    def triage_ticket(ticket_id):
+        data = body()
+        return ticket_page(shared.ticket_triage.update(ticket_id, login.current_user(), data.get("priority"),
+                                                       data.get("assignee_id")))
+
     # ---- Move a ticket (ConfirmWithReasonDialog -> TicketLifecycle -> StatusChangeService) ----
     @bp.post("/api/support/tickets/<ticket_id>/status")
     @require_role(login, UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN)

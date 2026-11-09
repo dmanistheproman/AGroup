@@ -27,6 +27,7 @@ from backend.repositories.thread_repo import ThreadRepo
 from backend.repositories.attachment_repo import AttachmentRepo
 from backend.controllers.shared.status_change_service import StatusChangeService
 from backend.controllers.shared.ticket_lifecycle import TicketLifecycle
+from backend.controllers.helpdesk.update_ticket_triage_controller import UpdateTicketTriageController
 from backend.boundary.shared_routes import create_shared_blueprint
 from backend.repositories.message_repo import MessageRepo
 from backend.repositories.upload_failure_repo import UploadFailureRepo
@@ -251,6 +252,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.submit_ticket = SubmitTicketController(shared.requests)
     shared.status_change = StatusChangeService(AuditLogRepo(store), shared.rules)
     shared.ticket_lifecycle = TicketLifecycle(shared.status_change, shared.tickets)   # registers SUPPORT_TICKET
+    shared.ticket_triage = UpdateTicketTriageController(shared.tickets, user_accounts, shared.requests)   # HD-01
     shared.status_change.register("USER_ACCOUNT", user_accounts.get, user_accounts.save)
     shared.project_status = ProjectStatusController(shared.status_change, shared.projects)   # registers PROJECT
     shared.project_status.on_hidden = shared.ticket_lifecycle.escalate_reports_about   # HD-09 task 3 -> UA-12
