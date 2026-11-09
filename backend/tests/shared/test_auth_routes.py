@@ -24,7 +24,8 @@ def test_login_returns_the_public_view_of_the_user():
     res = log_in(client())
     assert res.status_code == 200
     assert res.get_json()["user"] == {"id": "CUS-101", "name": "Alex Tan", "email": "customer@demo.agroup",
-                                      "role": "CUSTOMER", "status": "ACTIVE"}
+                                      "role": "CUSTOMER", "status": "ACTIVE",
+                                      "flagged": False, "flag_reason": None}
 
 
 def test_me_follows_the_session():

@@ -30,7 +30,8 @@ SEED_ACCOUNT_DATA = [
      "role": UserAccount.ROLE_PLATFORM_MANAGER},
 ]
 
-COLUMNS = ("user_id", "name", "email", "password_hash", "contact_phone", "role", "status", "created_at")
+COLUMNS = ("user_id", "name", "email", "password_hash", "contact_phone", "role", "status",
+           "is_flagged", "flag_reason", "created_at")
 
 
 class UserAccountRepo:
@@ -52,12 +53,14 @@ class UserAccountRepo:
     @staticmethod
     def _values(account):
         return (account.id, account.name, account.email, account.password_hash, account.contact_phone,
-                account.role, account.status, account.created_at)
+                account.role, account.status, int(account.flagged), account.flag_reason, account.created_at)
 
     @staticmethod
     def _account(row):
         return UserAccount(row["user_id"], row["name"], row["email"], row["password_hash"], row["role"],
-                           status=row["status"], contact_phone=row["contact_phone"], created_at=row["created_at"])
+                           status=row["status"], contact_phone=row["contact_phone"],
+                           flagged=bool(row["is_flagged"]), flag_reason=row["flag_reason"],
+                           created_at=row["created_at"])
 
     def _one(self, where, value):
         with self.store.transaction() as connection:
@@ -74,7 +77,8 @@ class UserAccountRepo:
                     INSERT INTO user_account({', '.join(COLUMNS)}) VALUES ({', '.join('?' * len(COLUMNS))})
                     ON CONFLICT(user_id) DO UPDATE SET name = excluded.name, email = excluded.email,
                         password_hash = excluded.password_hash, contact_phone = excluded.contact_phone,
-                        role = excluded.role, status = excluded.status
+                        role = excluded.role, status = excluded.status,
+                        is_flagged = excluded.is_flagged, flag_reason = excluded.flag_reason
                 """, self._values(account))
         except sqlite3.IntegrityError as error:
             raise ValueError("This email is already used by another account.") from error

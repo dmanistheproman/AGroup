@@ -26,7 +26,8 @@ class UserAccount:
     REASON_REQUIRED = frozenset({AccountStatus.SUSPENDED, AccountStatus.ACTIVE})
 
     def __init__(self, user_id, name, email, password_hash, role,
-                 status=STATUS_ACTIVE, contact_phone=None, created_at=None):
+                 status=STATUS_ACTIVE, contact_phone=None, created_at=None,
+                 flagged=False, flag_reason=None):
         if role not in self.ROLES:
             raise ValueError(f"Unknown role: {role}.")
         self.id = user_id
@@ -36,6 +37,8 @@ class UserAccount:
         self.role = role
         self.status = status
         self.contact_phone = contact_phone
+        self.flagged = flagged
+        self.flag_reason = flag_reason
         self.created_at = created_at or datetime.now(timezone.utc).isoformat()
 
     @classmethod
@@ -54,6 +57,22 @@ class UserAccount:
     def is_active(self):
         return self.status == self.STATUS_ACTIVE
 
+    def flag(self, reason):
+        """UA-09: mark the account as suspicious with a reason."""
+        reason = (reason or "").strip()
+        if not reason:
+            raise ValueError("A flag reason is required.")
+        self.flagged = True
+        self.flag_reason = reason
+        return self
+
+    def unflag(self):
+        """UA-09: clear the flag."""
+        self.flagged = False
+        self.flag_reason = None
+        return self
+
     def public_view(self):
         return {"id": self.id, "name": self.name, "email": self.email,
-                "role": self.role, "status": self.status}
+                "role": self.role, "status": self.status,
+                "flagged": self.flagged, "flag_reason": self.flag_reason}
