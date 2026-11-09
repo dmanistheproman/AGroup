@@ -1,6 +1,6 @@
 """<<entity>> Enquiry — the smallest shared part of the C-06 request (ID-07 needs a C-06 request to attach to).
 Entity and confirmation rules only; the client form, SubmitEnquiryController and the ENQUIRY event are still C-06 tasks."""
-from datetime import date, timedelta
+from datetime import date
 from backend.entities.request import Request
 
 
@@ -102,14 +102,4 @@ class Enquiry(Request):
 
     def unanswered_count(self):
         return sum(1 for q in self.questions if q["answer"] is None and not q["flagged"])
-
-    def unanswered_questions(self, today, deadline_days=7):
-        """ID-11 AF2: questions still unanswered after the expected reply time.
-
-        Answered and flagged questions are excluded, and a question without an asked_at
-        date can never be overdue.
-        """
-        threshold = (date.fromisoformat(today) - timedelta(days=deadline_days)).isoformat()
-        return [q for q in self.questions
-                if q["answer"] is None and not q["flagged"] and q.get("asked_at") and q["asked_at"] < threshold]
 

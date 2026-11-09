@@ -100,31 +100,6 @@ class ReviewEnquiryController:
         self._repo.save(enquiry)
         return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "message": "Question flagged — transferred to the platform for handling (demo record; notification service not implemented)."}
 
-    def remind_unanswered(self, deadline_days=7, today=None, handler_id=None):
-        """ID-11 AF2: remind the designer about client questions that stay unanswered past
-        the expected reply time. Answered and flagged questions never trigger a reminder.
-        With handler_id, only that designer's enquiries are checked. A designer who already
-        has a reminder about an enquiry is not reminded about it again."""
-        from datetime import date
-        today = today or date.today().isoformat()
-        reminded = []
-        notifications = getattr(self._shared, "notifications", None)
-        for enquiry in self._repo.all():
-            if not enquiry.handler_id or (handler_id and enquiry.handler_id != handler_id):
-                continue
-            if notifications is not None and notifications.has_sent(enquiry.handler_id, "REPLY_OVERDUE",
-                                                                    "ENQUIRY", enquiry.id):
-                continue
-            for question in enquiry.unanswered_questions(today, deadline_days)[:1]:   # one reminder per enquiry
-                if self._shared is not None:
-                    self._shared.rules.notify(
-                        enquiry.handler_id, "REPLY_OVERDUE",
-                        f"Reminder: you have not replied to \"{question['body']}\" from {enquiry.client_name}.",
-                        "portal.html#designer/enquiries", "ENQUIRY", enquiry.id)
-                reminded.append({"enquiry_id": enquiry.id, "question_id": question["question_id"],
-                                 "handler_id": enquiry.handler_id, "client_name": enquiry.client_name})
-        return {"reminded": reminded, "count": len(reminded)}
-
 
     def _handle(self, enquiry, user_id):
         """The designer who answers an enquiry nobody handles yet becomes its handler (S-19)."""
