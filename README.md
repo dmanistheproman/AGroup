@@ -67,6 +67,8 @@ The demo accounts above work on the test database too; generated accounts (for e
 
 `python scripts/check_data.py [database]` checks business rules that must hold for any data (merged tickets are linked, every audited status change is allowed and has its reason, favourites and payments point at valid records, only participants write in a conversation, ...). The **Nightly random data** workflow runs every day at 04:00 Singapore time (and on demand from the Actions tab): it generates a full data set with a new random seed, checks the rules and smoke-tests the app on it. The seed is printed so a failure can be repeated locally.
 
+`python scripts/evaluate_recommendations.py [database]` runs the C-09 offline check from the data-driven plan: for every customer with at least two saved projects it hides the latest one and measures the hit rate@5 of the recommendations against a popular-projects baseline. The nightly workflow runs it on each new data set.
+
 ## Platform Management
 
 Start the shared application with `python run.py`, log in as `manager@demo.agroup` with password `demo`, then open **Project categories**. The workspace supports the 14 management stories (PM-01 to PM-14), including reports, category merging and featured categories.
@@ -124,7 +126,7 @@ To smoke-test your local server, run `python scripts/smoke_test.py http://127.0.
 AGroup/
 ├── run.py                  one-command launcher (--database to pick a database)
 ├── SHARED_PARTS.md         what the shared parts offer each role (handover)
-├── scripts/                smoke_test.py, generate_data.py (test data), build_icons.py
+├── scripts/                smoke_test.py, generate_data.py (test data), evaluate_recommendations.py, build_icons.py
 ├── instance/               SQLite databases (created on first run, not in git)
 ├── frontend/               Boundary (UI): static pages, no build step
 │   ├── index.html          customer website

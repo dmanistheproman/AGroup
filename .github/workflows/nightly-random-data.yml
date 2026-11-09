@@ -46,6 +46,8 @@ jobs:
         run: python scripts/generate_data.py --database "$AGROUP_DATABASE" --seed ${{ steps.seed.outputs.seed }}
       - name: Check business rules
         run: python scripts/check_data.py "$AGROUP_DATABASE"
+      - name: C-09 offline hit rate against the popular-projects baseline
+        run: python scripts/evaluate_recommendations.py "$AGROUP_DATABASE"
       - name: Start the app on the generated data
         run: |
           python -c "from backend.server import create_app; create_app().run(host='127.0.0.1', port=5050)" > app.log 2>&1 &
