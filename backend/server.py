@@ -305,6 +305,7 @@ def create_app(registry=None, admin_provider=None, config=None):
 
     # ----- Interior Designer -----
     designer = build_designer_controllers(upload_service, store, user_accounts)
+    shared.rules.customer_profiles = designer.customer_repo   # C-12: new projects in the customer's preferred styles
 
     # ----- Shared: login and Create Account (X-03, S-13) -----
     accounts = AccountService(user_accounts, designer.customer_repo, designer.company_repo)
