@@ -52,6 +52,7 @@ from backend.boundary.report_routes import create_report_blueprint
 # ----- User Admin -----
 from backend.repositories.account_repo import UnconnectedAccountRegistry
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController
+from backend.controllers.user_admin.flag_account_controller import FlagAccountController
 from backend.boundary.user_admin_routes import create_user_admin_blueprint
 
 # ----- Interior Designer -----
@@ -111,7 +112,7 @@ FRONTEND_DIR = ROOT / 'frontend'
 UPLOAD_DIR = ROOT / 'backend' / 'uploads'
 
 
-def build_designer_controllers(upload_service, store):
+def build_designer_controllers(upload_service, store, account_repo=None):
     """ID-01 … ID-13 wiring, moved from the ID branch's run.py."""
     company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA, store)
     verification_repo = VerificationRepo(store)
@@ -135,7 +136,8 @@ def build_designer_controllers(upload_service, store):
     c.revise_proposal_controller = ReviseProposalController(proposal_repo, upload_service)
     c.submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
     c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10: requirement review (accept/decline/clarify)
-    c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo))
+    c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo,
+                                                                                account_repo))
     c.statistics_controller = ViewProjectStatisticsController(ProjectActivityRepo(store), projects_repo)
     c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store))
     # ---------- ID-09: payment progress (the platform records payments but never collects them; milestones belong to accepted quotations) ----------
@@ -279,10 +281,11 @@ def create_app(registry=None, admin_provider=None, config=None):
     # the connected UserAccountRepo, so a suspension persists and is audited (no more 503).
     account_registry = registry if registry is not None else user_accounts
     suspend_account = SuspendAccountController(account_registry)
-    app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider))
+    flag_account = FlagAccountController(user_accounts)   # UA-09: flag / unflag a suspicious account
+    app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider, flag_account))
 
     # ----- Interior Designer -----
-    designer = build_designer_controllers(upload_service, store)
+    designer = build_designer_controllers(upload_service, store, user_accounts)
 
     # ----- Shared: login and Create Account (X-03, S-13) -----
     accounts = AccountService(user_accounts, designer.customer_repo, designer.company_repo)

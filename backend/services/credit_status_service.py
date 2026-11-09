@@ -1,16 +1,17 @@
 """ID-12 task 1 — CreditStatusService. Rule: use platform activity only —
-completed collaborations (COMPLETED enquiries) and payment punctuality (ID-09 milestones).
-Upheld complaints (HD-10) and account flags (UA-09) are not implemented → no signal, reported as such."""
+completed collaborations (COMPLETED enquiries), payment punctuality (ID-09 milestones)
+and a User Admin account flag (UA-09). Upheld complaints (HD-10) are not implemented yet."""
 from datetime import date
 from backend.entities.payment_milestone import PaymentMilestone
 
 class CreditStatusService:
     GOOD = "Good"; LIMITED = "Limited history"; AT_RISK = "At risk"
 
-    def __init__(self, enquiry_repo, quotation_repo, payment_repo):
+    def __init__(self, enquiry_repo, quotation_repo, payment_repo, account_repo=None):
         self._enquiries = enquiry_repo
         self._quotations = quotation_repo
         self._payments = payment_repo
+        self._accounts = account_repo
 
     def status_for(self, customer_id, today=None):
         """ID-12: the designer's view. Only customers who sent the designer a request can be checked."""
@@ -47,6 +48,11 @@ class CreditStatusService:
         if late: negatives += len(late); reasons.append("%d late payment(s) recorded." % len(late))
         if overdue: negatives += len(overdue); reasons.append("%d overdue payment(s)." % len(overdue))
         if ontime: positives += 1; reasons.append("%d on-time payment(s)." % len(ontime))
+        if self._accounts is not None:
+            account = self._accounts.get(customer_id)
+            if account is not None and account.flagged:
+                negatives += 1
+                reasons.append("Account flagged by a User Admin: %s." % (account.flag_reason or "no reason given"))
         if not reasons:
             return {"level": None, "reasons": [],
                     "message": "No credit records available — evaluate carefully before collaborating."}

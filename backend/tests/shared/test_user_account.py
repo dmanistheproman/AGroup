@@ -40,7 +40,8 @@ def test_unknown_role_is_rejected():
 def test_public_view_has_no_password_hash():
     view = make().public_view()
     assert view == {"id": "USR-001", "name": "Alex Tan", "email": "alex@example.com",
-                    "role": UserAccount.ROLE_CUSTOMER, "status": UserAccount.STATUS_ACTIVE}
+                    "role": UserAccount.ROLE_CUSTOMER, "status": UserAccount.STATUS_ACTIVE,
+                    "flagged": False, "flag_reason": None}
 
 
 def test_account_id_matches_id_for_the_user_admin_contract():

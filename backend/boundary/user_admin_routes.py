@@ -5,8 +5,23 @@ from backend.repositories.account_repo import AccountStoreNotConnected
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController, SuspensionError
 
 
-def create_user_admin_blueprint(controller: SuspendAccountController, admin_provider=None):
+def create_user_admin_blueprint(controller: SuspendAccountController, admin_provider=None, flag_controller=None):
     bp = Blueprint('user_admin', __name__)
+
+    def _admin():
+        admin = admin_provider() if admin_provider else None
+        if admin is None and os.getenv('AGROUP_LOCAL_DEV_ADMIN') == '1':
+            if request.remote_addr in ('127.0.0.1', '::1'):
+                admin = {'id': 'LOCAL-ADMIN', 'role': 'User Admin'}
+        return admin
+
+    def _require_admin():
+        admin = _admin()
+        if admin is None:
+            return None, jsonify(error='Sign in as a User Admin.', code='UNAUTHENTICATED'), 401
+        if admin.get('role') != 'User Admin':
+            return None, jsonify(error='User Admin permission required.', code='FORBIDDEN'), 403
+        return admin, None, None
 
     @bp.post('/api/user-admin/accounts/<account_id>/suspend')
     def suspend_account(account_id):
@@ -37,5 +52,32 @@ def create_user_admin_blueprint(controller: SuspendAccountController, admin_prov
             status='SUSPENDED',
             suspendedAt=record.suspended_at.isoformat(),
         ), 200
+
+    @bp.post('/api/user-admin/accounts/<account_id>/flag')
+    def flag_account(account_id):
+        admin, error, status = _require_admin()
+        if admin is None:
+            return error, status
+        if flag_controller is None:
+            return jsonify(error='Account flagging is not available.', code='UNAVAILABLE'), 503
+        data = request.get_json(silent=True) or {}
+        try:
+            account = flag_controller.flag(account_id, data.get('reason'))
+            return jsonify(message='Account flagged.', account=account.public_view()), 200
+        except ValueError as err:
+            return jsonify(error=str(err)), 400
+
+    @bp.delete('/api/user-admin/accounts/<account_id>/flag')
+    def unflag_account(account_id):
+        admin, error, status = _require_admin()
+        if admin is None:
+            return error, status
+        if flag_controller is None:
+            return jsonify(error='Account flagging is not available.', code='UNAVAILABLE'), 503
+        try:
+            account = flag_controller.unflag(account_id)
+            return jsonify(message='Account unflagged.', account=account.public_view()), 200
+        except ValueError as err:
+            return jsonify(error=str(err)), 400
 
     return bp
