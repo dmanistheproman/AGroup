@@ -19,6 +19,7 @@ from backend.controllers.customer.recommendation_service import RecommendationSe
 from backend.data_generator import TEST_DATABASE  # noqa: E402
 from backend.database import install_schema  # noqa: E402
 from backend.entities.user_account import UserAccount  # noqa: E402
+from backend.repositories.company_repo import CompanyRepo  # noqa: E402
 from backend.repositories.favourite_repo import FavouriteRepository  # noqa: E402
 from backend.repositories.project_repo import ProjectRepo  # noqa: E402
 from backend.repositories.user_account_repo import UserAccountRepo  # noqa: E402
@@ -29,14 +30,12 @@ LIMIT = 5
 
 def evaluate(path):
     store = install_schema(SQLiteStore(path))
-    service = RecommendationService(FavouriteRepository(store), ProjectRepo(store))
-    customers = [a.id for a in UserAccountRepo(store).all() if a.role == UserAccount.ROLE_CUSTOMER]
-    results = [service.evaluate(customer_id, LIMIT) for customer_id in customers]
-    evaluated = [r for r in results if r["hit"] is not None]
-    count = len(evaluated)
-    hit_rate = sum(r["hit"] for r in evaluated) / count if count else None
-    baseline = sum(r["baseline_hit"] for r in evaluated) / count if count else None
-    return {"customers": len(customers), "evaluated": count, "hit_rate": hit_rate, "baseline": baseline}
+    accounts = UserAccountRepo(store)
+    service = RecommendationService(
+        FavouriteRepository(store), ProjectRepo(store),
+        customers=lambda: [a.id for a in accounts.all() if a.role == UserAccount.ROLE_CUSTOMER],
+        hidden_firms=CompanyRepo(store).names_of_suspended_designers)
+    return service.evaluate_all(LIMIT)
 
 
 def report(result):
@@ -45,8 +44,8 @@ def report(result):
         return lines + ["No customer can be evaluated yet."]
     lines.append(f"Hit rate@{LIMIT}: recommendation {result['hit_rate']:.1%}, "
                  f"popular-projects baseline {result['baseline']:.1%}.")
-    lines.append("The recommendation beats the baseline." if result["hit_rate"] > result["baseline"] else
-                 "The recommendation does not beat the baseline: show the popular projects until it does.")
+    lines.append("The recommendation beats the baseline, so customers get it." if result["hit_rate"] > result["baseline"]
+                 else "The recommendation does not beat the baseline, so customers get the popular projects.")
     return lines
 
 

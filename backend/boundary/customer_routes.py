@@ -143,7 +143,8 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
         if recommendations_controller is None:
             return jsonify(error="Recommendations are not available."), 404
         limit = request.args.get("limit", 5, type=int)
-        return jsonify(recommendations=recommendations_controller.recommend(customer_id(), limit))
+        rows = recommendations_controller.recommend(customer_id(), limit)
+        return jsonify(recommendations=rows, strategy=recommendations_controller.strategy())
 
     @bp.get("/api/recommendations/evaluate")
     def evaluate_recommendations():

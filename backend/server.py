@@ -343,7 +343,10 @@ def create_app(registry=None, admin_provider=None, config=None):
     compare_designers = CompareDesignersController(FavouriteRepository(store), shared.projects,
                                                    designer.company_repo, designer.list_reviews_controller.reviews,
                                                    customer_profiles=designer.customer_repo)
-    recommendations = ViewRecommendationsController(RecommendationService(FavouriteRepository(store), shared.projects))
+    recommendations = ViewRecommendationsController(RecommendationService(   # C-09, data-driven plan stages 7 and 9
+        FavouriteRepository(store), shared.projects,
+        customers=lambda: [a.id for a in user_accounts.all() if a.role == UserAccount.ROLE_CUSTOMER],
+        hidden_firms=designer.company_repo.names_of_suspended_designers))
     app.register_blueprint(create_customer_blueprint(
         favourites, login, shared.collections,
         designer.credit_status_controller,
