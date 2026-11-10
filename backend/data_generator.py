@@ -16,6 +16,8 @@ from types import SimpleNamespace
 
 from werkzeug.security import generate_password_hash
 
+from backend.services.management_rules import timestamp
+
 ROOT = Path(__file__).resolve().parent.parent
 DEMO_DATABASE = ROOT / "instance" / "agroup.sqlite3"
 TEST_DATABASE = ROOT / "instance" / "test-data.sqlite3"
@@ -168,6 +170,7 @@ class _Generator:
             activity=ActivityRecorder(store))
         self.now = datetime.now(timezone.utc)
         self.customers, self.designers, self.agents, self.visible = [], [], [], []
+        self.published_at = {}   # project reference -> when it was published (PM-05 counts publications)
 
     def pick(self, items):
         return items[self.rng.randrange(len(items))]
@@ -176,11 +179,22 @@ class _Generator:
         return self.s.user_accounts.get(user_id)
 
     def run(self):
-        for step in (self.people, self.categories, self.projects, self.activity, self.enquiries, self.offers,
+        for step in (self.people, self.spread_accounts, self.categories, self.projects, self.activity, self.enquiries,
+                     self.offers,
                      self.reviews, self.verifications, self.tickets, self.conversations, self.favourites,
                      self.collections, self.preferences, self.upload_failures):
             self.log(f"  {step.__name__} ...")
             step()
+
+    # ---- PM-05 / PM-12: accounts join over the last 90 days (designers and agents first, before the projects) ----
+    def spread_accounts(self):
+        joined = [(a, self.rng.uniform(0, 90)) for a in self.customers]
+        joined += [(a, self.rng.uniform(75, 90)) for a, _ in self.designers]
+        joined += [(a, self.rng.uniform(75, 90)) for a in self.agents if a.id != "user-helpdesk"]
+        with self.s.store.transaction(write=True) as connection:
+            for account, days in joined:
+                connection.execute("UPDATE user_account SET created_at = ? WHERE user_id = ?",
+                                   ((self.now - timedelta(days=days)).isoformat(), account.id))
 
     # ---- accounts, profiles and companies (S-13) ----
     def people(self):
@@ -240,13 +254,14 @@ class _Generator:
             self.s.projects.save({
                 "id": reference, "title": f"{style['name']} {room} in {self.pick(LOCATIONS)}",
                 "description": f"A {style['name'].lower()} {room} with {materials[0]} and {materials[1]}.",
-                "category_id": style["id"], "status": "DRAFT" if draft else "PUBLISHED", "owner_id": designer.id,
+                "category_id": style["id"], "status": "DRAFT", "owner_id": designer.id,
                 "firm": company.name, "type": self.pick(HOME_TYPES), "location": self.pick(LOCATIONS),
                 "price": self.rng.randrange(25, 220) * 1000, "area": f"{self.rng.randrange(45, 180)} m²",
                 "image": self.pick(IMAGES), "materials": ", ".join(materials),
                 "stage": self.pick(["Past project", "Current project"])})
             if draft:
                 continue
+            self.publish(designer, reference)
             roll = self.rng.random()
             if roll < 0.05:
                 self.s.project_status.change(designer, reference, "UNPUBLISHED", "Refreshing the photos.")
@@ -259,6 +274,18 @@ class _Generator:
         self.visible.sort()
         self.titles = {p["id"]: p["title"] for p in self.s.projects.all()}
 
+    def publish(self, designer, reference):
+        """ID-03.4: a new project is a draft; the designer publishes it through the shared status change (audited).
+        The project was added and published some time in the last 75 days, after its designer joined."""
+        self.s.project_status.change(designer, reference, "PUBLISHED")
+        when = self.now - timedelta(days=self.rng.uniform(0, 75))
+        self.published_at[reference] = when
+        with self.s.store.transaction(write=True) as connection:
+            connection.execute("UPDATE projects SET created_at = ? WHERE id = ?",
+                               (timestamp(when - timedelta(hours=self.rng.uniform(1, 48))), int(reference[4:])))
+            connection.execute("UPDATE audit_log SET created_at = ? WHERE target_type = 'PROJECT' AND target_id = ? "
+                               "AND to_status = 'PUBLISHED'", (when.isoformat(), reference))
+
     # ---- 90 days of customer activity (X-13, S-18) ----
     def activity(self):
         events = []
@@ -267,7 +294,8 @@ class _Generator:
                 continue   # the first 120 projects already have activity from the demo seed
             for _ in range(self.rng.randint(15, 40)):
                 kind = self.rng.choices(["VIEW", "FAVOURITE_ADD", "ENQUIRY"], [7, 2, 1])[0]
-                events.append((kind, reference, self.now - timedelta(days=self.rng.uniform(0, 90))))
+                since = self.published_at.get(reference, self.now - timedelta(days=90))   # no views before publishing
+                events.append((kind, reference, since + (self.now - since) * self.rng.random()))
         self.r.activity.record_many(events)
 
     # ---- enquiries (S-19, C-06) ----
