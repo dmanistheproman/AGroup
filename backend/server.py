@@ -27,6 +27,7 @@ from backend.repositories.thread_repo import ThreadRepo
 from backend.repositories.attachment_repo import AttachmentRepo
 from backend.controllers.shared.status_change_service import StatusChangeService
 from backend.controllers.shared.ticket_lifecycle import TicketLifecycle
+from backend.controllers.helpdesk.update_ticket_triage_controller import UpdateTicketTriageController
 from backend.boundary.shared_routes import create_shared_blueprint
 from backend.repositories.message_repo import MessageRepo
 from backend.repositories.upload_failure_repo import UploadFailureRepo
@@ -50,8 +51,9 @@ from backend.controllers.shared.report_service import ReportService
 from backend.boundary.report_routes import create_report_blueprint
 
 # ----- User Admin -----
-from backend.repositories.account_repo import UnconnectedAccountRegistry
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController
+from backend.controllers.user_admin.flag_account_controller import FlagAccountController
+from backend.controllers.user_admin.view_admin_history_controller import ViewAdminHistoryController
 from backend.boundary.user_admin_routes import create_user_admin_blueprint
 
 # ----- Interior Designer -----
@@ -91,6 +93,11 @@ from backend.storage import SQLiteStore
 # ----- Customer -----
 from backend.repositories.favourite_repo import FavouriteRepository
 from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
+from backend.controllers.customer.submit_enquiry_controller import SubmitEnquiryController
+from backend.controllers.customer.compare_designers_controller import CompareDesignersController
+from backend.controllers.customer.recommendation_service import RecommendationService
+from backend.controllers.customer.view_recommendations_controller import ViewRecommendationsController
+from backend.controllers.shared.activity_recorder import ActivityRecorder
 from backend.boundary.customer_routes import create_customer_blueprint
 from backend.entities.project_activity import ProjectActivity
 from backend.repositories.collection_repo import CollectionRepo
@@ -98,6 +105,7 @@ from backend.controllers.shared.collection_service import CollectionService
 
 # ----- Helpdesk -----
 from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
+from backend.controllers.helpdesk.recommend_verification_controller import RecommendVerificationController
 from backend.controllers.helpdesk.ticket_feedback_controller import TicketFeedbackController
 from backend.controllers.customer.submit_review_controller import SubmitReviewController
 from backend.repositories.ticket_feedback_repo import TicketFeedbackRepo
@@ -108,7 +116,7 @@ FRONTEND_DIR = ROOT / 'frontend'
 UPLOAD_DIR = ROOT / 'backend' / 'uploads'
 
 
-def build_designer_controllers(upload_service, store):
+def build_designer_controllers(upload_service, store, account_repo=None):
     """ID-01 … ID-13 wiring, moved from the ID branch's run.py."""
     company_repo = CompanyRepo.from_data(SEED_COMPANY_DATA, store)
     verification_repo = VerificationRepo(store)
@@ -132,9 +140,10 @@ def build_designer_controllers(upload_service, store):
     c.revise_proposal_controller = ReviseProposalController(proposal_repo, upload_service)
     c.submit_quotation_controller = SubmitQuotationController(quotation_repo, enquiry_repo)
     c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10: requirement review (accept/decline/clarify)
-    c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo))
+    c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo,
+                                                                                account_repo))
     c.statistics_controller = ViewProjectStatisticsController(ProjectActivityRepo(store), projects_repo)
-    c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store))
+    c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store), company_repo)
     # ---------- ID-09: payment progress (the platform records payments but never collects them; milestones belong to accepted quotations) ----------
     c.payment_controller = PaymentController(
         payment_repo,
@@ -184,6 +193,7 @@ def _connect_designer_records(shared, designer):
     designer.verification_controller.shared = designer.review_controller.shared = shared
     designer.submit_quotation_controller.status_change = shared.status_change
     designer.submit_proposal_controller.enquiries = designer.enquiry_repo
+    designer.revise_proposal_controller.enquiries = designer.enquiry_repo   # only the enquiry's designer revises
     designer.submit_proposal_controller.status_change = shared.status_change
     designer.revise_proposal_controller.rules = designer.payment_controller.rules = rules
 
@@ -201,8 +211,6 @@ def build_management_controllers(store):
         FeatureCategoryController=management.FeatureCategoryController(categories),
         SearchCategoriesController=management.SearchCategoriesController(categories),
         MergeCategoriesController=management.MergeCategoriesController(categories),
-        DeleteCategoryController=management.DeleteCategoryController(categories),
-        ViewDeletedCategoriesController=management.ViewDeletedCategoriesController(categories),
         ViewCategoryUsageController=management.ViewCategoryUsageController(store),
         ReviewCategoryProjectsController=management.ReviewCategoryProjectsController(projects),
         ViewReportController=management.ViewReportController(reports),
@@ -245,11 +253,23 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.submit_ticket = SubmitTicketController(shared.requests)
     shared.status_change = StatusChangeService(AuditLogRepo(store), shared.rules)
     shared.ticket_lifecycle = TicketLifecycle(shared.status_change, shared.tickets)   # registers SUPPORT_TICKET
+    shared.ticket_triage = UpdateTicketTriageController(shared.tickets, user_accounts, shared.requests)   # HD-01
     shared.status_change.register("USER_ACCOUNT", user_accounts.get, user_accounts.save)
     shared.project_status = ProjectStatusController(shared.status_change, shared.projects)   # registers PROJECT
+    shared.project_status.on_hidden = shared.ticket_lifecycle.escalate_reports_about   # HD-09 task 3 -> UA-12
+
+    def category_status(category_id):
+        """ID-03.4: the status of a category, or None when it does not exist (PM categories)."""
+        with store.transaction() as connection:
+            row = connection.execute("SELECT status FROM categories WHERE id = ? AND deleted_at IS NULL",
+                                     (category_id,)).fetchone()
+        return row["status"] if row else None
+    shared.project_status.category_status = category_status
     shared.message_repo = MessageRepo(store)
     shared.messages = PostMessageController(shared.threads, shared.message_repo, shared.rules)
-    shared.messages.register_owner(shared.tickets.find_by_thread, staff_roles=(UserAccount.ROLE_HELPDESK,))
+    shared.messages.register_owner(shared.tickets.find_by_thread,
+                                   staff_roles=(UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN),
+                                   on_reply=shared.ticket_lifecycle.on_requester_reply)   # HD-04: replies reopen
     shared.submit_ticket.messages = shared.messages
     shared.note_repo = InternalNoteRepo(store)
     shared.notes = AddInternalNoteController(shared.note_repo, {"REQUEST": shared.requests.find,
@@ -272,12 +292,25 @@ def create_app(registry=None, admin_provider=None, config=None):
     app.register_blueprint(create_shared_blueprint(shared))
 
     # ----- User Admin -----
-    account_registry = registry if registry is not None else UnconnectedAccountRegistry()
+    # UA-01: suspend the real accounts. Pass `registry` to override in tests; the default is
+    # the connected UserAccountRepo, so a suspension persists and is audited (no more 503).
+    account_registry = registry if registry is not None else user_accounts
     suspend_account = SuspendAccountController(account_registry)
-    app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider))
+    flag_account = FlagAccountController(user_accounts, shared.status_change.audit)   # UA-09: flag / unflag, audited
+    if admin_provider is None:
+        def admin_provider():
+            """UA-01 / UA-09: the administrator is the logged-in account (shared Log In)."""
+            user = login.current_user()
+            if user is None:
+                return None
+            return {"id": user.id, "role": "User Admin" if user.role == UserAccount.ROLE_USER_ADMIN else user.role}
+    admin_history = ViewAdminHistoryController(shared.status_change.audit, user_accounts)   # UA-11
+    app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider, flag_account, admin_history))
 
     # ----- Interior Designer -----
-    designer = build_designer_controllers(upload_service, store)
+    designer = build_designer_controllers(upload_service, store, user_accounts)
+    designer.review_enquiry_controller.attachments = shared.attachments   # C-06 floor plan on ID-10
+    shared.rules.customer_profiles = designer.customer_repo   # C-12: new projects in the customer's preferred styles
 
     # ----- Shared: login and Create Account (X-03, S-13) -----
     accounts = AccountService(user_accounts, designer.customer_repo, designer.company_repo)
@@ -287,7 +320,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.companies = designer.company_repo
     shared.conversations = StartConversationController(shared.conversation_repo, designer.company_repo, shared.threads)
     shared.inbox = InboxService(shared.tickets, designer.enquiry_repo, designer.verification_repo,
-                                shared.conversation_repo, shared.notifications)
+                                shared.conversation_repo, shared.notifications, shared.threads, shared.message_repo)
     shared.offers = OfferService(designer.quotation_repo, designer.proposal_repo, shared.status_change, shared.rules)
     _connect_designer_records(shared, designer)
     shared.reviews = SubmitReviewController(designer.list_reviews_controller.reviews, designer.enquiry_repo,
@@ -304,15 +337,32 @@ def create_app(registry=None, admin_provider=None, config=None):
 
     # ----- Customer -----
     favourites = ManageFavouritesController(FavouriteRepository(store), shared.projects, ProjectActivity(store))
+    favourites.hidden_firms = designer.company_repo.names_of_suspended_designers   # C-05: suspended designers hidden
     shared.collections = CollectionService(CollectionRepo(store), FavouriteRepository(store))
     shared.collections.uploads, shared.collections.attachments = upload_service, shared.attachments
     shared.collections.projects = shared.projects
     favourites.collections = shared.collections
-    app.register_blueprint(create_customer_blueprint(favourites, login, shared.collections))
+    submit_enquiry = SubmitEnquiryController(designer.enquiry_repo, designer.company_repo, shared.requests,
+                                             ActivityRecorder(store), upload_service)
+    compare_designers = CompareDesignersController(FavouriteRepository(store), shared.projects,
+                                                   designer.company_repo, designer.list_reviews_controller.reviews,
+                                                   customer_profiles=designer.customer_repo)
+    recommendations = ViewRecommendationsController(RecommendationService(   # C-09, data-driven plan stages 7 and 9
+        FavouriteRepository(store), shared.projects,
+        customers=lambda: [a.id for a in user_accounts.all() if a.role == UserAccount.ROLE_CUSTOMER],
+        hidden_firms=designer.company_repo.names_of_suspended_designers))
+    app.register_blueprint(create_customer_blueprint(
+        favourites, login, shared.collections,
+        designer.credit_status_controller,
+        submit_enquiry=submit_enquiry,
+        compare_controller=compare_designers,
+        recommendations_controller=recommendations))
 
     # ----- Helpdesk -----
     merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)
-    app.register_blueprint(create_helpdesk_blueprint(merge_tickets, login))
+    recommend_verification = RecommendVerificationController(designer.verification_repo)
+    app.register_blueprint(create_helpdesk_blueprint(merge_tickets, login, recommend_verification,
+                                                     verification_queue=designer.review_controller.queue))
 
     @app.get('/')
     def home():

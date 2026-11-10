@@ -1,15 +1,13 @@
 """<<control>> ListReviewsController (ID-08 task 1) — reuses the C-07 company review query, limited to the designer's own company."""
 
 class ListReviewsController:
-    # Demo account → company mapping (matches the portal demo accounts; to be replaced by the account relationship)
-    DEMO_COMPANY_BY_USER = {"user-form-field": "Form & Field",
-                            "user-common-ground": "Common Ground"}
-
-    def __init__(self, review_repo):
+    def __init__(self, review_repo, company_repo):
         self.reviews = review_repo
+        self.companies = company_repo   # the designer's own company (1-1 with the account, ID-01)
 
     def list_for(self, user_id):
-        company = self.DEMO_COMPANY_BY_USER.get(user_id)
+        own = self.companies.get_by_owner(user_id)
+        company = own.name if own is not None else None
         if company is None:
             raise ValueError("Unknown designer account.")
         return [{"id": r.id, "customer": r.customer, "company": r.company,

@@ -36,6 +36,10 @@
       const ids = page().get();
       show(on ? ids.filter(x => x !== id) : [...ids, id]);
       window.AG.toast(r.data.error || 'Your favourites could not be updated. Please try again.');
+    } else if (!on && r.data.success === false) {
+      // UC-C08 1a: it was already removed (for example in another tab); show the list as it is now
+      show((r.data.favourites?.project_ids || []).map(number));
+      window.AG.toast('This project was already removed from your favourites.');
     }
   }
 

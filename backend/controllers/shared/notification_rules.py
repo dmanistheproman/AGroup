@@ -89,7 +89,11 @@ class NotificationRules:
 
     def _project_changed(self, project_id, new_status, from_status, reason, target_type):
         project = self.projects.get(project_id) if self.projects is not None else None
-        if project is None or not project.get("owner_id"):
+        if project is None:
+            return
+        if new_status == ProjectStatus.PUBLISHED and from_status in (ProjectStatus.DRAFT, ProjectStatus.UNPUBLISHED):
+            self._new_project(project_id, project)
+        if not project.get("owner_id"):
             return
         if new_status == ProjectStatus.HIDDEN:
             kind, text = "PROJECT_HIDDEN", f'Your project "{project["title"]}" was hidden by the helpdesk.'
@@ -99,6 +103,20 @@ class NotificationRules:
             return
         self._send(project["owner_id"], kind, self._with(text, reason), "portal.html#designer/projects",
                    self.TARGET_PROJECT, project_id)
+
+    def _new_project(self, project_id, project):
+        """C-12: customers whose preferred styles include the project's category hear about it (NEW_PROJECT), unless
+        they turned it off; restoring a hidden project is not news."""
+        style = project.get("category_name")
+        profiles = getattr(self, "customer_profiles", None)
+        if not style or profiles is None:
+            return
+        number = str(project_id).rsplit("-", 1)[-1]
+        link = f"index.html#project-{int(number)}" if number.isdigit() else "index.html"
+        for profile in profiles.all():
+            if profile.prefers_any([style]):
+                self._send(profile.id, "NEW_PROJECT", f'New {style} project: "{project.get("title", project_id)}"',
+                           link, self.TARGET_PROJECT, project_id)
 
     def _enquiry_changed(self, enquiry_id, new_status, from_status, reason, target_type):
         enquiry = self._get(self.enquiries, enquiry_id)
@@ -143,6 +161,11 @@ class NotificationRules:
             self._send(designer, "OFFER_ANSWERED", self._with(f"{offer.client_name} {verb} {name} {offer.id}.", reason),
                        "portal.html#designer/quotations" if target_type == self.TARGET_QUOTATION
                        else "portal.html#designer/proposals", target_type, offer.id)
+        elif new_status == "EXPIRED":   # ID-07: an unanswered quotation passed its validity date; both parties are told
+            self._send(customer, "OFFER_EXPIRED", f"Quotation {offer.id} has expired.", CUSTOMER_OFFERS,
+                       target_type, offer.id)
+            self._send(designer, "OFFER_EXPIRED", f"Quotation {offer.id} for {offer.client_name} has expired.",
+                       "portal.html#designer/quotations", target_type, offer.id)
 
     # ---- messages (S-01, S-16) ----
 

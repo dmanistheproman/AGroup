@@ -6,7 +6,8 @@ from backend.boundary.auth_guard import role_error
 from backend.entities.user_account import UserAccount
 
 
-def create_customer_blueprint(favourites_ctrl, login, collections=None):
+def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_status=None,
+                              submit_enquiry=None, compare_controller=None, recommendations_controller=None):
     bp = Blueprint("customer", __name__)
 
     @bp.before_request
@@ -15,7 +16,8 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None):
 
     @bp.errorhandler(ValueError)
     def bad_request(err):
-        return jsonify(error=str(err)), 400
+        field = getattr(err, "field", None)   # FieldError: show the message beside that field
+        return (jsonify(error=str(err), field=field) if field else jsonify(error=str(err))), 400
 
     @bp.errorhandler(LookupError)
     def not_found(err):
@@ -111,5 +113,49 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None):
     def reorder_collection(collection_id):
         collections.reorder(login.current_user(), collection_id, body().get("item_ids"))
         return jsonify(collection=collection_view(collections.collections.get(collection_id)))
+
+    # ---- ID-12 task 4: the customer's own credit status and reasons (C-01 preferences page) ----
+    @bp.get("/api/credit-status/me")
+    def own_credit_status():
+        if credit_status is None:
+            return jsonify(error="Credit status is not available."), 404
+        return jsonify(credit_status.own_status(customer_id()))
+
+    # ---- C-06: submit a consultation / quotation request to a designer company ----
+    @bp.post("/api/enquiries")
+    def submit_enquiry_request():
+        if submit_enquiry is None:
+            return jsonify(error="Enquiries are not available."), 404
+        data = request.get_json(silent=True) or request.form.to_dict()
+        upload = request.files.get("floor_plan")
+        floor_plan = {"filename": upload.filename, "content": upload.read()} if upload and upload.filename else None
+        enquiry = submit_enquiry.submit(login.current_user(), data.get("company_id"),
+                                        data.get("requirements"), data.get("budget"), data.get("project_id") or None,
+                                        enquiry_type=data.get("type"), property_layout=data.get("property_layout"),
+                                        target_timeline=data.get("target_timeline"), floor_plan=floor_plan)
+        return jsonify(enquiry=enquiry.public_view()), 201
+
+    # ---- C-08: compare the designers behind the customer's saved projects ----
+    @bp.get("/api/companies/compare")
+    def compare_designers():
+        if compare_controller is None:
+            return jsonify(error="Designer comparison is not available."), 404
+        return jsonify(compare_controller.compare(customer_id(), request.args.getlist("designer") or None))
+
+    # ---- C-09: data-driven personalised recommendations ----
+    @bp.get("/api/recommendations")
+    def recommendations():
+        if recommendations_controller is None:
+            return jsonify(error="Recommendations are not available."), 404
+        limit = request.args.get("limit", 5, type=int)
+        rows = recommendations_controller.recommend(customer_id(), limit)
+        return jsonify(recommendations=rows, strategy=recommendations_controller.strategy())
+
+    @bp.get("/api/recommendations/evaluate")
+    def evaluate_recommendations():
+        if recommendations_controller is None:
+            return jsonify(error="Recommendations are not available."), 404
+        limit = request.args.get("limit", 5, type=int)
+        return jsonify(recommendations_controller.evaluate(customer_id(), limit))
 
     return bp

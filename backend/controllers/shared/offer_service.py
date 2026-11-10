@@ -25,7 +25,7 @@ class OfferService:
 
     def offers_for(self, customer):
         self._check_customer(customer)
-        self.quotations.expire_due()
+        self.quotations.expire_due(status_change=self.status_change)
         quotations = [self.quotation_view(q) for q in self.quotations.all()
                       if q.enquiry_id == customer.id and not q.is_draft()]
         proposals = [p.public_view() for p in self.proposals.all()
@@ -93,7 +93,7 @@ class OfferService:
 
     def _own_quotation(self, offer_id, customer):
         self._check_customer(customer)
-        self.quotations.expire_due()
+        self.quotations.expire_due(status_change=self.status_change)
         quotation = self.quotations.get(offer_id)
         if quotation is None:
             raise LookupError(f"Quotation {offer_id} was not found.")

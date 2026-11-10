@@ -76,10 +76,13 @@ class Project:
         return self.status == ProjectStatus.PUBLISHED
 
     @classmethod
-    def visible_to_customers(cls, records):
-        """The records customers may see, in the same order. A record that is not a valid project is not shown."""
+    def visible_to_customers(cls, records, hidden_firms=()):
+        """The records customers may see, in the same order. A record that is not a valid project is not shown,
+        nor is a project of a company in hidden_firms (C-05: the designer's account is suspended)."""
         visible = []
         for record in records:
+            if record.get("firm") in hidden_firms:
+                continue
             try:
                 if cls.from_record(record).is_visible_to_customers():
                     visible.append(record)

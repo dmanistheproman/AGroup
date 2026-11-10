@@ -45,6 +45,13 @@ def new_enquiry(shared):
     return sam, shared.requests.open(Enquiry(sam.id, sam.name, "Kitchen with oak", 40000))
 
 
+def recommended(designer_side, request_id, decision="REJECT"):
+    """HD-12 comes first: the User Admin decides on a helpdesk recommendation (UC-UA13 AF2)."""
+    request = designer_side.verification_repo.get(request_id)
+    request.recommend("user-helpdesk", decision, "Documents checked.")
+    designer_side.verification_repo.save(request)
+
+
 # ---- enquiries (C-06, ID-10) ----
 
 def test_a_designer_decision_on_an_enquiry_is_audited_and_the_customer_is_told(shared, designer_side):
@@ -110,6 +117,7 @@ def test_a_verification_request_is_opened_as_a_request_and_admins_are_told(share
 def test_a_verification_decision_is_audited_and_the_designer_is_told(shared, designer_side):
     request = shared.requests.open(VerificationRequest(designer_side.verification_repo.next_reference(), "COM-FF",
                                                        "user-form-field", ["uploads/COM-FF/licence.pdf"]))
+    recommended(designer_side, request.id)
     designer_side.review_controller.review(request.id, "reject", "The licence is not readable.", reviewer="user-admin")
     assert shared.status_change.history_of("VERIFICATION_REQUEST", request.id)[-1].to_status == "REJECTED"
     note = shared.notifications.list_for("user-form-field")[0]
@@ -199,6 +207,7 @@ def test_a_rejected_verification_goes_back_to_review_when_resubmitted(shared, de
     designer_side.verification_controller.uploads = SimpleNamespace(
         upload=lambda file, owner_type, owner_id, kind="image": f"uploads/{owner_id}/{file['filename']}")
     first = designer_side.verification_controller.submit("user-form-field", {"documents": [{"filename": "a.pdf"}]})
+    recommended(designer_side, first.id)
     designer_side.review_controller.review(first.id, "reject", "Blurred scan.", reviewer="user-admin")
     again = designer_side.verification_controller.submit("user-form-field", {"documents": [{"filename": "b.pdf"}]})
     assert (again.id, again.status, again.documents) == (first.id, "PENDING_REVIEW", ["uploads/COM-FF/b.pdf"])
@@ -274,3 +283,45 @@ def test_turning_off_offer_updates_stops_them(shared, designer_side):
         "valid_until": "2099-01-01", "payment_schedule": "all at once"})
     designer_side.submit_quotation_controller.present("user-form-field", q["id"])
     assert "OFFER_SENT" not in kinds(shared, "CUS-101")
+
+
+def test_an_expired_quotation_uses_a_shared_offer_status():
+    """Final task list, Offers: status Draft/Sent/Accepted/Declined/Superseded, plus Expired for quotations (ID-07)."""
+    from backend.entities.enums import OfferStatus
+    from backend.entities.quotation import Quotation
+    assert OfferStatus.EXPIRED == "EXPIRED"
+    assert Quotation.STATUS_EXPIRED == OfferStatus.EXPIRED
+
+
+def test_an_overdue_quotation_expires_through_the_shared_status_change(shared, designer_side):
+    """ID-07 task 3 and the ID-07 use case: past its validity date an unanswered quotation becomes Expired,
+    the change is audited, and both the customer and the designer are told."""
+    shared.requests.assign_handler("CUS-101", "user-form-field")   # seeded as confirmed
+    q = designer_side.submit_quotation_controller.create("user-form-field", {
+        "enquiry_id": "CUS-101", "design_fee": 3000, "material_cost": 20000, "construction_fee": 15000,
+        "valid_until": "2099-01-01", "payment_schedule": "30/40/30"})
+    designer_side.submit_quotation_controller.present("user-form-field", q["id"])
+    designer_side.submit_quotation_controller.list_for("user-form-field", today="2099-06-01")
+    assert designer_side.submit_quotation_controller.quotations.get(q["id"]).status == "EXPIRED"
+    entry = shared.status_change.history_of("QUOTATION", q["id"])[-1]
+    assert (entry.to_status, entry.actor_id) == ("EXPIRED", "system")
+    assert "OFFER_EXPIRED" in kinds(shared, "CUS-101")
+    assert "OFFER_EXPIRED" in kinds(shared, "user-form-field")
+
+
+def test_an_overdue_quotation_found_when_revising_also_expires_through_the_shared_status_change(shared,
+                                                                                               designer_side):
+    """ID-07 task 3: the expiry check before a revision works like the one on read: audited, both parties told,
+    and the expired quotation is not revised."""
+    shared.requests.assign_handler("CUS-101", "user-form-field")   # seeded as confirmed
+    controller = designer_side.submit_quotation_controller
+    data = {"enquiry_id": "CUS-101", "design_fee": 3000, "material_cost": 20000, "construction_fee": 15000,
+            "valid_until": "2000-01-01", "payment_schedule": "30/40/30"}
+    q = controller.create("user-form-field", data)
+    controller.present("user-form-field", q["id"])
+    with pytest.raises(ValueError, match="revised"):
+        controller.revise("user-form-field", q["id"], data)
+    entry = shared.status_change.history_of("QUOTATION", q["id"])[-1]
+    assert (entry.to_status, entry.actor_id) == ("EXPIRED", "system")
+    assert "OFFER_EXPIRED" in kinds(shared, "CUS-101")
+    assert "OFFER_EXPIRED" in kinds(shared, "user-form-field")

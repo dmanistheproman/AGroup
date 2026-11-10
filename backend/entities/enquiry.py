@@ -15,11 +15,19 @@ class Enquiry(Request):
                    STATUS_CONFIRMED: {STATUS_COMPLETED}}
     REASON_REQUIRED = frozenset({STATUS_DECLINED})
 
-    def __init__(self, enquiry_id, client_name, requirements, budget, status=None, questions=None):
+    # C-06 task 1: a consultation or a quotation request (UC-C10 BF2)
+    TYPE_CONSULTATION, TYPE_QUOTATION = "CONSULTATION", "QUOTATION"
+    TYPES = (TYPE_CONSULTATION, TYPE_QUOTATION)
+
+    def __init__(self, enquiry_id, client_name, requirements, budget, status=None, questions=None,
+                 enquiry_type=None, property_layout=None, target_timeline=None):
         self.id = enquiry_id
         self.client_name = client_name
         self.requirements = requirements
         self.budget = budget
+        self.enquiry_type = enquiry_type          # CONSULTATION or QUOTATION (None for seeded enquiries)
+        self.property_layout = property_layout    # e.g. "4-room HDB, 90 sqm"
+        self.target_timeline = target_timeline    # e.g. "Start in March 2027"
         self.status = status or self.STATUS_AWAITING_REPLY
         self.decided_at = None
         self.decision_reason = None
@@ -39,6 +47,15 @@ class Enquiry(Request):
     def can_access(self, user_id):
         return user_id is not None and user_id in (self.customer_id, self.handler_id)
 
+    def belongs_to_designer(self, user_id):
+        """The designer it was sent to works on it; a request nobody handles yet can be picked up (S-19)."""
+        return not self.handler_id or self.handler_id == user_id
+
+    def check_designer(self, user_id):
+        if user_id and not self.belongs_to_designer(user_id):
+            raise PermissionError("This request was sent to another designer.")
+        return self
+
     def apply_status(self, status, reason=None, actor_id=None):
         """Called by StatusChangeService after it has checked the transition."""
         if status == self.STATUS_CONFIRMED:
@@ -50,6 +67,14 @@ class Enquiry(Request):
 
     def is_confirmed(self):
         return self.status == self.STATUS_CONFIRMED
+
+    def public_view(self):
+        """The fields a customer or designer may see (C-06/C-10)."""
+        return {"id": self.id, "client_name": self.client_name, "requirements": self.requirements,
+                "budget": self.budget, "status": self.status, "customer_id": self.customer_id,
+                "enquiry_type": self.enquiry_type, "property_layout": self.property_layout,
+                "target_timeline": self.target_timeline,
+                "handler_id": self.handler_id, "thread_id": self.thread_id}
 
     def confirm(self):
         """ID-10 task 1: accept the collaboration (accept transition) — opens the ID-07 quotation step."""

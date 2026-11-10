@@ -94,7 +94,7 @@ def test_preferences_are_on_by_default_and_can_be_turned_off(shared):
     alex, designer = user(shared, "CUS-101"), user(shared, "user-form-field")
     prefs = {p["event_type"]: p["is_enabled"] for p in shared.preferences.list_for(alex)}
     assert prefs == {"NEW_MESSAGE": True, "TICKET_STATUS": True, "ENQUIRY_UPDATE": True, "OFFER_SENT": True,
-                     "PAYMENT_REMINDER": True}
+                     "PAYMENT_REMINDER": True, "NEW_PROJECT": True}
     shared.preferences.update(alex, "NEW_MESSAGE", False)
     conversation = shared.conversations.start_conversation(alex, "COM-FF")
     before = len(shared.notifications.list_for("CUS-101"))

@@ -16,6 +16,8 @@ from types import SimpleNamespace
 
 from werkzeug.security import generate_password_hash
 
+from backend.services.management_rules import timestamp
+
 ROOT = Path(__file__).resolve().parent.parent
 DEMO_DATABASE = ROOT / "instance" / "agroup.sqlite3"
 TEST_DATABASE = ROOT / "instance" / "test-data.sqlite3"
@@ -47,6 +49,10 @@ MATERIALS = ["oak veneer", "terrazzo", "limewash", "linen", "rattan", "brushed b
 LOCATIONS = ["Tampines", "Punggol", "Bishan", "Queenstown", "Jurong East", "Woodlands", "Toa Payoh", "Clementi",
              "Sengkang", "Bukit Timah", "Ang Mo Kio", "Pasir Ris", "Bedok", "Novena", "Serangoon"]
 HOME_TYPES = ["HDB", "Condominium", "Landed"]
+LAYOUTS = ["3-room HDB", "4-room HDB", "5-room HDB", "2-bedroom condominium", "3-bedroom condominium",
+           "terrace house"]
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+          "November", "December"]
 IMAGES = ["living", "kitchen", "bedroom", "dining"]
 CONTACT = {"ACCOUNT": ["I cannot change my email address.", "Please help me reset my password.",
                        "My account shows the wrong name."],
@@ -164,6 +170,7 @@ class _Generator:
             activity=ActivityRecorder(store))
         self.now = datetime.now(timezone.utc)
         self.customers, self.designers, self.agents, self.visible = [], [], [], []
+        self.published_at = {}   # project reference -> when it was published (PM-05 counts publications)
 
     def pick(self, items):
         return items[self.rng.randrange(len(items))]
@@ -172,11 +179,22 @@ class _Generator:
         return self.s.user_accounts.get(user_id)
 
     def run(self):
-        for step in (self.people, self.categories, self.projects, self.activity, self.enquiries, self.offers,
+        for step in (self.people, self.spread_accounts, self.categories, self.projects, self.activity, self.enquiries,
+                     self.offers,
                      self.reviews, self.verifications, self.tickets, self.conversations, self.favourites,
                      self.collections, self.preferences, self.upload_failures):
             self.log(f"  {step.__name__} ...")
             step()
+
+    # ---- PM-05 / PM-12: accounts join over the last 90 days (designers and agents first, before the projects) ----
+    def spread_accounts(self):
+        joined = [(a, self.rng.uniform(0, 90)) for a in self.customers]
+        joined += [(a, self.rng.uniform(88, 90)) for a, _ in self.designers]
+        joined += [(a, self.rng.uniform(88, 90)) for a in self.agents if a.id != "user-helpdesk"]
+        with self.s.store.transaction(write=True) as connection:
+            for account, days in joined:
+                connection.execute("UPDATE user_account SET created_at = ? WHERE user_id = ?",
+                                   ((self.now - timedelta(days=days)).isoformat(), account.id))
 
     # ---- accounts, profiles and companies (S-13) ----
     def people(self):
@@ -236,13 +254,14 @@ class _Generator:
             self.s.projects.save({
                 "id": reference, "title": f"{style['name']} {room} in {self.pick(LOCATIONS)}",
                 "description": f"A {style['name'].lower()} {room} with {materials[0]} and {materials[1]}.",
-                "category_id": style["id"], "status": "DRAFT" if draft else "PUBLISHED", "owner_id": designer.id,
+                "category_id": style["id"], "status": "DRAFT", "owner_id": designer.id,
                 "firm": company.name, "type": self.pick(HOME_TYPES), "location": self.pick(LOCATIONS),
                 "price": self.rng.randrange(25, 220) * 1000, "area": f"{self.rng.randrange(45, 180)} m²",
                 "image": self.pick(IMAGES), "materials": ", ".join(materials),
                 "stage": self.pick(["Past project", "Current project"])})
             if draft:
                 continue
+            self.publish(designer, reference)
             roll = self.rng.random()
             if roll < 0.05:
                 self.s.project_status.change(designer, reference, "UNPUBLISHED", "Refreshing the photos.")
@@ -255,15 +274,31 @@ class _Generator:
         self.visible.sort()
         self.titles = {p["id"]: p["title"] for p in self.s.projects.all()}
 
+    def publish(self, designer, reference):
+        """ID-03.4: a new project is a draft; the designer publishes it through the shared status change (audited).
+        The project was published in the last 88 days, after its designer joined; most of them more than 40 days ago,
+        so the 90 days of activity reach back to the start (activity comes only after publishing)."""
+        self.s.project_status.change(designer, reference, "PUBLISHED")
+        when = self.now - timedelta(days=self.rng.uniform(40, 88) if self.rng.random() < 0.7 else self.rng.uniform(0, 40))
+        self.published_at[reference] = when
+        with self.s.store.transaction(write=True) as connection:
+            connection.execute("UPDATE projects SET created_at = ? WHERE id = ?",
+                               (timestamp(when - timedelta(hours=self.rng.uniform(1, 48))), int(reference[4:])))
+            connection.execute("UPDATE audit_log SET created_at = ? WHERE target_type = 'PROJECT' AND target_id = ? "
+                               "AND to_status = 'PUBLISHED'", (when.isoformat(), reference))
+
     # ---- 90 days of customer activity (X-13, S-18) ----
     def activity(self):
         events = []
         for reference in self.visible:
             if not reference.startswith("IDP-") or int(reference[4:]) <= 120:
                 continue   # the first 120 projects already have activity from the demo seed
-            for _ in range(self.rng.randint(15, 40)):
+            since = self.published_at.get(reference, self.now - timedelta(days=90))   # no views before publishing
+            age = (self.now - since).days
+            # a project online for longer has gathered more views, saves and enquiries
+            for _ in range(round(self.rng.randint(15, 40) * min(2.0, max(0.4, age / 45)))):
                 kind = self.rng.choices(["VIEW", "FAVOURITE_ADD", "ENQUIRY"], [7, 2, 1])[0]
-                events.append((kind, reference, self.now - timedelta(days=self.rng.uniform(0, 90))))
+                events.append((kind, reference, since + (self.now - since) * self.rng.random()))
         self.r.activity.record_many(events)
 
     # ---- enquiries (S-19, C-06) ----
@@ -280,7 +315,10 @@ class _Generator:
             enquiry = self.s.requests.open(Enquiry(customer.id, customer.name,
                                                    f"Renovate the {self.pick(ROOMS)} with {self.pick(MATERIALS)}.",
                                                    self.rng.randrange(30, 200) * 1000, status=status,
-                                                   questions=questions))
+                                                   questions=questions,
+                                                   enquiry_type=self.pick(("CONSULTATION", "QUOTATION")),   # C-06
+                                                   property_layout=f"{self.pick(LAYOUTS)}, {self.rng.randrange(60, 160, 5)} sqm",
+                                                   target_timeline=f"Start in {self.pick(MONTHS)} 2027"))
             self.s.requests.assign_handler(enquiry.id, designer.id)
             if status == "DECLINED":
                 stored = self.r.enquiries.get(enquiry.id)
@@ -352,6 +390,12 @@ class _Generator:
             request = self.s.requests.open(VerificationRequest(self.r.verifications.next_reference(), company.id,
                                                                designer.id, [f"uploads/{company.id}/licence.pdf"]))
             roll = self.rng.random()
+            if roll < 0.65:   # HD-12 first: the User Admin decides on a helpdesk recommendation (UC-UA13 AF2)
+                stored = self.r.verifications.get(request.id)
+                stored.recommend("user-helpdesk", "REJECT" if 0.3 <= roll < 0.5 else "APPROVE",
+                                 "Licence and registration checked." if roll < 0.3 or roll >= 0.5
+                                 else "The licence document is not readable.")
+                self.r.verifications.save(stored)
             if roll < 0.3:
                 self.s.status_change.change_status("VERIFICATION_REQUEST", request.id, "APPROVED", "user-admin")
             elif roll < 0.5:

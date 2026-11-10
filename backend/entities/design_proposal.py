@@ -1,15 +1,18 @@
 """<<entity>> DesignProposal — a shared proposal (task wording: shared: offers).
 The designer side (ID-05/06) and the client side (C-06, not built yet) use the same entity and repository;
 public_view() is the shared view kept for the client side."""
+from backend.entities.enums import OfferStatus
 from backend.entities.offer import Offer
 
 class DesignProposal(Offer):
     STATUS_DRAFT = "DRAFT"
     STATUS_UNDER_REVIEW = "UNDER_REVIEW"   # UC5 BF4: Under Review
     STATUS_CONFIRMED = "CONFIRMED"         # UC6 AF1, reserved (the flow belongs to C-06 / a later task)
+    STATUS_SUPERSEDED = OfferStatus.SUPERSEDED.value   # UC-ID09 AF: the client did not respond; the designer closes it
 
     # Lifecycle for StatusChangeService (S-04). A revision stays Under Review with a new version.
-    TRANSITIONS = {STATUS_DRAFT: {STATUS_UNDER_REVIEW}, STATUS_UNDER_REVIEW: {STATUS_CONFIRMED}}
+    TRANSITIONS = {STATUS_DRAFT: {STATUS_UNDER_REVIEW},
+                   STATUS_UNDER_REVIEW: {STATUS_CONFIRMED, STATUS_SUPERSEDED}}
     REASON_REQUIRED = frozenset()
 
     def __init__(self, proposal_id, client_name, title, description,
@@ -49,6 +52,8 @@ class DesignProposal(Offer):
     def revise(self, description=None, note=None):
         """UC6 BF5 / UC5 AF2: revise from the feedback and submit again — version +1, old feedback moves to the history.
         Changing a draft is only an edit: the version and status stay the same (it has not been sent)."""
+        if self.status == self.STATUS_SUPERSEDED:
+            raise ValueError("A superseded proposal can no longer be revised.")
         if description:
             self.description = description
         if note:

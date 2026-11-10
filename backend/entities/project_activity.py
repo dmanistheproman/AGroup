@@ -1,4 +1,4 @@
-from backend.services.management_rules import BusinessError, timestamp
+from backend.services.management_rules import BusinessError, category_param, timestamp
 
 
 class ProjectActivity:
@@ -13,9 +13,9 @@ class ProjectActivity:
             SELECT e.type, COUNT(*) AS total FROM activities e
             WHERE e.occurred_at >= ? AND e.occurred_at < ?
             AND (? IS NULL OR EXISTS (
-                SELECT 1 FROM assignments a WHERE a.project_id = e.project_id AND a.category_id = ?
+                SELECT 1 FROM assignments a WHERE a.project_id = e.project_id AND a.category_id IN (SELECT value FROM json_each(?))
             )) GROUP BY e.type
-        """, (start, end, category_id, category_id)).fetchall()
+        """, (start, end, *[category_param(category_id)] * 2)).fetchall()
         counts = {row["type"]: row["total"] for row in rows}
         return {"views": counts.get("VIEW", 0), "favourites": counts.get("FAVOURITE_ADD", 0),
                 "enquiries": counts.get("ENQUIRY", 0)}

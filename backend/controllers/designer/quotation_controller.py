@@ -47,6 +47,7 @@ class SubmitQuotationController:
         enquiry = self.enquiries.get((data.get("enquiry_id") or "").strip())
         if enquiry is None:
             raise ValueError("Enquiry not found — a quotation must attach to a client request.")
+        enquiry.check_designer(user_id)
         if not enquiry.is_confirmed():
             raise ValueError("Requirements for this enquiry are not confirmed yet — confirm them (ID-10) before quoting.")
         quotation_id = self.quotations.next_reference()
@@ -62,14 +63,24 @@ class SubmitQuotationController:
         return self._view(quotation)
 
     def list_for(self, user_id, today=None):
-        # user_id is kept for filtering by owner (same rule as ID-04/05); expiry is checked lazily on read (task 3)
-        self.quotations.expire_due(today)
-        return [self._view(q) for q in self.quotations.all()]
+        # Only the designer's own quotations (for enquiries they handle); expiry is checked lazily on read (task 3)
+        self.quotations.expire_due(today, self.status_change)
+        return [self._view(q) for q in self.quotations.all() if self._mine(q, user_id)]
 
-    def present(self, user_id, quotation_id):
+    def _mine(self, quotation, user_id):
+        enquiry = self.enquiries.get(quotation.enquiry_id) if quotation.enquiry_id else None
+        return not user_id or enquiry is None or enquiry.belongs_to_designer(user_id)
+
+    def _own(self, quotation_id, user_id):
         quotation = self.quotations.get(quotation_id)
         if quotation is None:
             raise ValueError("Quotation not found.")
+        if not self._mine(quotation, user_id):
+            raise PermissionError("This quotation belongs to another designer.")
+        return quotation
+
+    def present(self, user_id, quotation_id):
+        quotation = self._own(quotation_id, user_id)
         if self.status_change is not None:
             if not quotation.is_draft():
                 raise ValueError("Quotation has already been sent to the client.")
@@ -81,10 +92,8 @@ class SubmitQuotationController:
 
     def revise(self, user_id, quotation_id, data):
         # Expire first: a quotation past its validity date that still awaits confirmation cannot be revised (quote again)
-        self.quotations.expire_due()
-        quotation = self.quotations.get(quotation_id)
-        if quotation is None:
-            raise ValueError("Quotation not found.")
+        self.quotations.expire_due(status_change=self.status_change)
+        quotation = self._own(quotation_id, user_id)
         answered = quotation.status == Quotation.STATUS_ADJUSTMENT
         quotation.revise(
             design_fee=_fee(data.get("design_fee"), "Design fee"),

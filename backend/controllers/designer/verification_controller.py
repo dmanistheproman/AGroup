@@ -62,12 +62,19 @@ class ReviewVerificationController:
             rows.append({**r.public_view(), "company_name": company.name if company else r.company_id})
         return rows
 
-    def review(self, request_id, decision, reason=None, reviewer="platform-admin"):
+    def review(self, request_id, decision, reason=None, reviewer=None):
+        """UA-13: the logged-in User Admin decides (the route only lets a User Admin in)."""
+        if not reviewer:
+            raise PermissionError("Sign in as a User Admin to decide a verification request.")
         request = self.verifications.get(request_id)
         if request is None:
             raise ValueError("Verification request not found.")
         if decision not in ("approve", "reject"):
             raise ValueError("Decision must be approve or reject.")
+        if request.status == VerificationRequest.STATUS_PENDING and not request.is_recommended():
+            # UC-UA13 AF2: the User Admin decides on the helpdesk agent's recommendation (HD-12)
+            raise ValueError("The verification information is incomplete: a helpdesk agent has not recommended "
+                             "a decision yet.")
         if self.shared is not None:
             if request.status != VerificationRequest.STATUS_PENDING:
                 raise ValueError("Only pending requests can be reviewed.")

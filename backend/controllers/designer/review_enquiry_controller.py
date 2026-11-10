@@ -24,10 +24,11 @@ class ReviewEnquiryController:
         self._shared = shared
 
     def list_for(self, user_id=None):
-        return [self._view(e) for e in self._repo.all()]
+        """The designer's own requests (ID-10): those sent to them, or not handled by anyone yet."""
+        return [self._view(e) for e in self._repo.all() if not user_id or e.belongs_to_designer(user_id)]
 
     def review(self, enquiry_id, user_id, decision, reason=None):
-        enquiry = self._find(enquiry_id)
+        enquiry = self._find(enquiry_id).check_designer(user_id)
         if decision not in self.DECISIONS:
             raise ValueError("Decision must be accept or decline.")
         if self._shared is not None:
@@ -54,7 +55,7 @@ class ReviewEnquiryController:
 
     def complete(self, enquiry_id, user_id):
         """C-07 T05: the designer marks an accepted enquiry as completed; the client may then review them."""
-        enquiry = self._find(enquiry_id)
+        enquiry = self._find(enquiry_id).check_designer(user_id)
         if enquiry.status != Enquiry.STATUS_CONFIRMED:
             raise ValueError("Only an accepted enquiry can be marked as completed.")
         if self._shared is None:
@@ -68,7 +69,7 @@ class ReviewEnquiryController:
                 "message": "Project marked as completed. The client can now leave a review."}
 
     def clarify(self, enquiry_id, user_id, note):
-        enquiry = self._find(enquiry_id)
+        enquiry = self._find(enquiry_id).check_designer(user_id)
         note = (note or "").strip()
         if not note:
             raise ValueError("Describe what needs clarifying.")
@@ -84,7 +85,7 @@ class ReviewEnquiryController:
                 f"Clarification request sent to {enquiry.client_name} in the enquiry's messages."}
 
     def reply_question(self, enquiry_id, user_id, question_id, answer):
-        enquiry = self._find(enquiry_id)
+        enquiry = self._find(enquiry_id).check_designer(user_id)
         enquiry.answer_question(question_id, answer)
         self._repo.save(enquiry)
         if self._shared is not None:
@@ -95,7 +96,7 @@ class ReviewEnquiryController:
         return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "message": "Reply sent to the client."}
 
     def flag_question(self, enquiry_id, user_id, question_id, reason=None):
-        enquiry = self._find(enquiry_id)
+        enquiry = self._find(enquiry_id).check_designer(user_id)
         enquiry.flag_question(question_id, reason)
         self._repo.save(enquiry)
         return {"enquiry": self._view(enquiry), "questions": enquiry.questions, "unanswered": enquiry.unanswered_count(), "message": "Question flagged — transferred to the platform for handling (demo record; notification service not implemented)."}
@@ -113,12 +114,24 @@ class ReviewEnquiryController:
             raise ValueError("Enquiry not found.")
         return enquiry
 
+    attachments = None   # AttachmentRepo (S-03), set in server.py
+
+    def _floor_plan(self, enquiry):
+        if self.attachments is None or not enquiry.attachment_group_id:
+            return None
+        files = self.attachments.for_group(enquiry.attachment_group_id)
+        return {"name": files[0].file_name, "path": files[0].file_path} if files else None
+
     def _view(self, enquiry):
         return {
             "id": enquiry.id,
             "client_name": enquiry.client_name,
             "requirements": enquiry.requirements,
             "budget": enquiry.budget,
+            "enquiry_type": enquiry.enquiry_type,          # C-06: consultation or quotation request
+            "property_layout": enquiry.property_layout,    # UC-ID13 BF2: area and timeline
+            "floor_plan": self._floor_plan(enquiry),       # C-06: optional floor plan from the customer
+            "target_timeline": enquiry.target_timeline,
             "status": enquiry.status,
             "thread_id": enquiry.thread_id,
             "handler_id": enquiry.handler_id,

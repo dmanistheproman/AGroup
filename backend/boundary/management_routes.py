@@ -13,9 +13,10 @@ from backend.entities.project_category import ProjectCategory
 from backend.entities.interior_design_project import InteriorDesignProject
 from backend.entities.project_activity import ProjectActivity
 from backend.entities.project import Project
+from backend.repositories.company_repo import CompanyRepo
 from backend.entities.activity_report import ActivityReport
 from backend.entities.report_period import Period
-from backend.services.management_rules import BusinessError, SINGAPORE
+from backend.services.management_rules import BusinessError, SINGAPORE, category_ids
 
 
 def create_management_blueprint(c, store, login):
@@ -80,16 +81,6 @@ def create_management_blueprint(c, store, login):
         category = c.CreateCategoryController.create_category(form.get("name"), form.get("description", ""))
         return jsonify(category=category), 201
 
-    @bp.get("/api/management/categories/deleted")
-    def deleted_categories():
-        records = c.ViewDeletedCategoriesController.view_deleted_categories(request.args.get("search", ""))
-        return jsonify(categories=records)
-
-    @bp.delete("/api/management/categories/<category_id>")
-    def delete_category(category_id):
-        category = c.DeleteCategoryController.delete_category(category_id, data().get("version"))
-        return jsonify(category=category)
-
     @bp.patch("/api/management/categories/<category_id>")
     def edit_category(category_id):
         form = data()
@@ -123,6 +114,10 @@ def create_management_blueprint(c, store, login):
     def category_usage():
         return jsonify(categories=c.ViewCategoryUsageController.view_category_usage())
 
+    @bp.get("/api/management/categories/trending")
+    def trending_categories():
+        return jsonify(c.ViewCategoryUsageController.trending())
+
     @bp.get("/api/management/categories/<category_id>/projects")
     def category_projects(category_id):
         return jsonify(c.ReviewCategoryProjectsController.review_projects(category_id))
@@ -130,7 +125,7 @@ def create_management_blueprint(c, store, login):
     @bp.post("/api/management/reports")
     def report():
         form = data()
-        category_id = form.get("categoryId") or None
+        category_id = category_ids(form.get("categoryId"))   # PM-11: one or more categories
         if category_id:
             result = c.FilterReportController.filter_report(form.get("period"), form.get("date"), category_id)
         else:
@@ -141,7 +136,8 @@ def create_management_blueprint(c, store, login):
     def compare_reports():
         form = data()
         result = c.CompareReportsController.compare_periods(
-            form.get("period"), form.get("baselineDate"), form.get("comparisonDate"), form.get("categoryId") or None)
+            form.get("period"), form.get("baselineDate"), form.get("comparisonDate"),
+            category_ids(form.get("categoryId")) or None)
         return jsonify(report=result)
 
     @bp.get("/api/management/reports/<report_id>/export")
@@ -167,7 +163,7 @@ def create_management_blueprint(c, store, login):
     @bp.get("/api/catalog")
     def catalog():
         projects = InteriorDesignProject(store).list_by_category()["projects"]
-        projects = Project.visible_to_customers(projects)
+        projects = Project.visible_to_customers(projects, CompanyRepo(store).names_of_suspended_designers())
         return jsonify(projects=projects, categories=ProjectCategory(store).list_all(status="Active"))
 
     @bp.post("/api/activity")

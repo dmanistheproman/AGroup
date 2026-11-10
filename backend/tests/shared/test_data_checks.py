@@ -5,14 +5,11 @@ from contextlib import closing
 import pytest
 
 from backend.data_checks import check_database
-from backend.data_generator import generate
 
 
-@pytest.fixture(scope="module")
-def database(tmp_path_factory):
-    path = tmp_path_factory.mktemp("checks") / "data.sqlite3"
-    generate(path, seed=2026, scale=0.1, log=lambda *_: None)
-    return path
+@pytest.fixture
+def database(generated):
+    return generated[0]
 
 
 def corrupt(path, tmp_path, sql, *args):
@@ -27,11 +24,9 @@ def test_generated_data_keeps_every_rule(database):
     assert check_database(database) == []
 
 
-@pytest.mark.parametrize("seed", [1, 77])
-def test_other_seeds_keep_every_rule(tmp_path, seed):
-    path = tmp_path / f"seed-{seed}.sqlite3"
-    generate(path, seed=seed, scale=0.05, log=lambda *_: None)
-    assert check_database(path) == []
+def test_another_seed_keeps_every_rule(regenerated):
+    """The nightly workflow does the same with a new random seed every day."""
+    assert check_database(regenerated[0]) == []
 
 
 def test_a_merged_ticket_must_point_at_a_live_ticket(database, tmp_path):
@@ -93,3 +88,10 @@ def test_enquiry_verification_and_proposal_changes_follow_their_lifecycles(datab
     broken = corrupt(database, tmp_path, f"INSERT INTO audit_log VALUES ('LOG-99998', 'user-admin', '{target_type}', "
                                          f"'X-1', 'STATUS_CHANGED', {change}, 'test', '2026-11-08T00:00:00')")
     assert any(target_type in p and "not an allowed change" in p for p in check_database(broken))
+
+
+def test_no_activity_before_a_project_is_published(database, tmp_path):
+    broken = corrupt(database, tmp_path, "INSERT INTO activities SELECT 'ACT-EARLY', CAST(substr(target_id, 5) AS INTEGER), "
+                                         "'VIEW', '2000-01-01T00:00:00.000000Z', 'test' FROM audit_log "
+                                         "WHERE target_type = 'PROJECT' AND to_status = 'PUBLISHED' LIMIT 1")
+    assert any("before the project was first published" in p for p in check_database(broken))

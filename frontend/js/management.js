@@ -82,20 +82,28 @@
       const searchToken = ++this.searchGeneration;
       const query = new URLSearchParams({ search: this.search, status: this.status });
       try {
-        const result = await api.get(`${base}/categories?${query}`);
+        const [result, trending] = await Promise.all([api.get(`${base}/categories?${query}`),
+                                                      api.get(`${base}/categories/trending`)]);
         if (token !== generation || searchToken !== this.searchGeneration || activeSection !== 'categories') return;
         this.categories = result.categories;
+        // PM-14: rank of each Active category by views, favourites and enquiries in the last 30 days
+        const trend = Object.fromEntries(trending.categories.map(item => [item.id, item]));
+        const trendCell = category => {
+          const item = trend[category.id];
+          return item ? `#${item.trendingRank}<small>${item.views} views · ${item.favourites} saves · ${item.enquiries} enquiries</small>` : '—';
+        };
         document.querySelector('#management-list-error').textContent = '';
         document.querySelector('#management-categories').innerHTML = `<div class="table-wrap"><table>
-          <thead><tr><th>Category</th><th>Projects</th><th>Status</th><th>Featured</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Category</th><th>Projects</th><th>Status</th><th>Trending (${trending.days} days)</th><th>Featured</th><th>Actions</th></tr></thead>
           <tbody>${this.categories.map(category => `<tr>
             <td><b>${escape(category.name)}</b><small>${escape(category.description)}</small>
               ${category.target ? `<small>Merged into ${escape(category.target)}</small>` : ''}</td>
-            <td>${category.count}</td><td>${status(category.status)}</td><td>${category.featured ? 'Featured' : '—'}</td>
+            <td>${category.count}</td><td>${status(category.status)}</td><td>${trendCell(category)}</td>
+            <td>${category.featured ? 'Featured' : '—'}</td>
             <td>${button('Manage', 'edit', category.id)} ${button('Projects', 'projects', category.id)}
-              ${category.count === 0 ? button('Delete', 'delete', category.id) : ''}</td>
-          </tr>`).join('') || '<tr><td colspan="5">No categories match your search and status selection.</td></tr>'}</tbody>
-          </table></div>`;
+              ${category.status === 'Active' ? button(category.featured ? 'Unfeature' : 'Feature', 'feature', category.id) : ''}</td>
+          </tr>`).join('') || '<tr><td colspan="6">No categories match your search and status selection.</td></tr>'}</tbody>
+          </table></div>${trending.noRecentActivity ? `<p class="hint">No category has activity in the last ${trending.days} days. You can still feature a category.</p>` : ''}`;
       } catch (error) {
         if (token === generation && searchToken === this.searchGeneration) {
           showError(error, document.querySelector('#management-list-error'));
@@ -120,7 +128,7 @@
         ${category ? `<div class="action-list">
           ${category.status === 'Active' ? button('Archive', 'archive', id) + button(category.featured ? 'Unfeature' : 'Feature category', 'feature', id) : ''}
           ${category.status === 'Archived' ? button('Restore category', 'restore', id) : ''}
-          ${button('Review assigned projects', 'projects', id)}${button('Delete category', 'delete', id)}</div>
+          ${button('Review assigned projects', 'projects', id)}</div>
           <p class="hint">${category.target ? `Merged into ${escape(category.target)}.` : 'Review the assigned projects to assess the impact of a change.'}</p>` : ''}`);
     }
 
@@ -130,21 +138,12 @@
       if (token !== generation) return;
       const category = records.categories.find(item => item.id === id);
       if (!category) throw new Error('Category not found.');
-      if (action === 'delete' && category.count > 0) {
-        const instruction = category.status === 'Archived'
-          ? 'Restore this category, then merge its projects into another category before deleting it.'
-          : 'Merge its projects into another category before deleting it.';
-        showDialog(`<h2>Move the projects first</h2><p>${escape(category.name)} has ${category.count} assigned projects.</p>
-          <p>${instruction}</p><div class="action-list">${button('Review assigned projects', 'projects', id)}${button('Close', 'cancel')}</div>`);
-        return;
-      }
       const descriptions = {
         archive: 'Existing project assignments will remain. Designers will no longer be able to select this category for new assignments.',
         restore: 'Designers will be able to select this category again.',
         feature: category.featured ? 'This category will be removed from the featured discovery list.' : 'Customers will see this category in the featured discovery list.',
-        delete: 'This category will move to Deleted categories, where you can review its details and merge destination.',
       };
-      const labels = { archive: 'Archive', restore: 'Restore', feature: category.featured ? 'Unfeature' : 'Feature', delete: 'Delete' };
+      const labels = { archive: 'Archive', restore: 'Restore', feature: category.featured ? 'Unfeature' : 'Feature' };
       const label = labels[action];
       showDialog(`<h2>${label} ${escape(category.name)}?</h2><p>${descriptions[action]}</p>
         <form data-management-form="state" data-id="${escape(id)}" data-version="${category.version}"
@@ -190,51 +189,12 @@
       showDialog(`<h2>Projects in ${escape(result.category.name)}</h2>
         <p>${result.projects.length} assigned projects · ${escape(result.category.status)}</p>
         ${result.target ? `<p>Merged into ${escape(result.target.name)}.
-          ${result.target.deleted_at ? 'The target is listed in Deleted categories.' : button('Review target projects', 'projects', result.target.id)}</p>` : ''}
+          ${button('Review target projects', 'projects', result.target.id)}</p>` : ''}
         <div class="management-project-list">${result.projects.map(project => `
           <article class="management-project"><img src="${escape(project.attachments?.[0] || 'assets/' + (project.image || 'living') + '.jpg')}" alt="" loading="lazy">
             <div><b>${escape(project.title)}</b><p>${[project.firm, project.type, project.location].filter(Boolean).map(escape).join(' · ')}</p>
               <small>${project.categoryNames.map(escape).join(' · ')}</small></div></article>`).join('') ||
           '<p>No projects are currently assigned to this category.</p>'}</div>`);
-    }
-  }
-
-  class DeletedCategoriesPage {
-    constructor() {
-      this.search = '';
-      this.searchGeneration = 0;
-    }
-
-    async render(token) {
-      main.innerHTML = heading('Deleted categories', 'Review categories removed from the directory and their merge destinations.', button('Refresh', 'refresh')) + `
-        <div class="portal-toolbar"><label>SEARCH DELETED CATEGORIES
-          <input id="management-deleted-search" placeholder="Search by category name" value="${escape(this.search)}"></label></div>
-        <p id="management-deleted-error" class="inline-error" role="alert"></p>
-        ${panel('Deleted category history', '<div id="management-deleted" aria-live="polite"><p class="panel-body">Loading deleted categories…</p></div>')}`;
-      await this.refresh(token);
-    }
-
-    async refresh(token = generation) {
-      if (activeSection !== 'deleted') return;
-      const searchToken = ++this.searchGeneration;
-      const query = new URLSearchParams({ search: this.search });
-      try {
-        const result = await api.get(`${base}/categories/deleted?${query}`);
-        if (token !== generation || searchToken !== this.searchGeneration) return;
-        document.querySelector('#management-deleted-error').textContent = '';
-        document.querySelector('#management-deleted').innerHTML = `<div class="table-wrap"><table>
-          <thead><tr><th>Category</th><th>Previous status</th><th>Merged into</th><th>Deleted on</th></tr></thead>
-          <tbody>${result.categories.map(category => `<tr>
-            <td><b>${escape(category.name)}</b><small>${escape(category.description)}</small></td>
-            <td>${status(category.status)}</td><td>${escape(category.target || '—')}</td>
-            <td>${escape(dateLabel(category.deleted_at))}</td></tr>`).join('') ||
-            `<tr><td colspan="4">${this.search ? 'No deleted categories match your search.' : 'No deleted categories yet.'}</td></tr>`}
-          </tbody></table></div>`;
-      } catch (error) {
-        if (token === generation && searchToken === this.searchGeneration) {
-          showError(error, document.querySelector('#management-deleted-error'));
-        }
-      }
     }
   }
 
@@ -265,10 +225,11 @@
       const previous = new Date(`${settings.today}T12:00:00Z`);
       previous.setUTCDate(1);
       previous.setUTCMonth(previous.getUTCMonth() - 1);
-      const selection = { period: 'monthly', date: settings.today, categoryId: '',
+      const selection = { period: 'monthly', date: settings.today, categoryId: [],
         baselineDate: previous.toISOString().slice(0, 10), comparisonDate: settings.today, ...this.selection };
       const categories = result.categories.filter(category => category.status !== 'Merged');
-      if (!categories.some(category => category.id === selection.categoryId)) selection.categoryId = '';
+      selection.categoryId = [].concat(selection.categoryId || [])   // PM-11: one or more categories
+        .filter(id => categories.some(category => category.id === id));
       main.innerHTML = heading(comparison ? 'Compare reporting periods' : 'Platform activity reports',
         'Review activity for a day, a Monday-to-Sunday week, or a calendar month.', button('Export displayed CSV', 'export', '', 'disabled id="management-export"')) + `
         <form data-management-form="report" class="portal-toolbar" data-comparison="${comparison}">
@@ -277,15 +238,15 @@
           ${comparison ? `<label>BASELINE DATE<input type="date" name="baselineDate" required value="${escape(selection.baselineDate)}"></label>
             <label>COMPARISON DATE<input type="date" name="comparisonDate" required value="${escape(selection.comparisonDate)}"></label>` :
             `<label>DATE IN PERIOD<input type="date" name="date" required value="${escape(selection.date)}"></label>`}
-          <label>CATEGORY<select name="categoryId"><option value="">All categories</option>${categories.map(category =>
-            `<option value="${escape(category.id)}" ${category.id === selection.categoryId ? 'selected' : ''}>${escape(category.name)}${category.status === 'Archived' ? ' (archived)' : ''}</option>`).join('')}</select></label>
+          <label>CATEGORIES<select name="categoryId" multiple size="4" aria-describedby="report-category-hint">${categories.map(category =>
+            `<option value="${escape(category.id)}" ${selection.categoryId.includes(category.id) ? 'selected' : ''}>${escape(category.name)}${category.status === 'Archived' ? ' (archived)' : ''}</option>`).join('')}</select></label>
           <button class="button">Apply selection</button>
-        </form><p class="small-note">Apply your selections to update the displayed report. Dates use Singapore time.</p>
+        </form><p class="small-note" id="report-category-hint">Apply your selections to update the displayed report. Choose one or more categories (Ctrl or Cmd to pick several), or none for all categories. Dates use Singapore time.</p>
         <p class="inline-error" id="management-report-error" role="alert"></p>
         <div id="management-report" aria-live="polite"></div>`;
       const matchingKind = this.snapshot && (this.snapshot.kind === 'comparison') === comparison;
       if (matchingKind) this.showReport();
-      else await this.generate(Object.fromEntries(new FormData(main.querySelector('form'))), comparison, token);
+      else await this.generate(reportValues(main.querySelector('form')), comparison, token);
     }
 
     async generate(selection, comparison, token = generation) {
@@ -307,16 +268,20 @@
       const comparison = report.kind === 'comparison';
       const scope = report.category ? report.category.name : 'All categories';
       const periods = comparison ? `Baseline ${report.baselinePeriod.label} · Comparison ${report.period.label}` : report.period.label;
+      const table = rows => `<div class="table-wrap"><table>
+          <thead><tr><th>Metric</th>${comparison ? '<th>Baseline</th><th>Comparison</th><th>Change</th><th>% change</th>' : '<th>Count</th>'}</tr></thead>
+          <tbody>${rows.map(row => `<tr><td>${escape(row.label)}</td>${comparison ?
+            `<td>${row.baseline}</td><td>${row.value}</td><td>${row.difference > 0 ? '+' : ''}${row.difference}</td>
+             <td>${row.percentChange === null ? 'N/A' : `${row.percentChange > 0 ? '+' : ''}${row.percentChange}%`}</td>` :
+            `<td>${row.value}</td>`}</tr>`).join('')}</tbody></table></div>`;
       document.querySelector('#management-report').innerHTML = `<div class="management-report-caption">
         <b>${escape(scope)}</b><p>${escape(periods)} · Singapore time</p><small>Generated ${escape(dateLabel(report.generatedAt))}</small></div>` +
         metrics(report.rows.map(row => [row.label, row.value, comparison ? 'Comparison period' : 'Selected period'])) +
-        panel(comparison ? 'Period comparison' : 'Activity totals', `<div class="table-wrap"><table>
-          <thead><tr><th>Metric</th>${comparison ? '<th>Baseline</th><th>Comparison</th><th>Change</th><th>% change</th>' : '<th>Count</th>'}</tr></thead>
-          <tbody>${report.rows.map(row => `<tr><td>${escape(row.label)}</td>${comparison ?
-            `<td>${row.baseline}</td><td>${row.value}</td><td>${row.difference > 0 ? '+' : ''}${row.difference}</td>
-             <td>${row.percentChange === null ? 'N/A' : `${row.percentChange > 0 ? '+' : ''}${row.percentChange}%`}</td>` :
-            `<td>${row.value}</td>`}</tr>`).join('')}</tbody></table></div>`) +
-        '<p class="small-note">Projects created counts new project records within the period. Activity follows current category assignments. A zero baseline gives N/A for percentage change.</p>';
+        panel(comparison ? 'Period comparison' : 'Activity totals', table(report.rows)) +
+        (report.accounts ? panel('New accounts by role', table(report.accounts)) : '') +
+        '<p class="small-note">Projects created counts new project records within the period; projects published counts each project made visible to customers in the period once. Activity follows current category assignments. ' +
+        (report.accounts ? 'New accounts are counted by the role they were created with.' : 'New accounts belong to no category, so they are shown for all categories only.') +
+        ' A zero baseline gives N/A for percentage change.</p>';
       document.querySelector('#management-export').disabled = false;
     }
 
@@ -340,7 +305,6 @@
   }
 
   const categoryPage = new CategoryManagementPage();
-  const deletedPage = new DeletedCategoriesPage();
   const usagePage = new CategoryUsagePage();
   const reportPage = new ActivityReportPage();
 
@@ -353,7 +317,7 @@
         ['Project views', counts.views, result.period.label], ['Favourite additions', counts.favourites, result.period.label],
         ['Enquiries', counts.enquiries, result.period.label]]) + `<div class="dashboard-columns">` +
       panel('Manage your workspace', '<div class="panel-body"><div class="quick-actions">' +
-        [['categories', 'Project categories'], ['deleted', 'Deleted categories'], ['usage', 'Category usage'], ['reports', 'Activity reports'], ['compare', 'Compare periods']]
+        [['categories', 'Project categories'], ['usage', 'Category usage'], ['reports', 'Activity reports'], ['compare', 'Compare periods']]
           .map(([path, label]) => `<a href="#management/${path}">${label}<span>${AGroupIcons.icon('arrow-right')}</span></a>`).join('') + '</div></div>') +
       panel('Recent category changes', `<div class="panel-body"><ul class="activity-list">${result.recent.map(entry =>
         `<li><span class="activity-dot"></span><div>${escape(entry.action)}<small>${escape(entry.record)} · ${escape(dateLabel(entry.occurred_at))}</small></div></li>`).join('') ||
@@ -372,7 +336,6 @@
       settings = await api.session();
       if (token !== generation) return;
       if (section === 'categories') await categoryPage.render(token);
-      else if (section === 'deleted') await deletedPage.render(token);
       else if (section === 'usage') await usagePage.render(token);
       else if (section === 'reports' || section === 'compare') await reportPage.render(token, section === 'compare');
       else await overview(token);
@@ -390,8 +353,8 @@
     generation += 1;
     activeSection = '';
     document.body.classList.remove('management-live');
-    document.querySelector('.portal-top .pill').textContent = 'INTERACTIVE WIREFRAME';
-    document.querySelector('.portal-footer').textContent = 'AGroup · Academic prototype · Sample records and browser-local actions for the other workspaces.';
+    document.querySelector('.portal-top .pill').textContent = 'ACADEMIC PROTOTYPE';
+    document.querySelector('.portal-footer').textContent = 'AGroup · Academic prototype · Fictional sample data. Pages marked as not built in this version show sample records only.';
   }
 
   document.addEventListener('click', async event => {
@@ -401,7 +364,7 @@
     try {
       if (action === 'create') await categoryPage.edit();
       else if (action === 'edit') await categoryPage.edit(selected.dataset.id);
-      else if (['archive', 'restore', 'feature', 'delete'].includes(action)) await categoryPage.confirm(selected.dataset.id, action);
+      else if (['archive', 'restore', 'feature'].includes(action)) await categoryPage.confirm(selected.dataset.id, action);
       else if (action === 'merge') await categoryPage.merge();
       else if (action === 'projects') await categoryPage.projects(selected.dataset.id);
       else if (action === 'export') await reportPage.export();
@@ -412,12 +375,6 @@
 
   let searchTimer;
   document.addEventListener('input', event => {
-    if (event.target.id === 'management-deleted-search') {
-      deletedPage.search = event.target.value;
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(() => deletedPage.refresh(), 180);
-      return;
-    }
     if (event.target.id !== 'management-search') return;
     categoryPage.search = event.target.value;
     clearTimeout(searchTimer);
@@ -429,12 +386,18 @@
     categoryPage.refresh();
   });
 
+  /* The report form, with every chosen category (FormData.getAll; Object.fromEntries keeps only one). */
+  function reportValues(form) {
+    const data = new FormData(form);
+    return { ...Object.fromEntries(data), categoryId: data.getAll('categoryId').filter(Boolean) };
+  }
+
   document.addEventListener('submit', async event => {
     const form = event.target.closest('[data-management-form]');
     if (!form) return;
     event.preventDefault();
     const token = generation;
-    const values = Object.fromEntries(new FormData(form));
+    const values = form.dataset.managementForm === 'report' ? reportValues(form) : Object.fromEntries(new FormData(form));
     const controls = [...form.querySelectorAll('button, input, select, textarea')];
     const previousDisabled = controls.map(control => control.disabled);
     controls.forEach(control => { control.disabled = true; });
@@ -454,10 +417,8 @@
       } else if (kind === 'state') {
         values.version = Number(form.dataset.version);
         if (form.dataset.operation === 'feature') values.featured = form.dataset.featured === 'true';
-        const deleting = form.dataset.operation === 'delete';
-        const endpoint = `${base}/categories/${encodeURIComponent(form.dataset.id)}${deleting ? '' : '/' + form.dataset.operation}`;
-        await api.send(endpoint, values, deleting ? 'DELETE' : 'POST');
-        AG.toast(deleting ? 'Category moved to Deleted categories.' : 'Category updated.');
+        await api.send(`${base}/categories/${encodeURIComponent(form.dataset.id)}/${form.dataset.operation}`, values, 'POST');
+        AG.toast('Category updated.');
       } else if (kind === 'merge') {
         await categoryPage.confirmMerge(values.sourceId, values.targetId);
       }

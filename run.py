@@ -15,6 +15,11 @@ Options:
   --port N        try port N first (default 5050, or $PORT)
   --no-browser    do not open the browser
   --page NAME     page to open: index (default) or portal
+  --database FILE use another SQLite file, e.g. instance/test-data.sqlite3
+  --check [quick] check everything instead (test data, backend tests, API, pages, rules)
+                  and print a text report, also saved in instance/reports/
+  --random N      with --check: also check N data sets generated with random seeds
+  --scale X       with --check: size of each generated data set (default 1.0, 2 = twice as many)
 """
 import argparse
 import hashlib
@@ -117,15 +122,22 @@ def main():
     parser.add_argument("--page", choices=PAGES, default="index")
     parser.add_argument("--database", help="SQLite file to use, e.g. instance/test-data.sqlite3 "
                                            "(made by scripts/generate_data.py); default instance/agroup.sqlite3")
+    parser.add_argument("--check", nargs="?", const="full", choices=["full", "quick"],
+                        help="check everything instead of starting the site and write a text report "
+                             "(full: about 4 minutes; quick: without the backend tests, about 1 minute)")
+    parser.add_argument("--random", type=int, default=0, metavar="N",
+                        help="with --check: also check N data sets generated with random seeds (1-2 minutes each)")
+    parser.add_argument("--scale", type=float, default=1.0,
+                        help="with --check: size of each generated data set (default 1.0; 2 = twice as many records)")
     args = parser.parse_args()
 
     ensure_venv()
+    if args.check:
+        command = [sys.executable, str(ROOT / "scripts" / "check_all.py")] + (["--quick"] if args.check == "quick" else [])
+        command += ["--random", str(args.random), "--scale", str(args.scale)]
+        sys.exit(subprocess.call(command, cwd=ROOT))
     if args.database:
         os.environ["AGROUP_DATABASE"] = str(Path(args.database).resolve())
-
-    # Lets the User Admin demo actions work from this machine only
-    # (the backend accepts it for requests from 127.0.0.1 / ::1).
-    os.environ.setdefault("AGROUP_LOCAL_DEV_ADMIN", "1")
 
     port = find_free_port(args.port)
     base = f"http://{HOST}:{port}"

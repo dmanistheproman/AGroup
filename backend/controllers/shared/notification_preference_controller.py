@@ -9,7 +9,8 @@ class NotificationPreferenceController:
                    "TICKET_STATUS": "Updates to my support requests",
                    "ENQUIRY_UPDATE": "Designer decisions and answers on my enquiries",
                    "OFFER_SENT": "New quotations and design proposals",
-                   "PAYMENT_REMINDER": "Payment reminders"}
+                   "PAYMENT_REMINDER": "Payment reminders",
+                   "NEW_PROJECT": "New projects in my preferred styles"}
 
     def __init__(self, preference_repo):
         self.preferences = preference_repo

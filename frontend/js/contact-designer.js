@@ -48,6 +48,10 @@
       const data = await (await fetch(`/api/companies/${encodeURIComponent(company.id)}/reviews`)).json();
       const UI = window.AGroupUI;
       if (!data.count) { slot.innerHTML = '<small>No reviews yet. Customers can review after a completed project.</small>'; return; }
+      if (slot.dataset.summary) {   // a studio card in a list shows the average only
+        slot.innerHTML = UI ? UI.ratingDisplay(data.average, data.count) : `${data.average} / 5 (${data.count})`;
+        return;
+      }
       slot.innerHTML = `${UI ? UI.ratingDisplay(data.average, data.count) : `${data.average} / 5 (${data.count})`}
         <ul class="review-list">${data.reviews.slice(0, 4).map(r => `<li><b>${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</b>
           <p>${esc(r.comment)}</p><small>${esc(r.customer)} · ${esc(r.date)}</small></li>`).join('')}</ul>`;
@@ -55,5 +59,26 @@
   }
 
   new MutationObserver(() => document.querySelectorAll('[data-firm-reviews]').forEach(fill))
+    .observe(document.documentElement, { childList: true, subtree: true });
+})();
+
+/* Verified badge (UA-13): a studio with an account shows Verified once the User Admin approved its verification
+   request, otherwise Unverified. customer.js leaves a [data-firm-verified] badge on the company card and page. */
+(() => {
+  'use strict';
+
+  let companies = null;
+  const load = () => (companies ||= fetch('/api/companies').then(res => res.json())
+    .then(data => data.companies || []).catch(() => { companies = null; return []; }));
+
+  async function fill(badge) {
+    if (badge.dataset.loaded) return;
+    badge.dataset.loaded = 'yes';
+    const company = (await load()).find(c => c.name === badge.dataset.firmVerified);
+    if (!company) return;   // a sample studio without an account keeps its sample badge
+    badge.textContent = company.verification_status;
+  }
+
+  new MutationObserver(() => document.querySelectorAll('[data-firm-verified]').forEach(fill))
     .observe(document.documentElement, { childList: true, subtree: true });
 })();

@@ -87,6 +87,24 @@ jobs:
           echo "Test-data container did not start"; docker logs agroup-testdata; exit 1
       - name: Smoke test on generated test data
         run: python3 scripts/smoke_test.py http://127.0.0.1:8001
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Pages in a browser (generated test data)
+        run: |
+          set +e
+          node scripts/ui_check.mjs http://127.0.0.1:8001 ui-failures > ui-check.txt
+          status=$?
+          cat ui-check.txt
+          { echo "### Pages in a browser (generated test data)"; echo '```'; cat ui-check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+      - name: Screenshots of failed page checks
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-check-failures
+          path: ui-failures
+          if-no-files-found: ignore
       - name: Container logs
         if: always()
         run: |

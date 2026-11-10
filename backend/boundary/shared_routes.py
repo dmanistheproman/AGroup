@@ -61,21 +61,29 @@ def create_shared_blueprint(shared):
     DONE = (SupportTicket.STATUS_RESOLVED, SupportTicket.STATUS_CLOSED, SupportTicket.STATUS_MERGED)
 
     @bp.get("/api/support/tickets")
-    @require_role(login, UserAccount.ROLE_HELPDESK)
+    @require_role(login, UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN)
     def ticket_queue():
         args = request.args
         names = {}
         rows = [{**t.public_view(), "requester_name": name_of(t.requester_id, names),
                  "handler_name": name_of(t.handler_id, names)} for t in shared.tickets.all()]
+        if login.current_user().role == UserAccount.ROLE_USER_ADMIN:   # UA-12: tickets escalated to the User Admin
+            rows = [r for r in rows if r["status"] == SupportTicket.STATUS_ESCALATED]
         scope = args.get("scope", "")
         if scope not in ("", "active", "done"):
             raise ValueError("scope must be active or done.")
         if scope:
             rows = [r for r in rows if (r["status"] in DONE) == (scope == "done")]
+        if scope == "done":   # HD-03 (UC-HD03 BF4): when each ticket was resolved, from the shared audit log
+            for r in rows:
+                r["resolved_at"] = resolved_at(r["id"])
         kind = args.get("type", "")
         if kind == "REPORTS":
             rows = [r for r in rows if r["type"] in SupportTicket.REPORT_TYPES]
             kind = ""
+        requester_type = args.get("requester_type", "")
+        if requester_type:   # HD-06: filter by requester type (CUSTOMER or DESIGNER)
+            rows = [r for r in rows if r["requester_type"] == requester_type]
         handler = args.get("handler")
         if handler == "me":
             rows = [r for r in rows if r["handler_id"] == login.current_user().id]
@@ -84,7 +92,13 @@ def create_shared_blueprint(shared):
         query = PagedQuery.create(args.get("q", ""), {"status": args.get("status"), "type": kind},
                                   page=args.get("page", 1), page_size=args.get("page_size", 20),
                                   sort_by="-created_at")
-        return jsonify(query.run(rows, search_fields=("id", "details", "related_project_title")))
+        # HD-03: search resolved tickets by keyword, IDP or requester
+        return jsonify(query.run(rows, search_fields=("id", "details", "related_project_title", "requester_name")))
+
+    def resolved_at(ticket_id):
+        moves = [e for e in shared.status_change.history_of("SUPPORT_TICKET", ticket_id)
+                 if e.to_status in (SupportTicket.STATUS_RESOLVED, SupportTicket.STATUS_MERGED)]
+        return moves[-1].created_at if moves else None
 
     def name_of(user_id, cache):
         """Display name of an account (cached per request)."""
@@ -110,7 +124,7 @@ def create_shared_blueprint(shared):
                        messages=[m.public_view() for m in messages],
                        history=[e.public_view() for e in history], names=names,
                        reported_message=reported.public_view() if reported else None,
-                       allowed_statuses=shared.ticket_lifecycle.allowed_statuses(ticket.id) if is_agent else [],
+                       allowed_statuses=shared.ticket_lifecycle.allowed_for(ticket.id, user),
                        feedback=feedback.public_view() if feedback and is_agent else None,
                        feedback_given=feedback is not None,
                        can_give_feedback=(ticket.requester_id == user.id and feedback is None
@@ -123,11 +137,14 @@ def create_shared_blueprint(shared):
         return ticket
 
     @bp.get("/api/support/tickets/<ticket_id>")
-    @require_role(login, *REQUESTERS, UserAccount.ROLE_HELPDESK)
+    @require_role(login, *REQUESTERS, UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN)
     def view_ticket(ticket_id):
         ticket = find_ticket(ticket_id)
         user = login.current_user()
-        if user.role != UserAccount.ROLE_HELPDESK and not ticket.can_access(user.id):
+        if user.role == UserAccount.ROLE_USER_ADMIN:
+            if not shared.ticket_lifecycle.was_escalated(ticket.id):   # UA-12: escalated tickets only
+                raise PermissionError("The User Admin sees tickets escalated by the helpdesk.")
+        elif user.role != UserAccount.ROLE_HELPDESK and not ticket.can_access(user.id):
             raise PermissionError("You can only view your own requests.")
         return ticket_page(ticket)
 
@@ -188,9 +205,22 @@ def create_shared_blueprint(shared):
         find_ticket(ticket_id)
         return ticket_page(shared.requests.assign_handler(ticket_id, login.current_user().id))
 
+    # ---- HD-01: set a ticket's priority and assignee (any helpdesk agent) ----
+    @bp.get("/api/support/agents")
+    @require_role(login, UserAccount.ROLE_HELPDESK)
+    def helpdesk_agents():
+        return jsonify(agents=shared.ticket_triage.agents())
+
+    @bp.post("/api/support/tickets/<ticket_id>/triage")
+    @require_role(login, UserAccount.ROLE_HELPDESK)
+    def triage_ticket(ticket_id):
+        data = body()
+        return ticket_page(shared.ticket_triage.update(ticket_id, login.current_user(), data.get("priority"),
+                                                       data.get("assignee_id")))
+
     # ---- Move a ticket (ConfirmWithReasonDialog -> TicketLifecycle -> StatusChangeService) ----
     @bp.post("/api/support/tickets/<ticket_id>/status")
-    @require_role(login, UserAccount.ROLE_HELPDESK)
+    @require_role(login, UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN)
     def move_ticket(ticket_id):
         data = body()
         ticket = shared.ticket_lifecycle.move_to(ticket_id, data.get("status"), login.current_user(),
@@ -199,7 +229,7 @@ def create_shared_blueprint(shared):
 
     # ---- Project status: publish / unpublish (ID-03), hide / restore (HD-09) ----
     @bp.post("/api/projects/<project_id>/status")
-    @require_role(login, UserAccount.ROLE_DESIGNER, UserAccount.ROLE_HELPDESK)
+    @require_role(login, UserAccount.ROLE_DESIGNER, UserAccount.ROLE_HELPDESK, UserAccount.ROLE_USER_ADMIN)
     def change_project_status(project_id):
         data = body()
         project = shared.project_status.change(login.current_user(), project_id, data.get("status"),
@@ -271,7 +301,10 @@ def create_shared_blueprint(shared):
     # ---- Public company list (who customers can message; no owner details) ----
     @bp.get("/api/companies")
     def companies():
-        return jsonify(companies=[c.public_view() for c in shared.companies.all()])
+        def shown(company):   # C-05: a suspended designer's company is not listed
+            owner = shared.user_accounts.get(company.owner_id)
+            return owner is None or owner.is_active()
+        return jsonify(companies=[c.public_view() for c in shared.companies.all() if shown(c)])
 
     # ---- Public reviews of a company (C-07, RatingDisplay S-11) ----
     @bp.get("/api/companies/<company_id>/reviews")

@@ -1,7 +1,5 @@
 from .view_categories_controller import ViewCategoriesController
 from .create_category_controller import CreateCategoryController
-from .delete_category_controller import DeleteCategoryController
-from .view_deleted_categories_controller import ViewDeletedCategoriesController
 from .edit_category_controller import EditCategoryController
 from .archive_category_controller import ArchiveCategoryController
 from .view_report_controller import ViewReportController

@@ -9,7 +9,7 @@ from backend.controllers.helpdesk.merge_ticket_controller import MergeFailed, Me
 from backend.entities.user_account import UserAccount
 
 
-def create_helpdesk_blueprint(merge_controller, login):
+def create_helpdesk_blueprint(merge_controller, login, recommend_controller=None, verification_queue=None):
     bp = Blueprint("helpdesk", __name__)
 
     @bp.before_request
@@ -27,5 +27,27 @@ def create_helpdesk_blueprint(merge_controller, login):
         except MergeFailed as err:
             return jsonify(error=str(err)), 500
         return jsonify(message="Merge complete", merged=merged.public_view())
+
+    # ---- HD-12: the verification requests to recommend on (read only; the User Admin decides, UA-13) ----
+    @bp.get("/api/helpdesk/verifications")
+    def api_verification_queue():
+        if verification_queue is None:
+            return jsonify(error="Verification requests are not available."), 404
+        return jsonify(requests=verification_queue())
+
+    # ---- HD-12: recommend a verification decision for the User Admin ----
+    @bp.post("/api/admin/verifications/<request_id>/recommend")
+    def api_recommend_verification(request_id):
+        if recommend_controller is None:
+            return jsonify(error="Verification recommendation is not available."), 404
+        data = request.get_json(silent=True) or {}
+        try:
+            r = recommend_controller.recommend(request_id, login.current_user().id,
+                                               data.get("decision"), data.get("reason"))
+            return jsonify(message="Recommendation recorded.", request=r.public_view())
+        except LookupError as err:
+            return jsonify(error=str(err)), 404
+        except ValueError as err:
+            return jsonify(error=str(err)), 400
 
     return bp

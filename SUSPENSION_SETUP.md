@@ -36,16 +36,16 @@ From the project root:
 python3 run.py
 ```
 
-`run.py` creates `.venv`, installs `backend/requirements.txt`, sets
-`AGROUP_LOCAL_DEV_ADMIN=1`, picks a free port and prints the URLs.
+`run.py` creates `.venv`, installs `backend/requirements.txt`, picks a free port
+and prints the URLs.
 
-Visit `http://127.0.0.1:<port>/portal.html#admin/accounts`, then select
+Log in as the User Admin (`admin@demo.agroup`, password `demo`), visit
+`http://127.0.0.1:<port>/portal.html#admin/accounts`, then select
 **Suspend User Account (backend)**. **Do not** use `python -m http.server`
 for the API workflow.
 
-Until the real account repository is provided, an attempted suspension returns
-HTTP 503 `ACCOUNTS_NOT_CONNECTED`. That is deliberate; it prevents the interface
-from claiming an account was suspended when it was not. The `ACC-401` and
+The suspension uses the real account repository (`UserAccountRepo`), so it
+persists and is audited. The `ACC-401` and
 `ACC-402` records in `portal.js` are sample wireframe records, not real users.
 
 ## Contract for the teammate implementing accounts
@@ -65,16 +65,14 @@ commit_suspension(account_id: str, record: SuspensionRecord, action: AdminAction
 3. Persist the `SuspensionRecord` and `AdminAction`.
 4. Return `True` on success, or `False` if the account was no longer active.
 
-It must not partially commit the status or audit records. Replace the temporary
-`UnconnectedAccountRegistry` by passing the actual repository to `create_app`.
+It must not partially commit the status or audit records. `create_app` uses
+`UserAccountRepo` by default; pass another registry only in tests.
 
-Real authentication is not implemented in AGroup yet. The `admin_provider`
-argument to `create_app` must be connected to the team's authenticated session
-and return an object such as `{'id': 'ADMIN-12', 'role': 'User Admin'}`. Never
-trust a browser-provided administrator ID or role. The environment setting
-`AGROUP_LOCAL_DEV_ADMIN=1` is strictly a *localhost-only development bypass*:
-**do not deploy with it enabled**.
+The administrator is the logged-in account. By default `create_app` builds
+`admin_provider` from the login session and returns
+`{'id': <user id>, 'role': 'User Admin'}` for a User Admin; other roles get 403
+and anyone not logged in gets 401. Never trust a browser-provided administrator
+ID or role. The former `AGROUP_LOCAL_DEV_ADMIN` localhost bypass has been removed.
 
-To enforce a suspension, the eventual login/session middleware must reject or
-revoke access for accounts with status `SUSPENDED`. This cannot be completed by
-the suspension module alone.
+Log In refuses suspended accounts and ends their open sessions
+(`LoginController`), which enforces the suspension.

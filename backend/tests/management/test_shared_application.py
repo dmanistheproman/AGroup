@@ -66,8 +66,6 @@ def test_designer_project_merge_delete_and_restart_share_one_database(app):
     })
     assert merged.status_code == 200 and merged.json['movedCount'] == 1
     assert designer.get('/api/projects').json[0]['category_id'] == target['id']
-    assert send(manager, '/api/management/categories/' + source['id'], {'version': 2}, 'DELETE').status_code == 200
-    assert manager.get('/api/management/categories/deleted').json['categories'][0]['target'] == 'Modern'
     available = designer.get('/api/project-categories').json['categories']
     assert [item['id'] for item in available] == [target['id']]
     restarted = create_app(config={'TESTING': True, 'SECRET_KEY': 'test', 'DATABASE': app.config['DATABASE'], 'SEED_DEMO': False})
@@ -100,7 +98,7 @@ def test_activity_is_shared_by_management_reports_and_designer_statistics(app):
     assert stats['lifetime_favourites'] == stats['period_favourites'] == 1
     today = datetime.now(SINGAPORE).date().isoformat()
     report = send(manager, '/api/management/reports', {'period': 'daily', 'date': today}).json['report']
-    assert [row['value'] for row in report['rows']] == [1, 1, 1, 1]
+    assert [row['value'] for row in report['rows']] == [1, 0, 1, 1, 1]   # the project is a draft, not published
 
 
 def test_shared_portfolio_restricts_other_designers_and_draft_discovery(app):

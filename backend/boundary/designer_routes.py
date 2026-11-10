@@ -163,7 +163,7 @@ def create_designer_blueprint(c, upload_dir, login):
     def api_review_verification(request_id):
         try:
             r = c.review_controller.review(request_id, request.form.get("decision", ""), request.form.get("reason"),
-                                           reviewer=current_user_id() or "platform-admin")
+                                           reviewer=current_user_id())
             return jsonify({"message": "Review recorded.", "request": r.public_view()}), 200
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
@@ -192,6 +192,14 @@ def create_designer_blueprint(c, upload_dir, login):
     def api_present_proposal(proposal_id):
         try:
             return jsonify(c.submit_proposal_controller.present(current_user_id(), proposal_id))
+        except ValueError as err:
+            return jsonify({"error": str(err)}), 400
+
+    @bp.route("/api/proposals/<proposal_id>/supersede", methods=["POST"])
+    def api_supersede_proposal(proposal_id):
+        try:
+            return jsonify(c.submit_proposal_controller.supersede(current_user_id(), proposal_id,
+                                                                  request.form.get("reason", "")))
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 

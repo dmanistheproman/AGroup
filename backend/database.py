@@ -12,6 +12,7 @@ app already uses (CUS-101, TKT-1001, QT-101, ...). The project, category and act
     next_number(...)        reserve the next number of a readable ID under the write lock
 """
 from contextlib import contextmanager
+import re
 import sqlite3
 import threading
 
@@ -122,6 +123,9 @@ CREATE TABLE IF NOT EXISTS enquiry (
     client_name TEXT NOT NULL,
     requirements TEXT NOT NULL,
     budget REAL,
+    enquiry_type TEXT,
+    property_layout TEXT,
+    target_timeline TEXT,
     decided_at TEXT,
     decision_reason TEXT
 );
@@ -148,7 +152,11 @@ CREATE TABLE IF NOT EXISTS verification_request (
     requested_by TEXT,
     documents TEXT NOT NULL DEFAULT '[]',
     rejection_reason TEXT,
-    reviewed_by TEXT
+    reviewed_by TEXT,
+    recommendation TEXT,
+    recommendation_reason TEXT,
+    recommended_by TEXT,
+    recommended_at TEXT
 );
 CREATE TABLE IF NOT EXISTS offer (
     offer_id TEXT PRIMARY KEY,
@@ -288,7 +296,29 @@ CREATE INDEX IF NOT EXISTS attachment_by_group ON attachment(attachment_group_id
 def install_schema(store):
     with store.transaction(write=True) as connection:
         connection.executescript(SHARED_SCHEMA)
+        add_missing_columns(connection, SHARED_SCHEMA)
     return store
+
+
+TABLE_CONSTRAINTS = ("PRIMARY KEY", "FOREIGN KEY", "UNIQUE", "CHECK", "CONSTRAINT")
+
+
+def add_missing_columns(connection, schema):
+    """A database made before a column was added to the schema gains that column (CREATE TABLE IF NOT EXISTS
+    leaves existing tables as they are). Existing rows get the column's default, or NULL."""
+    for table, body in re.findall(r"CREATE TABLE IF NOT EXISTS (\w+) \((.*?)\n\);", schema, re.S):
+        present = {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
+        for line in body.split("\n"):
+            definition = line.strip().rstrip(",")
+            if not definition or definition.upper().startswith(TABLE_CONSTRAINTS):
+                continue
+            column = definition.split()[0]
+            if column in present:
+                continue
+            upper = definition.upper()
+            if "PRIMARY KEY" in upper or "UNIQUE" in upper or ("NOT NULL" in upper and "DEFAULT" not in upper):
+                raise RuntimeError(f"Cannot add {table}.{column} to an existing database: {definition}")
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN {definition}")
 
 
 class MemoryStore:
