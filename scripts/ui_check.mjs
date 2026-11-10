@@ -167,28 +167,50 @@ try {
       await page.goto("/portal.html#admin/verification");
       return page.waitFor("#portal-main", { text: "Company verification" });
     });
-    await step("UA-09 flag a user account from the accounts page", async () => {
+    await step("UA-04 to UA-06 search the account list and open an account", async () => {
       await page.goto("/portal.html#admin/accounts");
-      if (!await page.waitFor("[data-action=open-flag]")) return false;
-      await page.click("[data-action=open-flag]");
+      if (!await page.waitFor("#ua-accounts-filter")) return false;
+      await page.eval(`(() => { const f = document.querySelector('#ua-accounts-filter');
+        f.q.value = 'customer@demo'; f.role.value = 'CUSTOMER'; f.requestSubmit(); })()`);
+      if (!await page.waitFor("#portal-main tbody tr", { text: "customer@demo.agroup" })) return false;
+      await page.click("[data-ua=account]");
+      return page.waitFor("#modal", { text: "customer@demo.agroup" });
+    });
+    await step("UA-01 suspend and UA-02 reactivate the account", async () => {
+      const move = reason => page.eval(`(() => { const f = document.querySelector('#ua-account-status');
+        f.reason.value = '${reason}'; f.requestSubmit(); })()`);
+      await move("UI check: suspended for a test.");
+      if (!await page.waitFor("#toast", { text: "Account suspended." })) return false;
+      await page.click("[data-ua=account]");
+      if (!await page.waitFor("#ua-account-status[data-move=reactivate]")) return false;
+      await move("UI check: appeal accepted.");
+      return page.waitFor("#toast", { text: "Account reactivated." });
+    });
+    await step("UA-09 flag the account", async () => {
+      await page.click("[data-ua=account]");
+      if (!await page.waitFor("[data-ua=flag]")) return false;
+      await page.click("[data-ua=flag]");
       if (!await page.waitFor("#ua-flag-form")) return false;
       await page.eval(`(() => { const f = document.querySelector('#ua-flag-form');
-        f.accountId.value = 'CUS-101'; f.reason.value = 'UI check: possible fake reviews.';
+        f.reason.value = 'UI check: possible fake reviews.';
         f.requestSubmit(f.querySelector('[value=flag]')); })()`);
       return page.waitFor("#toast", { text: "is flagged" });
     });
     await step("UA-10 add an internal note to the account", async () => {
-      await page.click("[data-action=open-account-notes]");
+      await page.click("[data-ua=account]");
+      if (!await page.waitFor("[data-ua=notes]")) return false;
+      await page.click("[data-ua=notes]");
       if (!await page.waitFor("#ua-notes-form")) return false;
       await page.eval(`(() => { const f = document.querySelector('#ua-notes-form');
-        f.accountId.value = 'CUS-101'; f.text.value = 'UI check: asked for documents.';
+        f.text.value = 'UI check: asked for documents.';
         f.requestSubmit(f.querySelector('[value=save]')); })()`);
       return page.waitFor("#ua-notes-list", { text: "UI check: asked for documents." });
     });
-    await step("UA-11 the action history shows the flag and its details", async () => {
+    await step("UA-11 the action history shows the flag, the reactivation and the details", async () => {
       await page.eval("document.querySelector('#modal')?.close()");
       await page.goto("/portal.html#admin/history");
       if (!await page.waitFor("#portal-main tbody tr", { text: "Flagged the account" })) return false;
+      if (!await page.waitFor("#portal-main tbody", { text: "Reactivated the account" })) return false;
       await page.click("[data-ua=action]");
       return page.waitFor("#modal", { text: "UI check: possible fake reviews." });
     });
