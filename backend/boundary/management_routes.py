@@ -9,11 +9,7 @@ from werkzeug.exceptions import HTTPException
 
 from backend.boundary.auth_guard import role_error
 from backend.entities.user_account import UserAccount
-from backend.entities.project_category import ProjectCategory
-from backend.entities.interior_design_project import InteriorDesignProject
 from backend.entities.project_activity import ProjectActivity
-from backend.entities.project import Project
-from backend.repositories.company_repo import CompanyRepo
 from backend.entities.platform_activity_report import PlatformActivityReport
 from backend.entities.report_period import Period
 from backend.services.management_rules import BusinessError, SINGAPORE, category_ids
@@ -162,9 +158,15 @@ def create_management_blueprint(c, store, login):
 
     @bp.get("/api/catalog")
     def catalog():
-        projects = InteriorDesignProject(store).list_by_category()["projects"]
-        projects = Project.visible_to_customers(projects, CompanyRepo(store).names_of_suspended_designers())
-        return jsonify(projects=projects, categories=ProjectCategory(store).list_all(status="Active"))
+        return jsonify(current_app.extensions["customer"].search_project_controller.catalog())      # C-02
+
+    @bp.get("/api/catalog/<project_id>")
+    def project_details(project_id):
+        try:
+            project = current_app.extensions["customer"].view_project_details_controller.view(project_id)   # C-03
+        except LookupError as err:
+            return jsonify(error=str(err)), 404
+        return jsonify(project=project)
 
     @bp.post("/api/activity")
     def record_activity():

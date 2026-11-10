@@ -1,7 +1,8 @@
 """C-04 Save projects to favourites (S-22 collections, S-18 activity), stored in the favourite table."""
 import pytest
 
-from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
+from backend.controllers.customer.save_favourite_controller import SaveFavouriteController
+from backend.controllers.customer.view_favourites_controller import ViewFavouritesController
 from backend.database import MemoryStore
 from backend.entities.project_activity import ProjectActivity
 from backend.repositories.favourite_repo import FavouriteRepository
@@ -19,7 +20,7 @@ def store():
 
 
 def controller(store):
-    return ManageFavouritesController(FavouriteRepository(store), ProjectRepo(store), ProjectActivity(store))
+    return SaveFavouriteController(FavouriteRepository(store), ProjectRepo(store), ProjectActivity(store))
 
 
 def favourites_count(store, project_number):
@@ -58,8 +59,8 @@ def test_favourites_survive_a_restart_in_the_order_they_were_saved(store):
     ctrl = controller(store)
     ctrl.add_favourite("CUS-101", "IDP-004")
     ctrl.add_favourite("CUS-101", "IDP-001")
-    assert controller(store).get_favourites("CUS-101")["project_ids"] == ["IDP-004", "IDP-001"]
-    assert controller(store).get_favourites("CUS-102")["project_ids"] == []
+    assert ViewFavouritesController(FavouriteRepository(store)).get_favourites("CUS-101")["project_ids"] == ["IDP-004", "IDP-001"]
+    assert ViewFavouritesController(FavouriteRepository(store)).get_favourites("CUS-102")["project_ids"] == []
 
 
 def test_catalogue_numbers_are_accepted(store):

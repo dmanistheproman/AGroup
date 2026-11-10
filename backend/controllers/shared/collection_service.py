@@ -9,7 +9,7 @@ link that the owner can revoke (C-13).
 import re
 import secrets
 
-from backend.controllers.customer.manage_favourites_controller import project_reference
+from backend.controllers.customer.save_favourite_controller import project_reference
 from backend.controllers.shared.validation_rules import ValidationRules
 from backend.entities.collection import Collection
 from backend.entities.user_account import UserAccount

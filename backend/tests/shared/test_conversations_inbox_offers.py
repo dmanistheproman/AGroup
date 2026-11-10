@@ -14,6 +14,12 @@ def shared(app):
     return app.extensions["shared"]
 
 
+@pytest.fixture
+def preferences(app):
+    """C-12: UpdateNotificationPreferenceController, offered with the customer's controllers."""
+    return app.extensions["customer"].update_notification_preference_controller
+
+
 def user(shared, user_id):
     return shared.user_accounts.get(user_id)
 
@@ -90,12 +96,12 @@ def test_inbox_lists_the_customers_enquiries(shared):
 
 # ---- notification preferences (C-12) ----
 
-def test_preferences_are_on_by_default_and_can_be_turned_off(shared):
+def test_preferences_are_on_by_default_and_can_be_turned_off(shared, preferences):
     alex, designer = user(shared, "CUS-101"), user(shared, "user-form-field")
-    prefs = {p["event_type"]: p["is_enabled"] for p in shared.preferences.list_for(alex)}
+    prefs = {p["event_type"]: p["is_enabled"] for p in preferences.list_for(alex)}
     assert prefs == {"NEW_MESSAGE": True, "TICKET_STATUS": True, "ENQUIRY_UPDATE": True, "OFFER_SENT": True,
                      "PAYMENT_REMINDER": True, "NEW_PROJECT": True}
-    shared.preferences.update(alex, "NEW_MESSAGE", False)
+    preferences.update(alex, "NEW_MESSAGE", False)
     conversation = shared.conversations.start_conversation(alex, "COM-FF")
     before = len(shared.notifications.list_for("CUS-101"))
     shared.messages.post_message(conversation.thread_id, designer, "Hello")
@@ -104,11 +110,11 @@ def test_preferences_are_on_by_default_and_can_be_turned_off(shared):
     assert shared.notifications.list_for("CUS-101")[0].type == "TICKET_OPENED"
 
 
-def test_preferences_are_for_customers_and_known_types(shared):
+def test_preferences_are_for_customers_and_known_types(shared, preferences):
     with pytest.raises(PermissionError):
-        shared.preferences.list_for(user(shared, "user-form-field"))
+        preferences.list_for(user(shared, "user-form-field"))
     with pytest.raises(ValueError):
-        shared.preferences.update(user(shared, "CUS-101"), "WELCOME", False)
+        preferences.update(user(shared, "CUS-101"), "WELCOME", False)
 
 
 # ---- the client's answer to offers (S-21) ----

@@ -142,7 +142,7 @@ def count_records(path):
 
 class _Generator:
     def __init__(self, app, rng, n, log):
-        from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
+        from backend.controllers.customer.save_favourite_controller import SaveFavouriteController
         from backend.controllers.helpdesk.merge_tickets_controller import MergeTicketsController
         from backend.controllers.shared.activity_recorder import ActivityRecorder
         from backend.entities.project_activity import ProjectActivity
@@ -157,6 +157,7 @@ class _Generator:
         from backend.repositories.verification_repo import VerificationRepo
 
         self.s = app.extensions["shared"]
+        self.customer = app.extensions["customer"]   # C-12 preferences go through the customer's controller
         store = self.s.store
         self.rng, self.n, self.log = rng, n, log
         self.accounts = _FastAccounts(self.s.account_service)
@@ -165,7 +166,7 @@ class _Generator:
             enquiries=EnquiryRepo(store),
             quotations=QuotationRepo(store), proposals=ProposalRepo(store), payments=PaymentRepo(store),
             verifications=VerificationRepo(store),
-            favourites=ManageFavouritesController(FavouriteRepository(store), self.s.projects, ProjectActivity(store)),
+            favourites=SaveFavouriteController(FavouriteRepository(store), self.s.projects, ProjectActivity(store)),
             merge=MergeTicketsController(self.s.tickets, self.s.status_change, self.s.message_repo, self.s.note_repo),
             activity=ActivityRecorder(store))
         self.now = datetime.now(timezone.utc)
@@ -488,7 +489,8 @@ class _Generator:
 
     def preferences(self):
         for customer in self.rng.sample(self.customers, min(self.n["preferences"], len(self.customers))):
-            self.s.preferences.update(customer, self.pick(["NEW_MESSAGE", "TICKET_STATUS"]), False)
+            self.customer.update_notification_preference_controller.update(
+                customer, self.pick(["NEW_MESSAGE", "TICKET_STATUS"]), False)
 
     # ---- failed uploads (S-03, HD-08) ----
     def upload_failures(self):

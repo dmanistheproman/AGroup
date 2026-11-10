@@ -23,6 +23,12 @@ def shared(app):
 
 
 @pytest.fixture
+def preferences(app):
+    """C-12: UpdateNotificationPreferenceController, offered with the customer's controllers."""
+    return app.extensions["customer"].update_notification_preference_controller
+
+
+@pytest.fixture
 def designer_side(app):
     return app.extensions["designer"]
 
@@ -194,10 +200,10 @@ def test_the_request_page_is_for_its_customer_and_designer(app, shared, designer
     assert other.get("/api/requests/CUS-101").status_code == 403
 
 
-def test_customers_choose_enquiry_offer_and_payment_updates(shared):
-    types = [p["event_type"] for p in shared.preferences.list_for(user(shared, "CUS-101"))]
+def test_customers_choose_enquiry_offer_and_payment_updates(shared, preferences):
+    types = [p["event_type"] for p in preferences.list_for(user(shared, "CUS-101"))]
     assert {"ENQUIRY_UPDATE", "OFFER_SENT", "PAYMENT_REMINDER"} <= set(types)
-    shared.preferences.update(user(shared, "CUS-101"), "OFFER_SENT", False)
+    preferences.update(user(shared, "CUS-101"), "OFFER_SENT", False)
     assert shared.rules.notify("CUS-101", "OFFER_SENT", "x") is None
 
 
@@ -275,8 +281,8 @@ def test_records_naming_a_customer_without_an_account_change_without_notifying(s
     assert len(shared.notifications.list_for("user-form-field")) == before
 
 
-def test_turning_off_offer_updates_stops_them(shared, designer_side):
-    shared.preferences.update(user(shared, "CUS-101"), "OFFER_SENT", False)
+def test_turning_off_offer_updates_stops_them(shared, preferences, designer_side):
+    preferences.update(user(shared, "CUS-101"), "OFFER_SENT", False)
     shared.requests.assign_handler("CUS-101", "user-form-field")
     q = designer_side.submit_quotation_controller.create("user-form-field", {
         "enquiry_id": "CUS-101", "design_fee": 1, "material_cost": 1, "construction_fee": 1,

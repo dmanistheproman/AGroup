@@ -1,10 +1,12 @@
-"""<<control>> NotificationPreferenceController — C-12 a customer chooses which updates they are notified about.
+"""<<control>> UpdateNotificationPreferenceController — C-12 a customer chooses which updates they are notified
+about; each choice is a NotificationPreference.
 NotificationRules checks these choices before sending (S-07). Confirmations (for example TICKET_OPENED) are
 always sent."""
+from backend.entities.notification_preference import NotificationPreference
 from backend.entities.user_account import UserAccount
 
 
-class NotificationPreferenceController:
+class UpdateNotificationPreferenceController:
     EVENT_TYPES = {"NEW_MESSAGE": "New messages from designers and the helpdesk",
                    "TICKET_STATUS": "Updates to my support requests",
                    "ENQUIRY_UPDATE": "Designer decisions and answers on my enquiries",
@@ -17,7 +19,7 @@ class NotificationPreferenceController:
 
     def list_for(self, user):
         self._check(user)
-        return [{"event_type": t, "label": label, "is_enabled": self.preferences.allows(user.id, t)}
+        return [{**self.preferences.get(user.id, t).public_view(), "label": label}
                 for t, label in self.EVENT_TYPES.items()]
 
     def update(self, user, event_type, is_enabled):
@@ -26,7 +28,7 @@ class NotificationPreferenceController:
             raise ValueError("Choose a notification type you can turn on or off.")
         if not isinstance(is_enabled, bool):
             raise ValueError("Choose on or off.")
-        self.preferences.set(user.id, event_type, is_enabled)
+        self.preferences.save(NotificationPreference(user.id, event_type, is_enabled))
         return self.list_for(user)
 
     @staticmethod

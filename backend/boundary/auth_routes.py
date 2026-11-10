@@ -1,12 +1,12 @@
 """Boundary: HTTP routes for logging in and out (X-03)."""
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from backend.controllers.shared.account_service import FieldError
 from backend.controllers.shared.login_controller import AuthenticationError
 from backend.entities.user_account import UserAccount
 
 
-def create_auth_blueprint(login, account_service=None):
+def create_auth_blueprint(login):
     bp = Blueprint("auth", __name__)
 
     # ---- error mapping (see backend/CONVENTIONS.md) ----
@@ -41,8 +41,8 @@ def create_auth_blueprint(login, account_service=None):
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             raise ValueError("Expected a JSON request body.")
-        account = account_service.create_account(data.get("name"), data.get("email"), data.get("password"),
-                                                 UserAccount.ROLE_CUSTOMER)
+        account = current_app.extensions["customer"].register_customer_controller.register(   # C-01.1
+            data.get("name"), data.get("email"), data.get("password"))
         login.login(account.email, data.get("password"))   # start the session straight away
         return jsonify(user=account.public_view()), 201
 

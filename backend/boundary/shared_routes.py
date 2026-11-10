@@ -20,6 +20,11 @@ def helpdesk():
     return current_app.extensions["helpdesk"]
 
 
+def customer():
+    """The customer's control classes (C stories), built in server.py."""
+    return current_app.extensions["customer"]
+
+
 def create_shared_blueprint(shared):
     login = shared.login
     bp = Blueprint("shared", __name__)
@@ -283,10 +288,14 @@ def create_shared_blueprint(shared):
     # ---- Public company list (who customers can message; no owner details) ----
     @bp.get("/api/companies")
     def companies():
-        def shown(company):   # C-05: a suspended designer's company is not listed
-            owner = shared.user_accounts.get(company.owner_id)
-            return owner is None or owner.is_active()
-        return jsonify(companies=[c.public_view() for c in shared.companies.all() if shown(c)])
+        return jsonify(companies=customer().browse_company_profiles_controller.list_companies())   # C-05
+
+    @bp.get("/api/companies/<company_id>")
+    def company_profile(company_id):
+        try:
+            return jsonify(customer().browse_company_profiles_controller.profile(company_id))       # C-05
+        except LookupError as err:
+            return jsonify(error=str(err)), 404
 
     # ---- Public reviews of a company (C-07, RatingDisplay S-11) ----
     @bp.get("/api/companies/<company_id>/reviews")
@@ -321,14 +330,14 @@ def create_shared_blueprint(shared):
     @bp.get("/api/notification-preferences")
     @require_role(login, UserAccount.ROLE_CUSTOMER)
     def notification_preferences():
-        return jsonify(preferences=shared.preferences.list_for(login.current_user()))
+        return jsonify(preferences=customer().update_notification_preference_controller.list_for(login.current_user()))
 
     @bp.put("/api/notification-preferences")
     @require_role(login, UserAccount.ROLE_CUSTOMER)
     def update_notification_preference():
         data = body()
-        return jsonify(preferences=shared.preferences.update(login.current_user(), data.get("event_type"),
-                                                             data.get("is_enabled")))
+        return jsonify(preferences=customer().update_notification_preference_controller.update(
+            login.current_user(), data.get("event_type"), data.get("is_enabled")))
 
     # ---- The client's answer to offers (OfferPage, S-21) ----
     @bp.get("/api/offers")

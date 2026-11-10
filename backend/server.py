@@ -38,7 +38,6 @@ from backend.controllers.shared.project_status_controller import ProjectStatusCo
 from backend.repositories.conversation_repo import ConversationRepo
 from backend.repositories.notification_preference_repo import NotificationPreferenceRepo
 from backend.controllers.shared.start_conversation_controller import StartConversationController
-from backend.controllers.shared.notification_preference_controller import NotificationPreferenceController
 from backend.controllers.shared.inbox_service import InboxService
 from backend.controllers.shared.offer_service import OfferService
 from backend.entities.enquiry import Enquiry
@@ -97,7 +96,15 @@ from backend.storage import SQLiteStore
 
 # ----- Customer -----
 from backend.repositories.favourite_repo import FavouriteRepository
-from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
+from backend.controllers.customer.save_favourite_controller import SaveFavouriteController
+from backend.controllers.customer.view_favourites_controller import ViewFavouritesController
+from backend.controllers.customer.register_customer_controller import RegisterCustomerController
+from backend.controllers.customer.search_project_controller import SearchProjectController
+from backend.controllers.customer.view_project_details_controller import ViewProjectDetailsController
+from backend.controllers.customer.browse_company_profiles_controller import BrowseCompanyProfilesController
+from backend.controllers.customer.create_moodboard_controller import CreateMoodboardController
+from backend.controllers.customer.share_moodboard_controller import ShareMoodboardController
+from backend.controllers.customer.update_notification_preference_controller import UpdateNotificationPreferenceController
 from backend.controllers.customer.submit_enquiry_controller import SubmitEnquiryController
 from backend.controllers.customer.compare_designers_controller import CompareDesignersController
 from backend.controllers.customer.recommendation_service import RecommendationService
@@ -296,7 +303,6 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.messages.register_owner(shared.conversation_repo.find_by_thread, on_post=shared.conversation_repo.touch)
     shared.preference_repo = NotificationPreferenceRepo(store)
     shared.rules.preferences = shared.preference_repo
-    shared.preferences = NotificationPreferenceController(shared.preference_repo)
     shared.uploads, shared.upload_failures = upload_service, upload_service.failures
     upload_service.attachments = shared.attachments   # every accepted upload is kept as an attachment (S-03)
     shared.ticket_feedback = TicketFeedbackController(TicketFeedbackRepo(store), shared.tickets)   # HD-13
@@ -354,7 +360,7 @@ def create_app(registry=None, admin_provider=None, config=None):
                                             designer.company_repo)   # C-07
     app.extensions['designer'] = designer
     user_admin.decide_verification_controller = designer.decide_verification_controller   # UA-13 (built with ID-02)
-    app.register_blueprint(create_auth_blueprint(login, accounts))
+    app.register_blueprint(create_auth_blueprint(login))   # C-01.1 registration: RegisterCustomerController
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
 
     # ----- Shared: active categories and activity reports (S-06, S-10) -----
@@ -364,7 +370,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     app.register_blueprint(create_management_blueprint(build_management_controllers(store), store, login))
 
     # ----- Customer -----
-    favourites = ManageFavouritesController(FavouriteRepository(store), shared.projects, ProjectActivity(store))
+    favourites = SaveFavouriteController(FavouriteRepository(store), shared.projects, ProjectActivity(store))
     favourites.hidden_firms = designer.company_repo.names_of_suspended_designers   # C-05: suspended designers hidden
     shared.collections = CollectionService(CollectionRepo(store), FavouriteRepository(store))
     shared.collections.uploads, shared.collections.attachments = upload_service, shared.attachments
@@ -379,12 +385,30 @@ def create_app(registry=None, admin_provider=None, config=None):
         FavouriteRepository(store), shared.projects,
         customers=lambda: [a.id for a in user_accounts.all() if a.role == UserAccount.ROLE_CUSTOMER],
         hidden_firms=designer.company_repo.names_of_suspended_designers))
+    search_projects = SearchProjectController(store)
+    customer = SimpleNamespace(   # one control class per story (Final task list), on the shared parts
+        register_customer_controller=RegisterCustomerController(shared.account_service),          # C-01.1
+        search_project_controller=search_projects,                                                # C-02
+        view_project_details_controller=ViewProjectDetailsController(search_projects),            # C-03
+        save_favourite_controller=favourites,                                                     # C-04.1, C-04.4
+        view_favourites_controller=ViewFavouritesController(FavouriteRepository(store)),          # C-04.2
+        browse_company_profiles_controller=BrowseCompanyProfilesController(shared.companies, shared.user_accounts,
+                                                                          search_projects),        # C-05
+        create_moodboard_controller=CreateMoodboardController(shared.collections),                # C-11.1
+        update_notification_preference_controller=UpdateNotificationPreferenceController(
+            shared.preference_repo),                                                              # C-12
+        share_moodboard_controller=ShareMoodboardController(shared.collections),                  # C-13
+    )
+    app.extensions['customer'] = customer
     app.register_blueprint(create_customer_blueprint(
         favourites, login, shared.collections,
         designer.credit_status_controller,
         submit_enquiry=submit_enquiry,
         compare_controller=compare_designers,
-        recommendations_controller=recommendations))
+        recommendations_controller=recommendations,
+        view_favourites=customer.view_favourites_controller,
+        create_moodboard=customer.create_moodboard_controller,
+        share_moodboard=customer.share_moodboard_controller))
 
     # ----- Helpdesk: one control class per story (Final task list), on top of the shared tickets and project status -----
     helpdesk = SimpleNamespace(
