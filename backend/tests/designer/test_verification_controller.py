@@ -81,25 +81,25 @@ def recommended(review, request, decision="APPROVE"):
 def test_review_approve_changes_status():
     submit, review = build()
     r = recommended(review, submit.submit("user-form-field", {"documents": docs("license.pdf")}))
-    assert review.review(r.id, "approve").status == "APPROVED"
+    assert review.review(r.id, "approve", reviewer="user-admin").status == "APPROVED"
 
 def test_review_reject_requires_reason():
     submit, review = build()
     r = recommended(review, submit.submit("user-form-field", {"documents": docs("license.pdf")}), "REJECT")
     with pytest.raises(ValueError, match="reason"):
-        review.review(r.id, "reject", reason="   ")
+        review.review(r.id, "reject", reason="   ", reviewer="user-admin")
 
 def test_rejected_request_keeps_reason():
     submit, review = build()
     r = recommended(review, submit.submit("user-form-field", {"documents": docs("license.pdf")}), "REJECT")
-    out = review.review(r.id, "reject", reason="License expired")
+    out = review.review(r.id, "reject", reason="License expired", reviewer="user-admin")
     assert out.status == "REJECTED" and out.rejection_reason == "License expired"
 
 # ---- AF2: resubmit ----
 def test_resubmit_after_rejection_returns_to_pending():
     submit, review = build()
     r = recommended(review, submit.submit("user-form-field", {"documents": docs("license.pdf")}), "REJECT")
-    review.review(r.id, "reject", reason="License expired")
+    review.review(r.id, "reject", reason="License expired", reviewer="user-admin")
     again = submit.submit("user-form-field", {"documents": docs("license-v2.pdf")})
     assert again.id == r.id and again.status == "PENDING_REVIEW"
     assert again.rejection_reason is None

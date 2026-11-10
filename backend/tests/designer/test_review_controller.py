@@ -1,11 +1,12 @@
 import pytest
 from backend.controllers.designer.review_controller import ListReviewsController
 from backend.entities.review import Review
+from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 from backend.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
 
 # ID-08 task 1: reuses the C-07 query, limited to the designer's own company
 def test_list_for_scopes_to_the_designers_own_company():
-    ctrl = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
+    ctrl = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA), CompanyRepo.from_data(SEED_COMPANY_DATA))
     own = ctrl.list_for("user-form-field")
     assert [r["id"] for r in own] == ["REV-901", "REV-902"]
     assert all(r["company"] == "Form & Field" for r in own)
@@ -13,7 +14,7 @@ def test_list_for_scopes_to_the_designers_own_company():
     assert [r["id"] for r in other] == ["REV-903"]
 
 def test_unknown_designer_account_is_rejected():
-    ctrl = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA))
+    ctrl = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA), CompanyRepo.from_data(SEED_COMPANY_DATA))
     with pytest.raises(ValueError, match="Unknown"):
         ctrl.list_for("user-nobody")
 

@@ -62,7 +62,10 @@ class ReviewVerificationController:
             rows.append({**r.public_view(), "company_name": company.name if company else r.company_id})
         return rows
 
-    def review(self, request_id, decision, reason=None, reviewer="platform-admin"):
+    def review(self, request_id, decision, reason=None, reviewer=None):
+        """UA-13: the logged-in User Admin decides (the route only lets a User Admin in)."""
+        if not reviewer:
+            raise PermissionError("Sign in as a User Admin to decide a verification request.")
         request = self.verifications.get(request_id)
         if request is None:
             raise ValueError("Verification request not found.")
