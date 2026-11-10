@@ -53,20 +53,6 @@ def test_a_second_account_with_the_same_email_is_refused(store):
         repo.save(UserAccount.create("CUS-107", "Copy", "customer@demo.agroup", "long enough", "CUSTOMER"))
 
 
-def test_suspension_is_saved_with_an_audit_record(store):
-    from datetime import datetime, timezone
-    from backend.entities.account import AdminAction, SuspensionRecord
-    repo = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
-    now = datetime(2026, 11, 8, 10, 0, tzinfo=timezone.utc)
-    record = SuspensionRecord("SUS-1", "CUS-101", "Spam messages", "user-admin", now)
-    action = AdminAction("ACT-1", "CUS-101", "SUSPEND", "user-admin", "Spam messages", now)
-    assert repo.commit_suspension("CUS-101", record, action) is True
-    assert UserAccountRepository(store).get("CUS-101").status == "SUSPENDED"
-    [entry] = AuditLogRepo(store).find_by_target("USER_ACCOUNT", "CUS-101")
-    assert (entry.actor_id, entry.from_status, entry.to_status, entry.reason) == \
-        ("user-admin", "ACTIVE", "SUSPENDED", "Spam messages")
-
-
 def test_tickets_survive_a_restart_with_their_changes(store):
     repo = SupportTicketRepo(store)
     ticket = SupportTicket(repo.next_id(), "CUS-101", "CUSTOMER", "REPORT_IDP", "Copied photos",

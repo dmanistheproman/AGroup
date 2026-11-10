@@ -26,7 +26,8 @@ def test_actions_on_accounts_are_listed_newest_first(app):
     admin.post("/api/user-admin/accounts/CUS-101/flag", json={"reason": "Fake reviews"})
     admin.post("/api/user-admin/accounts/CUS-101/suspend", json={"reason": "Repeated fake reviews"})
     actions = admin.get("/api/user-admin/history").get_json()["actions"]
-    assert [a["action"] for a in actions] == ["SUSPEND_ACCOUNT", "FLAG_ACCOUNT"]
+    assert [a["label"] for a in actions] == ["Suspended the account", "Flagged the account"]
+    assert [a["action"] for a in actions] == ["STATUS_CHANGED", "FLAG_ACCOUNT"]   # UA-01 via the shared status change
     assert actions[0]["account_id"] == "CUS-101" and actions[0]["account_name"] and actions[0]["date"]
 
 
