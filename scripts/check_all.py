@@ -2,18 +2,23 @@
 
     python run.py --check              full: test data, backend tests with coverage, API, pages, rules (~4 min)
     python run.py --check quick        the same without the backend tests (~1 min)
-    python scripts/check_all.py [--quick] [--require-ui] [--seed 314] [--scale 1.0]
+    python run.py --check --random 3   also 3 more data sets with random seeds (1-2 min each)
+    python scripts/check_all.py [--quick] [--require-ui] [--seed 314] [--scale 1.0] [--random N]
 
 Steps: 1 generate test data into a temporary database, 2 backend tests (pytest) with line coverage,
 3 start the app on that data, API smoke test, 4 pages in a headless browser (needs Node 22+ and Chrome or Edge;
 skipped with a note if missing, unless --require-ui), 5 business rules on the data afterwards, 6 the C-09 offline
-recommendation check. Progress is printed as it runs; the report is printed at the end, saved in instance/reports/
-and, on GitHub Actions, added to the job summary. Exit code 1 if anything failed.
+recommendation check. With --random N, steps 1 and 3-6 are repeated on N more data sets, each generated with a
+random seed at the same scale (--scale 2 for twice as many records); the report has one row per seed and names
+the seed of any failure, so it can be repeated with --seed. Progress is printed as it runs; the report is printed
+at the end, saved in instance/reports/ and, on GitHub Actions, added to the job summary. Exit code 1 if anything
+failed.
 """
 import argparse
 import json
 import os
 import platform
+import random
 import re
 import shutil
 import subprocess
@@ -143,6 +148,7 @@ def smoke(report, base):
     report.section(f"3. API smoke test ({passed}/{len(rows)} passed, {took(start)})",
                    ["Calls the running app as each role over HTTP (scripts/smoke_test.py).", ""] + table(["Check", "Result"], rows))
     say(f"    {passed}/{len(rows)} passed")
+    return passed, len(rows)
 
 
 def pages(report, base, env, require_ui, work):
@@ -154,7 +160,7 @@ def pages(report, base, env, require_ui, work):
         if require_ui:
             report.count("pages in a browser", False, why)
         say(f"    skipped: {why}")
-        return
+        return None
     shots = work / "page-failures"
     out = run(["node", str(ROOT / "scripts" / "ui_check.mjs"), base, str(shots)], timeout=300).stdout
     rows, notes = [], []
@@ -177,6 +183,7 @@ def pages(report, base, env, require_ui, work):
                     "live data with no JavaScript errors or unexpected dialogs (scripts/ui_check.mjs).", ""] +
                    table(["Check", "Result", "Time"], rows) + ([""] + notes if notes else []))
     say(f"    {passed}/{len(rows)} passed")
+    return passed, len(rows)
 
 
 def rules(report, database):
@@ -190,6 +197,7 @@ def rules(report, database):
                    ["Checked after the API and page checks have changed the data (backend/data_checks.py).", ""] +
                    [f"- {n}" for n in names] + ([""] + [f"- PROBLEM: {p}" for p in problems] if problems else []))
     say(f"    {len(problems)} problem(s) in {len(RULES)} rules")
+    return len(RULES), len(problems)
 
 
 def recommendations(report, database):
@@ -198,6 +206,31 @@ def recommendations(report, database):
     report.section("6. C-09 recommendations, offline hit rate (data-driven plan, stage 7)", [f"- {line}" for line in lines])
     report.count("C-09 offline check", True)
     say("    " + " ".join(lines[1:]) if len(lines) > 1 else "    " + lines[0])
+    return lines
+
+
+def random_round(report, number, seed, scale, env, require_ui, work):
+    """Steps 1 and 3-6 on one more data set; the details stay out of the report unless something fails."""
+    from ui_check import free_port, start_app
+    start, part = time.time(), Report()
+    database = work / f"random-{seed}.sqlite3"
+    counts = generate_data(part, database, seed, scale)
+    (work / f"pages-{seed}").mkdir()
+    port = free_port()
+    app = start_app(database, port)
+    try:
+        api = smoke(part, f"http://127.0.0.1:{port}")
+        ui = pages(part, f"http://127.0.0.1:{port}", env, require_ui, work / f"pages-{seed}")
+    finally:
+        app.terminate(); app.wait(timeout=10)
+    checked, problems = rules(part, database)
+    c09 = recommendations(part, database)
+    report.checks += part.checks
+    report.failures += [f"seed {seed}: {f}" for f in part.failures]
+    hit = next((line.split(": ", 1)[-1].rstrip(".") for line in c09 if line.lower().startswith("hit rate")), "")
+    return (number, seed, f"{sum(counts.values()):,}", f"{api[0]}/{api[1]}",
+            f"{ui[0]}/{ui[1]}" if ui else "skipped", f"{checked - problems}/{checked}",
+            hit, "PASS" if not part.failures else "FAIL", took(start))
 
 
 # ---------------------------------------------------------------- main
@@ -206,7 +239,8 @@ def main():
     parser.add_argument("--quick", action="store_true", help="skip the backend tests")
     parser.add_argument("--require-ui", action="store_true", help="fail when the page check cannot run")
     parser.add_argument("--seed", type=int, default=314)
-    parser.add_argument("--scale", type=float, default=1.0)
+    parser.add_argument("--scale", type=float, default=1.0, help="size of each data set (1.0 = 100+ of each kind)")
+    parser.add_argument("--random", type=int, default=0, metavar="N", help="also check N data sets with random seeds")
     args = parser.parse_args()
     from ui_check import free_port, start_app
 
@@ -215,7 +249,7 @@ def main():
     stamp = datetime.now()
     work = Path(tempfile.mkdtemp(prefix="agroup-check-"))
     database = work / "check.sqlite3"
-    steps = 4 if args.quick else 5
+    steps = (4 if args.quick else 5) + args.random
     n = iter(range(1, steps + 1))
     say(f"AGroup check · commit {env['commit']} · Python {env['python']} · Node {env['node'] or 'none'}")
     app = None
@@ -238,6 +272,18 @@ def main():
         say(f"[{next(n)}/{steps}] Business rules and the C-09 offline check ...")
         rules(report, database)
         recommendations(report, database)
+        rows, seeds = [], random.SystemRandom()
+        for i in range(1, args.random + 1):
+            seed = seeds.randrange(1, 2 ** 31)
+            say(f"[{next(n)}/{steps}] Random data set {i} of {args.random} (seed {seed}): data, API, pages, rules, C-09 ...")
+            rows.append(random_round(report, i, seed, args.scale, env, args.require_ui, work))
+            say(f"    {rows[-1][-2]} in {rows[-1][-1]}")
+        if rows:
+            report.section(f"7. Random data sets ({sum(r[-2] == 'PASS' for r in rows)}/{len(rows)} passed)",
+                           [f"Steps 1 and 3-6 again on {len(rows)} more data sets, each generated with a random seed "
+                            f"(scale {args.scale}). Repeat one with `python scripts/check_all.py --quick --seed <seed>`.", ""] +
+                           table(["#", "Seed", "Records", "API", "Pages", "Rules", "C-09 hit rate@5", "Result", "Time"],
+                                 rows))
     finally:
         if app:
             app.terminate()
@@ -246,7 +292,8 @@ def main():
     head = [f"# AGroup check — {stamp:%Y-%m-%d %H:%M}",
             "",
             f"**Result: {'PASS' if ok else 'FAIL'}** — {report.checks - len(report.failures)}/{report.checks} checks passed "
-            f"in {took(started)} ({'quick' if args.quick else 'full'} check).",
+            f"in {took(started)} ({'quick' if args.quick else 'full'} check"
+            f"{f', {args.random} random data sets' if args.random else ''}).",
             "",
             f"Commit `{env['commit']}` on `{env['branch']}` · {env['os']} · Python {env['python']} · "
             f"Node {env['node'] or 'not installed'} · browser: {Path(env['browser']).stem if env['browser'] else 'none'}",
