@@ -58,5 +58,23 @@ jobs:
           echo "The app did not start"; cat app.log; exit 1
       - name: Smoke test
         run: python scripts/smoke_test.py http://127.0.0.1:5050
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Pages in a browser (random data)
+        run: |
+          set +e
+          node scripts/ui_check.mjs http://127.0.0.1:5050 ui-failures > ui-check.txt
+          status=$?
+          cat ui-check.txt
+          { echo "### Pages in a browser (random data)"; echo '```'; cat ui-check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+      - name: Screenshots of failed page checks
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-check-failures
+          path: ui-failures
+          if-no-files-found: ignore
       - name: Check business rules again (after the smoke test)
         run: python scripts/check_data.py "$AGROUP_DATABASE"

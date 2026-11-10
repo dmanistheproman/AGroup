@@ -15,6 +15,9 @@ Options:
   --port N        try port N first (default 5050, or $PORT)
   --no-browser    do not open the browser
   --page NAME     page to open: index (default) or portal
+  --database FILE use another SQLite file, e.g. instance/test-data.sqlite3
+  --check [quick] check everything instead (test data, backend tests, API, pages, rules)
+                  and print a text report, also saved in instance/reports/
 """
 import argparse
 import hashlib
@@ -117,9 +120,15 @@ def main():
     parser.add_argument("--page", choices=PAGES, default="index")
     parser.add_argument("--database", help="SQLite file to use, e.g. instance/test-data.sqlite3 "
                                            "(made by scripts/generate_data.py); default instance/agroup.sqlite3")
+    parser.add_argument("--check", nargs="?", const="full", choices=["full", "quick"],
+                        help="check everything instead of starting the site and write a text report "
+                             "(full: about 4 minutes; quick: without the backend tests, about 1 minute)")
     args = parser.parse_args()
 
     ensure_venv()
+    if args.check:
+        command = [sys.executable, str(ROOT / "scripts" / "check_all.py")] + (["--quick"] if args.check == "quick" else [])
+        sys.exit(subprocess.call(command, cwd=ROOT))
     if args.database:
         os.environ["AGROUP_DATABASE"] = str(Path(args.database).resolve())
 
