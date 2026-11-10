@@ -161,19 +161,32 @@
       <h3 class="inbox-subheading">Design proposals</h3>${proposals.length ? proposals.map(proposalCard).join('') : '<p class="small-note">No proposals yet.</p>'}`;
   }
 
-  // ---------- Preferences (C-12) ----------
+  // ---------- Preferences (C-12, UC-C17) and the customer's own credit status (ID-12 task 4) ----------
+  let unsaved = false;   // UC-C17 3a: switches changed but not saved yet
+  const leaveWithoutSaving = () => !unsaved || confirm('Discard the changes to your notification preferences?');
+
   async function preferences() {
-    const r = await R.call('GET', '/api/notification-preferences');
+    const [r, credit] = await Promise.all([R.call('GET', '/api/notification-preferences'),
+                                           R.call('GET', '/api/credit-status/me')]);
     const items = r.ok ? r.data.preferences : [];
-    content.innerHTML = `<p>Choose which updates you are notified about. Confirmations of your own requests are always sent.</p>
-      <ul class="preference-list">${items.map(p => `<li><label class="checkbox"><input type="checkbox" data-preference="${esc(p.event_type)}" ${p.is_enabled ? 'checked' : ''}>
-        ${esc(p.label)}</label></li>`).join('')}</ul>`;
+    unsaved = false;
+    content.innerHTML = `<p>Choose which updates you are notified about, then select Save Changes. Confirmations of your own requests are always sent.</p>
+      <form data-preferences-form><ul class="preference-list">${items.map(p => `<li><label class="checkbox"><input type="checkbox" data-preference="${esc(p.event_type)}" data-saved="${p.is_enabled}" ${p.is_enabled ? 'checked' : ''}>
+        ${esc(p.label)}</label></li>`).join('')}</ul>
+        <button class="button" type="submit">Save Changes</button></form>${credit.ok ? creditPanel(credit.data) : ''}`;
+  }
+
+  function creditPanel(status) {
+    const level = status.level ? `<strong>${esc(status.level)}</strong>` : '<strong>No credit records yet</strong>';
+    const reasons = (status.reasons || []).map(reason => `<li>${esc(reason)}</li>`).join('');
+    return `<h3 class="inbox-subheading">Your credit status</h3><p>${level}</p>${reasons ? `<ul>${reasons}</ul>` : ''}
+      <p class="small-note">Designers you send a request to can see this. It uses only your activity on this platform: completed projects, payments and account flags.</p>`;
   }
 
   // ---------- events ----------
   document.addEventListener('click', async event => {
     const tab = event.target.closest('[data-tab]');
-    if (tab) { location.hash = tab.dataset.tab; return; }
+    if (tab) { if (leaveWithoutSaving()) { unsaved = false; location.hash = tab.dataset.tab; } return; }
     const button = event.target.closest('[data-inbox]');
     if (!button) return;
     const id = button.dataset.id;
@@ -198,8 +211,26 @@
   document.addEventListener('change', async event => {
     const box = event.target.closest('[data-preference]');
     if (!box) return;
-    const r = await R.call('PUT', '/api/notification-preferences', { event_type: box.dataset.preference, is_enabled: box.checked });
-    toast(r.ok ? 'Preference saved.' : (r.data.error || 'Could not save.'));
+    unsaved = [...document.querySelectorAll('[data-preference]')].some(b => String(b.checked) !== b.dataset.saved);
+  });
+
+  // UC-C17 BF3-5: Save Changes stores the changed switches and confirms
+  document.addEventListener('submit', async event => {
+    const form = event.target.closest('[data-preferences-form]');
+    if (!form) return;
+    event.preventDefault();
+    const changed = [...form.querySelectorAll('[data-preference]')].filter(b => String(b.checked) !== b.dataset.saved);
+    for (const box of changed) {
+      const r = await R.call('PUT', '/api/notification-preferences', { event_type: box.dataset.preference, is_enabled: box.checked });
+      if (!r.ok) { toast(r.data.error || 'Could not save your preferences. Please try again.'); return; }
+      box.dataset.saved = String(box.checked);
+    }
+    unsaved = false;
+    toast(changed.length ? 'Your notification preferences are saved.' : 'Nothing to save.');
+  });
+
+  window.addEventListener('beforeunload', event => {
+    if (unsaved) { event.preventDefault(); event.returnValue = ''; }
   });
 
   document.addEventListener('submit', async event => {
@@ -224,7 +255,14 @@
     show();
   });
 
-  window.addEventListener('hashchange', show);
+  window.addEventListener('hashchange', () => {
+    if (unsaved && tabFromHash().tab !== 'preferences' && !leaveWithoutSaving()) {
+      history.replaceState(null, '', '#preferences');   // stay on the unsaved preferences (UC-C17 3a)
+      return;
+    }
+    unsaved = false;
+    show();
+  });
   document.addEventListener('agroup:account-rendered', () => { if (!inbox) show(); });
   document.addEventListener('DOMContentLoaded', show);
 })();
