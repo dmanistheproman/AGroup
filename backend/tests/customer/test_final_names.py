@@ -97,6 +97,17 @@ def test_c02_c03_the_catalogue_and_a_project_go_through_their_controllers(app, m
     assert response.status_code == 200 and response.get_json()["project"]["id"] == one["id"] and details
 
 
+def test_c02_the_catalogue_categories_are_the_active_categories_s10(app, monkeypatch):
+    """Seq_11: SearchProjectController takes the active categories from Category.findActive (S-10)."""
+    from backend.entities.category import Category
+    calls = []
+    original = Category.find_active.__func__
+    monkeypatch.setattr(Category, "find_active", classmethod(lambda cls, store: calls.append(store) or original(cls, store)))
+    categories = app.test_client().get("/api/catalog").get_json()["categories"]
+    assert calls and categories
+    assert all({"id", "name", "featured"} <= set(c) and c["status"] == "Active" for c in categories)
+
+
 def test_c03_a_draft_project_cannot_be_viewed(app):
     designer = log_in(app, "designer@demo.agroup")
     category = app.test_client().get("/api/catalog").get_json()["categories"][0]["id"]
