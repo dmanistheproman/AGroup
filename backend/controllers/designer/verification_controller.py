@@ -68,6 +68,10 @@ class ReviewVerificationController:
             raise ValueError("Verification request not found.")
         if decision not in ("approve", "reject"):
             raise ValueError("Decision must be approve or reject.")
+        if request.status == VerificationRequest.STATUS_PENDING and not request.is_recommended():
+            # UC-UA13 AF2: the User Admin decides on the helpdesk agent's recommendation (HD-12)
+            raise ValueError("The verification information is incomplete: a helpdesk agent has not recommended "
+                             "a decision yet.")
         if self.shared is not None:
             if request.status != VerificationRequest.STATUS_PENDING:
                 raise ValueError("Only pending requests can be reviewed.")

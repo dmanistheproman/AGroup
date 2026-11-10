@@ -45,6 +45,13 @@ def new_enquiry(shared):
     return sam, shared.requests.open(Enquiry(sam.id, sam.name, "Kitchen with oak", 40000))
 
 
+def recommended(designer_side, request_id, decision="REJECT"):
+    """HD-12 comes first: the User Admin decides on a helpdesk recommendation (UC-UA13 AF2)."""
+    request = designer_side.verification_repo.get(request_id)
+    request.recommend("user-helpdesk", decision, "Documents checked.")
+    designer_side.verification_repo.save(request)
+
+
 # ---- enquiries (C-06, ID-10) ----
 
 def test_a_designer_decision_on_an_enquiry_is_audited_and_the_customer_is_told(shared, designer_side):
@@ -110,6 +117,7 @@ def test_a_verification_request_is_opened_as_a_request_and_admins_are_told(share
 def test_a_verification_decision_is_audited_and_the_designer_is_told(shared, designer_side):
     request = shared.requests.open(VerificationRequest(designer_side.verification_repo.next_reference(), "COM-FF",
                                                        "user-form-field", ["uploads/COM-FF/licence.pdf"]))
+    recommended(designer_side, request.id)
     designer_side.review_controller.review(request.id, "reject", "The licence is not readable.", reviewer="user-admin")
     assert shared.status_change.history_of("VERIFICATION_REQUEST", request.id)[-1].to_status == "REJECTED"
     note = shared.notifications.list_for("user-form-field")[0]
@@ -199,6 +207,7 @@ def test_a_rejected_verification_goes_back_to_review_when_resubmitted(shared, de
     designer_side.verification_controller.uploads = SimpleNamespace(
         upload=lambda file, owner_type, owner_id, kind="image": f"uploads/{owner_id}/{file['filename']}")
     first = designer_side.verification_controller.submit("user-form-field", {"documents": [{"filename": "a.pdf"}]})
+    recommended(designer_side, first.id)
     designer_side.review_controller.review(first.id, "reject", "Blurred scan.", reviewer="user-admin")
     again = designer_side.verification_controller.submit("user-form-field", {"documents": [{"filename": "b.pdf"}]})
     assert (again.id, again.status, again.documents) == (first.id, "PENDING_REVIEW", ["uploads/COM-FF/b.pdf"])

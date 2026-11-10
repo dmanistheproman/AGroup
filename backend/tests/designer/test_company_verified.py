@@ -25,6 +25,15 @@ def open_request(app):
     return shared.requests.open(request).id
 
 
+def recommended(app, request_id, decision):
+    """HD-12 comes first: the User Admin decides on a helpdesk recommendation (UC-UA13 AF2)."""
+    repo = app.extensions["designer"].verification_repo
+    request = repo.get(request_id)
+    request.recommend("user-helpdesk", decision, "Documents checked.")
+    repo.save(request)
+    return request_id
+
+
 def public_company(app, company_id):
     companies = app.test_client().get("/api/companies").get_json()["companies"]
     return next(c for c in companies if c["id"] == company_id)
@@ -37,7 +46,7 @@ def test_a_company_is_unverified_until_a_request_is_approved(app):
 
 
 def test_approving_the_request_makes_the_company_verified(app):
-    request_id = open_request(app)
+    request_id = recommended(app, open_request(app), "APPROVE")
     response = admin_client(app).post(f"/api/admin/verifications/{request_id}/review", data={"decision": "approve"})
     assert response.status_code == 200
     assert public_company(app, "COM-FF")["verification_status"] == "Verified"
@@ -46,7 +55,8 @@ def test_approving_the_request_makes_the_company_verified(app):
 
 
 def test_rejecting_the_request_keeps_the_company_unverified(app):
-    request_id = open_request(app)
-    admin_client(app).post(f"/api/admin/verifications/{request_id}/review",
-                           data={"decision": "reject", "reason": "The licence is unreadable."})
+    request_id = recommended(app, open_request(app), "REJECT")
+    response = admin_client(app).post(f"/api/admin/verifications/{request_id}/review",
+                                      data={"decision": "reject", "reason": "The licence is unreadable."})
+    assert response.status_code == 200
     assert public_company(app, "COM-FF")["verification_status"] == "Unverified"

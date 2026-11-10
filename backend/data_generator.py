@@ -352,6 +352,12 @@ class _Generator:
             request = self.s.requests.open(VerificationRequest(self.r.verifications.next_reference(), company.id,
                                                                designer.id, [f"uploads/{company.id}/licence.pdf"]))
             roll = self.rng.random()
+            if roll < 0.65:   # HD-12 first: the User Admin decides on a helpdesk recommendation (UC-UA13 AF2)
+                stored = self.r.verifications.get(request.id)
+                stored.recommend("user-helpdesk", "REJECT" if 0.3 <= roll < 0.5 else "APPROVE",
+                                 "Licence and registration checked." if roll < 0.3 or roll >= 0.5
+                                 else "The licence document is not readable.")
+                self.r.verifications.save(stored)
             if roll < 0.3:
                 self.s.status_change.change_status("VERIFICATION_REQUEST", request.id, "APPROVED", "user-admin")
             elif roll < 0.5:

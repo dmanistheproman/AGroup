@@ -46,6 +46,9 @@ class VerificationRequest(Request):
             raise ValueError("A rejection reason is required.")
         self.status, self.reviewed_by, self.rejection_reason = "REJECTED", reviewer, reason.strip()
 
+    def is_recommended(self):
+        return self.recommendation is not None
+
     def recommend(self, agent, decision, reason):
         """HD-12: a helpdesk agent records a recommendation for the User Admin (UA-13)."""
         if self.status != self.STATUS_PENDING:
@@ -78,6 +81,8 @@ class VerificationRequest(Request):
         self.status = "PENDING_REVIEW"
         self.rejection_reason = None
         self.reviewed_by = None
+        # UA-13: the new documents need a new helpdesk recommendation (HD-12)
+        self.recommendation = self.recommendation_reason = self.recommended_by = self.recommended_at = None
         self.submitted_at = time.strftime("%Y-%m-%d %H:%M")
 
     def public_view(self):
