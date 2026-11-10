@@ -319,6 +319,25 @@
       ${sections.filter(Boolean).map(s => `<section class="record-section"><h3>${s.icon ? icon(s.icon) : ''} ${esc(s.title)}</h3>${s.body}</section>`).join('')}</article>`;
   }
 
+  // ---------- Toast: the short message at the bottom of the page ----------
+  /* Pages without data.js (the inbox) get the same toast as the website, instead of a browser alert. */
+  if (!window.AG || !window.AG.toast) {
+    window.AG = Object.assign(window.AG || {}, {
+      toast(message) {
+        let el = document.getElementById('toast');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'toast'; el.className = 'toast'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite');
+          document.body.append(el);
+        }
+        el.textContent = message;
+        el.classList.add('show');
+        clearTimeout(window.agToast);
+        window.agToast = setTimeout(() => el.classList.remove('show'), 3500);
+      },
+    });
+  }
+
   window.AGroupUI = { esc, icon, money, state, toolbar, table, pager, listPage, uploadWidget, checkFiles, send,
                       periodSelector, periodQuery, trendChart, projectCard, imageGallery, loadCategories,
                       categoryPicker, ratingInput, ratingDisplay, ratingForm, formView, recordPage, UPLOAD_RULES };

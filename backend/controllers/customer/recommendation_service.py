@@ -26,6 +26,7 @@ class RecommendationService:
         self.customers = customers          # () -> customer ids for the offline check; None: always use the model
         self.hidden_firms = hidden_firms    # () -> names of suspended designers' companies (C-05)
         self._check = None                  # (time, result) of the last offline check over all customers
+        self._shared = None                 # during evaluate_all: the visible projects and the baseline, read once
 
     def recommend(self, customer_id, limit=5):
         limit = self._check_limit(limit)
@@ -60,7 +61,11 @@ class RecommendationService:
     def evaluate_all(self, limit=5):
         """Plan, stage 7: the offline check for every customer with at least two saved projects."""
         customers = list(self.customers()) if self.customers is not None else []
-        evaluated = [r for r in (self.evaluate(c, limit) for c in customers) if r["hit"] is not None]
+        self._shared = {}   # the same for every customer, so read the projects and rank the baseline once
+        try:
+            evaluated = [r for r in (self.evaluate(c, limit) for c in customers) if r["hit"] is not None]
+        finally:
+            self._shared = None
         count = len(evaluated)
         return {"customers": len(customers), "evaluated": count,
                 "hit_rate": sum(r["hit"] for r in evaluated) / count if count else None,
@@ -72,8 +77,13 @@ class RecommendationService:
         return self._check[1]
 
     def _visible(self):
+        if self._shared is not None and "visible" in self._shared:
+            return self._shared["visible"]
         hidden = self.hidden_firms() if self.hidden_firms is not None else ()
-        return Project.visible_to_customers(self.projects.all(), hidden)
+        visible = Project.visible_to_customers(self.projects.all(), hidden)
+        if self._shared is not None:
+            self._shared["visible"] = visible
+        return visible
 
     def _recommend_for_refs(self, saved_refs, limit):
         saved = set(saved_refs)
@@ -86,6 +96,14 @@ class RecommendationService:
                 for p in ranked[:limit]]
 
     def _popular(self, limit, exclude=frozenset()):
+        if self._shared is not None and not exclude:
+            key = ("popular", limit)
+            if key not in self._shared:
+                self._shared[key] = self._popular_uncached(limit, exclude)
+            return self._shared[key]
+        return self._popular_uncached(limit, exclude)
+
+    def _popular_uncached(self, limit, exclude):
         candidates = [p for p in self._visible() if p["id"] not in exclude]
         ranked = sorted(candidates, key=self._popularity, reverse=True)
         return [self._view(p, self.POPULAR_REASON) for p in ranked[:limit]]
