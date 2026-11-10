@@ -49,7 +49,7 @@ def open_milestone(app):
 def test_marking_a_milestone_paid_is_a_shared_status_change(app):
     milestone = open_milestone(app)
     response = designer_client(app).post(f"/api/payment-milestones/{milestone['id']}/pay",
-                                         json={"paid_date": "2026-11-10"})
+                                         data={"paid_date": "2026-11-10"})   # the page posts a form
     assert response.status_code == 200
     entry = app.extensions["shared"].status_change.history_of("PAYMENT_MILESTONE", milestone["id"])[-1]
     assert (entry.to_status, entry.actor_id) == ("Paid", "user-form-field")

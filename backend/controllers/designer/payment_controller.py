@@ -1,19 +1,22 @@
+from backend.entities.payment_milestone import PaymentMilestone
 from backend.repositories.payment_repo import payment_repo
 
 
-class PaymentController:
-    """ID-09: payment progress per accepted quotation (platform tracks, never processes)."""
+class RecordPaymentController:
+    """ID-09: payment progress per accepted quotation (platform tracks, never processes). Marking a milestone paid
+    is a status change through the shared StatusChangeService (S-04), so it is in the audit log."""
 
     PAID = "Paid"
     OVERDUE = "Overdue"
 
     def __init__(self, repo=payment_repo, company_repo=None, quotations_for=None):
         if company_repo is None:
-            raise ValueError("PaymentController needs the shared company repo")
+            raise ValueError("RecordPaymentController needs the shared company repo")
         self._repo = repo
         self._companies = company_repo
         self._quotations_for = quotations_for or (lambda user_id: [])
         self.rules = None   # NotificationRules (S-07), set in server.py: reminders reach the client
+        self.status_change = None   # StatusChangeService (S-04), set in server.py
 
     # ---- use case: view payment progress --------------------------------
     def progress(self, user_id, today=None):
@@ -51,8 +54,13 @@ class PaymentController:
     def mark_paid(self, milestone_id, user_id, data=None):
         data = data or {}
         self._assert_owned(milestone_id, user_id)
-        milestone = self._repo.get(milestone_id)
-        milestone.mark_paid(data.get("paid_date"))
+        if self.status_change is None:      # unit tests without the shared parts
+            milestone = self._repo.get(milestone_id)
+            milestone.mark_paid(data.get("paid_date"))
+        else:                                # Pending/Overdue -> Paid; paying twice is refused there
+            milestone = self.status_change.change_status(PaymentMilestone.RECORD_TYPE, milestone_id,
+                                                         PaymentMilestone.PAID, user_id)
+            milestone.paid_date = data.get("paid_date")
         self._repo.save(milestone)
         return {"milestone": milestone.to_dict(), "recorded": True}
 

@@ -130,9 +130,9 @@ def test_an_overdue_milestone_is_announced_once_to_the_customer_and_the_designer
     shared.requests.assign_handler("CUS-101", "user-form-field")
     past = (date.today() - timedelta(days=10)).isoformat()
     designer_side.payment_repo.create_for_quotation("QT-101", [{"name": "Deposit", "amount": 5000, "due_date": past}])
-    designer_side.payment_controller._quotations_for = lambda user_id: ["QT-101"]
-    designer_side.payment_controller.progress("user-form-field")
-    designer_side.payment_controller.progress("user-form-field")
+    designer_side.record_payment_controller._quotations_for = lambda user_id: ["QT-101"]
+    designer_side.record_payment_controller.progress("user-form-field")
+    designer_side.record_payment_controller.progress("user-form-field")
     assert kinds(shared, "CUS-101").count("PAYMENT_REMINDER") == 1
     assert kinds(shared, "user-form-field").count("PAYMENT_OVERDUE") == 1
 

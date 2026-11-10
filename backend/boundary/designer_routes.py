@@ -32,13 +32,13 @@ def create_designer_blueprint(c, upload_dir, login):
     # ---------- ID-03 ----------
     @bp.get("/api/project-categories")
     def api_project_categories():
-        return jsonify(categories=c.project_controller.categories.all())
+        return jsonify(categories=c.create_project_controller.categories.all())
 
     @bp.route("/api/projects", methods=["POST"])
     def api_create_project():
         try:
             images = [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images") if f.filename]
-            project = c.project_controller.create({
+            project = c.create_project_controller.create({
                 "title": request.form.get("title", ""),
                 "description": request.form.get("description", ""),
                 "category_id": request.form.get("category_id", ""),
@@ -61,7 +61,7 @@ def create_designer_blueprint(c, upload_dir, login):
     def api_update_project(project_id):
         try:
             images = [{"filename": f.filename, "content": f.read()} for f in request.files.getlist("images") if f.filename]
-            project = c.project_controller.update(current_user_id(), project_id, {
+            project = c.edit_project_controller.update(current_user_id(), project_id, {
                 "title": request.form.get("title", ""), "description": request.form.get("description", ""),
                 "category_id": request.form.get("category_id", ""), "stage": request.form.get("stage"),
                 "images": images, **project_details()})
@@ -77,7 +77,7 @@ def create_designer_blueprint(c, upload_dir, login):
     def api_primary_image(project_id):
         try:
             data = request.get_json(silent=True) or {}
-            return jsonify({"project": c.project_controller.set_primary_image(current_user_id(), project_id,
+            return jsonify({"project": c.edit_project_controller.set_primary_image(current_user_id(), project_id,
                                                                               data.get("image"))}), 200
         except PermissionError as err:
             return jsonify({"error": str(err)}), 403
@@ -89,12 +89,12 @@ def create_designer_blueprint(c, upload_dir, login):
     # ---------- ID-03b: portfolio list and delete ----------
     @bp.route("/api/projects", methods=["GET"])
     def api_list_projects():
-        return jsonify(c.project_controller.list_projects(current_user_id()))
+        return jsonify(c.create_project_controller.list_projects(current_user_id()))
 
     @bp.route("/api/projects/<project_id>", methods=["DELETE"])
     def api_delete_project(project_id):
         try:
-            result = c.project_controller.delete(
+            result = c.delete_project_controller.delete(
                 current_user_id(),
                 project_id,
                 request.args.get("confirm_impact") == "true",
@@ -263,14 +263,14 @@ def create_designer_blueprint(c, upload_dir, login):
     @bp.route("/api/payment-progress")
     def api_payment_progress():
         try:
-            return jsonify(c.payment_controller.progress(current_user_id()))
+            return jsonify(c.record_payment_controller.progress(current_user_id()))
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 
     @bp.route("/api/payment-milestones/<milestone_id>/pay", methods=["POST"])
     def api_pay_milestone(milestone_id):
         try:
-            result = c.payment_controller.mark_paid(milestone_id, current_user_id(),
+            result = c.record_payment_controller.mark_paid(milestone_id, current_user_id(),
                                                   {"paid_date": request.form.get("paid_date") or None})
             return jsonify(result), 200
         except PermissionError as err:
@@ -283,7 +283,7 @@ def create_designer_blueprint(c, upload_dir, login):
     @bp.route("/api/payment-milestones/<milestone_id>/remind", methods=["POST"])
     def api_remind_milestone(milestone_id):
         try:
-            return jsonify(c.payment_controller.remind(milestone_id, current_user_id())), 200
+            return jsonify(c.record_payment_controller.remind(milestone_id, current_user_id())), 200
         except PermissionError as err:
             return jsonify({"error": str(err)}), 403
         except KeyError:

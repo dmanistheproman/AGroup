@@ -171,8 +171,8 @@ def test_a_payment_reminder_reaches_the_customer(shared, designer_side):
     shared.requests.assign_handler("CUS-101", "user-form-field")
     milestone = designer_side.payment_repo.create_for_quotation("QT-101", [
         {"name": "Deposit", "amount": 5000, "due_date": "2026-01-01"}])[0]
-    designer_side.payment_controller._quotations_for = lambda user_id: ["QT-101"]
-    result = designer_side.payment_controller.remind(milestone.id, "user-form-field")
+    designer_side.record_payment_controller._quotations_for = lambda user_id: ["QT-101"]
+    result = designer_side.record_payment_controller.remind(milestone.id, "user-form-field")
     assert result["reminded"] and "not implemented" not in result["message"]
     note = shared.notifications.list_for("CUS-101")[0]
     assert note.type == "PAYMENT_REMINDER" and "Deposit" in note.text

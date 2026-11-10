@@ -57,7 +57,8 @@ from backend.controllers.user_admin.view_admin_history_controller import ViewAdm
 from backend.boundary.user_admin_routes import create_user_admin_blueprint
 
 # ----- Interior Designer -----
-from backend.controllers.designer.project_controller import ProjectController
+from backend.controllers.designer.project_controller import (CreateProjectController, DeleteProjectController,
+                                                              EditProjectController)
 from backend.controllers.designer.company_controller import UpdateCompanyProfileController
 from backend.controllers.designer.verification_controller import SubmitVerificationController, ReviewVerificationController
 from backend.controllers.designer.potential_clients_controller import FindPotentialClientsController
@@ -65,7 +66,8 @@ from backend.controllers.designer.proposal_controller import SubmitProposalContr
 from backend.controllers.designer.quotation_controller import SubmitQuotationController
 from backend.controllers.designer.review_controller import ListReviewsController
 from backend.controllers.designer.review_enquiry_controller import ReviewEnquiryController
-from backend.controllers.designer.payment_controller import PaymentController
+from backend.controllers.designer.payment_controller import RecordPaymentController
+from backend.entities.payment_milestone import PaymentMilestone
 from backend.repositories.project_repo import ProjectRepo
 from backend.repositories.category_repo import CategoryRepo
 from backend.repositories.project_activity_repo import ProjectActivityRepo
@@ -130,7 +132,10 @@ def build_designer_controllers(upload_service, store, account_repo=None):
     payment_repo = PaymentRepo(store)
 
     c = SimpleNamespace()
-    c.project_controller = ProjectController(projects_repo, CategoryRepo(store), upload_service)
+    categories = CategoryRepo(store)
+    c.create_project_controller = CreateProjectController(projects_repo, categories, upload_service)   # ID-03.1
+    c.edit_project_controller = EditProjectController(projects_repo, categories, upload_service)       # ID-03.3
+    c.delete_project_controller = DeleteProjectController(projects_repo)                              # ID-03.2
     c.company_controller = UpdateCompanyProfileController(company_repo, upload_service)
     c.verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
     c.review_controller = ReviewVerificationController(verification_repo, company_repo)
@@ -145,7 +150,7 @@ def build_designer_controllers(upload_service, store, account_repo=None):
     c.statistics_controller = ViewProjectStatisticsController(ProjectActivityRepo(store), projects_repo)
     c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store), company_repo)
     # ---------- ID-09: payment progress (the platform records payments but never collects them; milestones belong to accepted quotations) ----------
-    c.payment_controller = PaymentController(
+    c.record_payment_controller = RecordPaymentController(
         payment_repo,
         company_repo,
         quotations_for=lambda user_id: [
@@ -180,14 +185,17 @@ def _connect_designer_records(shared, designer):
     (S-01, S-04, S-07, S-19, S-21)."""
     shared.status_change.register("ENQUIRY", designer.enquiry_repo.get, designer.enquiry_repo.save)
     shared.status_change.register("VERIFICATION_REQUEST", designer.verification_repo.get, designer.verification_repo.save)
+    # ID-09 tasks 3 and 4: paid and overdue milestones are shared status changes (audit log)
+    shared.status_change.register(PaymentMilestone.RECORD_TYPE, designer.payment_repo.get, designer.payment_repo.save)
+    designer.payment_repo.status_change = designer.record_payment_controller.status_change = shared.status_change
     rules = shared.rules
     rules.enquiries, rules.verifications = designer.enquiry_repo, designer.verification_repo
     rules.quotations, rules.proposals, rules.companies = designer.quotation_repo, designer.proposal_repo, designer.company_repo
     shared.messages.register_owner(designer.enquiry_repo.find_by_thread)
     shared.messages.register_owner(lambda thread_id: _with_parties(rules, designer.proposal_repo.find_by_thread(thread_id)))
     designer.submit_proposal_controller.threads = shared.threads
-    designer.project_controller.attachments = shared.attachments
-    designer.project_controller.on_delete = lambda reference: _remove_deleted_project(shared.store, reference)
+    designer.edit_project_controller.attachments = shared.attachments
+    designer.delete_project_controller.on_delete = lambda reference: _remove_deleted_project(shared.store, reference)
     shared.messages.register_owner(designer.verification_repo.find_by_thread, staff_roles=(UserAccount.ROLE_USER_ADMIN,))
     designer.review_enquiry_controller.connect(shared)
     designer.verification_controller.shared = designer.review_controller.shared = shared
@@ -195,7 +203,7 @@ def _connect_designer_records(shared, designer):
     designer.submit_proposal_controller.enquiries = designer.enquiry_repo
     designer.revise_proposal_controller.enquiries = designer.enquiry_repo   # only the enquiry's designer revises
     designer.submit_proposal_controller.status_change = shared.status_change
-    designer.revise_proposal_controller.rules = designer.payment_controller.rules = rules
+    designer.revise_proposal_controller.rules = designer.record_payment_controller.rules = rules
 
 
 def build_management_controllers(store):
