@@ -1,7 +1,7 @@
 from backend.entities.report_period import Period
 
 
-class ViewReportController:
+class ViewPlatformActivityReportController:
     def __init__(self, reports):
         self.reports = reports
 

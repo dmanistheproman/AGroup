@@ -1,6 +1,6 @@
 
 
-class EditCategoryController:
+class UpdateCategoryController:
     def __init__(self, categories):
         self.categories = categories
 

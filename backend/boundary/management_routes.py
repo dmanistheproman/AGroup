@@ -14,7 +14,7 @@ from backend.entities.interior_design_project import InteriorDesignProject
 from backend.entities.project_activity import ProjectActivity
 from backend.entities.project import Project
 from backend.repositories.company_repo import CompanyRepo
-from backend.entities.activity_report import ActivityReport
+from backend.entities.platform_activity_report import PlatformActivityReport
 from backend.entities.report_period import Period
 from backend.services.management_rules import BusinessError, SINGAPORE, category_ids
 
@@ -84,7 +84,7 @@ def create_management_blueprint(c, store, login):
     @bp.patch("/api/management/categories/<category_id>")
     def edit_category(category_id):
         form = data()
-        category = c.EditCategoryController.edit_category(
+        category = c.UpdateCategoryController.edit_category(
             category_id, form.get("name"), form.get("description", ""), form.get("version"))
         return jsonify(category=category)
 
@@ -120,22 +120,22 @@ def create_management_blueprint(c, store, login):
 
     @bp.get("/api/management/categories/<category_id>/projects")
     def category_projects(category_id):
-        return jsonify(c.ReviewCategoryProjectsController.review_projects(category_id))
+        return jsonify(c.ViewCategoryProjectsController.review_projects(category_id))
 
     @bp.post("/api/management/reports")
     def report():
         form = data()
         category_id = category_ids(form.get("categoryId"))   # PM-11: one or more categories
         if category_id:
-            result = c.FilterReportController.filter_report(form.get("period"), form.get("date"), category_id)
+            result = c.ViewProjectActivityReportController.filter_report(form.get("period"), form.get("date"), category_id)
         else:
-            result = c.ViewReportController.view_report(form.get("period"), form.get("date"))
+            result = c.ViewPlatformActivityReportController.view_report(form.get("period"), form.get("date"))
         return jsonify(report=result)
 
     @bp.post("/api/management/reports/compare")
     def compare_reports():
         form = data()
-        result = c.CompareReportsController.compare_periods(
+        result = c.ComparePeriodsController.compare_periods(
             form.get("period"), form.get("baselineDate"), form.get("comparisonDate"),
             category_ids(form.get("categoryId")) or None)
         return jsonify(report=result)
@@ -150,7 +150,7 @@ def create_management_blueprint(c, store, login):
     def overview():
         period = Period.selected("monthly", datetime.now(SINGAPORE).date().isoformat())
         with store.transaction() as connection:
-            counts = ActivityReport.build(connection, period, None)
+            counts = PlatformActivityReport.build(connection, period, None)
             counts["activeCategories"] = connection.execute(
                 "SELECT COUNT(*) FROM categories WHERE status = 'Active' AND deleted_at IS NULL"
             ).fetchone()[0]

@@ -9,7 +9,7 @@ from backend.repositories.user_account_repo import UserAccountRepo
 from backend.services.management_rules import ACCOUNT_LABELS, BusinessError, METRICS, category_ids, timestamp
 
 
-class ActivityReport:
+class PlatformActivityReport:
     def __init__(self, store):
         self.store = store
 

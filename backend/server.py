@@ -91,7 +91,7 @@ from backend.boundary.management_routes import create_management_blueprint
 from backend.controllers import management
 from backend.entities.project_category import ProjectCategory
 from backend.entities.interior_design_project import InteriorDesignProject
-from backend.entities.activity_report import ActivityReport
+from backend.entities.platform_activity_report import PlatformActivityReport
 from backend.seed import seed_demo
 from backend.storage import SQLiteStore
 
@@ -217,22 +217,22 @@ def _connect_designer_records(shared, designer):
 
 def build_management_controllers(store):
     categories = ProjectCategory(store)
-    reports = ActivityReport(store)
+    reports = PlatformActivityReport(store)
     projects = InteriorDesignProject(store)
     return SimpleNamespace(
         ViewCategoriesController=management.ViewCategoriesController(categories),
         CreateCategoryController=management.CreateCategoryController(categories),
-        EditCategoryController=management.EditCategoryController(categories),
+        UpdateCategoryController=management.UpdateCategoryController(categories),
         ArchiveCategoryController=management.ArchiveCategoryController(categories),
         RestoreCategoryController=management.RestoreCategoryController(categories),
         FeatureCategoryController=management.FeatureCategoryController(categories),
         SearchCategoriesController=management.SearchCategoriesController(categories),
         MergeCategoriesController=management.MergeCategoriesController(categories),
         ViewCategoryUsageController=management.ViewCategoryUsageController(store),
-        ReviewCategoryProjectsController=management.ReviewCategoryProjectsController(projects),
-        ViewReportController=management.ViewReportController(reports),
-        FilterReportController=management.FilterReportController(reports),
-        CompareReportsController=management.CompareReportsController(reports),
+        ViewCategoryProjectsController=management.ViewCategoryProjectsController(projects),
+        ViewPlatformActivityReportController=management.ViewPlatformActivityReportController(reports),
+        ViewProjectActivityReportController=management.ViewProjectActivityReportController(reports),
+        ComparePeriodsController=management.ComparePeriodsController(reports),
         ExportReportController=management.ExportReportController(reports),
     )
 
