@@ -64,8 +64,10 @@ demo board stays for visitors), "Message designer" on a company's page and on a 
 company's page, a message thread on each sent design proposal (Offers tab), `moodboard.html` for a shared board.
 Notified about: enquiry decisions and answers (`ENQUIRY_UPDATE`), quotations and proposals sent (`OFFER_SENT`),
 payment reminders and overdue payments (`PAYMENT_REMINDER`), the invitation to rate a closed ticket
-(`TICKET_FEEDBACK`); the first three can be turned off in Preferences.
-Open: submitting an enquiry (C-06) should create it with `shared.requests.open(Enquiry(...))`.
+(`TICKET_FEEDBACK`), new projects in the preferred styles (`NEW_PROJECT`, C-12); all but the last can be turned off in
+Preferences, which saves with Save Changes and also shows the customer's own credit status (ID-12).
+Submitting an enquiry (C-06): `POST /api/enquiries {company_id, type: consultation or quotation, requirements, budget,
+property_layout, target_timeline, project_id}`; type and requirements are required. The request form page is not built yet.
 
 ### Interior Designer
 Ready:
@@ -128,8 +130,10 @@ Closing a resolved ticket invites the requester to rate it (HD-13). Verification
 Ready: `USER_ACCOUNT` is registered in `StatusChangeService` (suspend / reactivate with a reason, audited);
 `GET /api/history/USER_ACCOUNT/<id>` (UA-11); notes on accounts `GET/POST /api/notes/USER_ACCOUNT/<id>` (UA-10);
 `shared.account_service.create_account(name, email, password, role)` for UA-03. Verification decisions
-(`POST /api/admin/verifications/<id>/review`) are audited as `VERIFICATION_REQUEST`, and user admins get
-`NEW_VERIFICATION` when a company submits or resubmits.
+(`POST /api/admin/verifications/<id>/review`) are audited as `VERIFICATION_REQUEST` and need a helpdesk recommendation
+first (HD-12, UC-UA13 AF2); a resubmitted request needs a new one. User admins get `NEW_VERIFICATION` when a company
+submits or resubmits. Flagging and unflagging an account are audited with the User Admin (`FLAG_ACCOUNT`,
+`UNFLAG_ACCOUNT`).
 Suspend (UA-01, `POST /api/user-admin/accounts/<id>/suspend`) and flag (UA-09, `POST/DELETE .../flag`) work on the
 real accounts; the administrator is the logged-in User Admin (other roles get 403, nobody acts without logging in).
 Escalated tickets (UA-12): `GET /api/support/tickets` lists only escalated tickets for the User Admin, the ticket page
@@ -142,7 +146,7 @@ Open: an account list, search, filter, details, update, role change and reactiva
 ### Platform Manager
 Ready: the PM workspace (#24) is unchanged. Shared extras: `GET /api/categories` (active categories),
 `GET /api/reports/activity?period=&group_by=project|category|day&format=csv` (`ReportService`), and the
-customer catalogue now hides projects that are not `PUBLISHED`. Archiving, restoring, merging and deleting a category
+customer catalogue now hides projects that are not `PUBLISHED`. Archiving, restoring and merging a category
 are also written to the shared audit log (`GET /api/history/CATEGORY/<id>`), with the manager as the actor; the PM's
 own `audit` table is kept. Removing a favourite records an `UNFAVOURITE` event, which reports do not count (older
 databases are updated on start).
