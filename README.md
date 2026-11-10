@@ -69,6 +69,10 @@ The demo accounts above work on the test database too; generated accounts (for e
 
 `python scripts/evaluate_recommendations.py [database]` runs the C-09 offline check from the data-driven plan: for every customer with at least two saved projects it hides the latest one and measures the hit rate@5 of the recommendations against a popular-projects baseline. The nightly workflow runs it on each new data set.
 
+`python scripts/ui_check.py` checks the pages in a real browser (Chrome or Edge, headless, Node 22+) in about 10 seconds: it starts the app on a throwaway database, logs in as each role, opens the main pages and checks that they show live data with no JavaScript errors or unexpected dialogs (`--test-data` uses a copy of the test database). A failed step saves a screenshot and prints where.
+
+`python scripts/demo_tour.py` plays a guided tour for the demo video: a 1440 × 900 browser window walks through the six key aspects of the specification on a copy of the test data, with a caption at the bottom (about 3 minutes; `--pace 1.3` is slower, `--only customer,manager` plays some chapters).
+
 ## Platform Management
 
 Start the shared application with `python run.py`, log in as `manager@demo.agroup` with password `demo`, then open **Project categories**. The workspace supports the 14 management stories (PM-01 to PM-14), including reports, category merging and featured categories.
@@ -126,7 +130,7 @@ To smoke-test your local server, run `python scripts/smoke_test.py http://127.0.
 AGroup/
 ├── run.py                  one-command launcher (--database to pick a database)
 ├── SHARED_PARTS.md         what the shared parts offer each role (handover)
-├── scripts/                smoke_test.py, generate_data.py (test data), evaluate_recommendations.py, build_icons.py
+├── scripts/                smoke_test.py, generate_data.py (test data), evaluate_recommendations.py, ui_check.py, demo_tour.py, build_icons.py
 ├── instance/               SQLite databases (created on first run, not in git)
 ├── frontend/               Boundary (UI): static pages, no build step
 │   ├── index.html          customer website

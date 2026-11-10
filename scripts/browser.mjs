@@ -22,12 +22,14 @@ const CANDIDATES = [
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 export class Browser {
-  static async open({ base, headless = true, width = 1440, height = 900, port = 9300 + Math.floor(Math.random() * 500) }) {
+  static async open({ base, headless = true, app = false, width = 1440, height = 900,
+                      port = 9300 + Math.floor(Math.random() * 500) }) {
     const exe = CANDIDATES.find(p => existsSync(p));
     if (!exe) throw new Error("No Chrome or Edge found; set BROWSER to the browser's path.");
     const profile = mkdtempSync(path.join(tmpdir(), "agroup-ui-"));
     const args = [`--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, `--window-size=${width},${height}`,
-      "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--disable-features=Translate", "about:blank"];
+      "--no-first-run", "--no-default-browser-check", "--disable-extensions", "--disable-features=Translate",
+      "--window-position=0,0", "--force-device-scale-factor=1", app ? "--app=about:blank" : "about:blank"];   // app: no tabs or address bar
     if (headless) args.unshift("--headless=new", "--disable-gpu");
     const proc = spawn(exe, args, { stdio: "ignore" });
     let targets = [];
@@ -101,6 +103,11 @@ class Page {
     const loaded = new Promise(r => this.loads.push(r));
     await this.send("Page.navigate", { url });
     await Promise.race([loaded, sleep(10000)]);
+  }
+
+  /** Wait for the page load that a click started (a link or a form that changes the page). */
+  async waitForNavigation(timeout = 10000) {
+    await Promise.race([new Promise(r => this.loads.push(r)), sleep(timeout)]);
   }
 
   /** Wait until the selector exists (and, with text, contains it); returns false after the timeout. */
