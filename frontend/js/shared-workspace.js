@@ -1,8 +1,10 @@
 /* Shared workspace pages in the portal, on the real APIs (S-01, S-02, S-04, S-05, S-15, S-16, S-20, HD-05, HD-08, HD-09).
    portal.js asks SharedWorkspace.handles(role, section) and calls render(role, section) for:
      helpdesk: overview, tickets (active queue), resolved, complaints (reports), uploads (failed uploads)
-     designer: messages (private conversations, enquiry and proposal threads, and their own support requests),
-               projects (the project portfolio, js/project-portfolio.js)
+     helpdesk: verification (HD-12 recommendations on verification requests)
+     designer: overview (live numbers), messages (private conversations, enquiry and proposal threads, and their own
+               support requests), projects (the project portfolio, js/project-portfolio.js)
+     admin:    overview (live numbers), escalations (tickets escalated to the User Admin, UA-12)
    The ticket page opens in the portal's #modal. Buttons use data-shared (portal.js owns data-action). */
 (() => {
   'use strict';
@@ -10,7 +12,8 @@
   const R = window.AGroupRecords;
   const UI = window.AGroupUI;   // ListPage parts (S-05): state, pager, listPage
   const { esc, icon, statusBadge } = R;
-  const HANDLED = { helpdesk: ['overview', 'tickets', 'resolved', 'complaints', 'uploads'], designer: ['messages', 'projects'] };
+  const HANDLED = { helpdesk: ['overview', 'tickets', 'resolved', 'complaints', 'uploads', 'verification'],
+                    designer: ['overview', 'messages', 'projects'], admin: ['overview', 'escalations'] };
   const ACTIVE = ['OPEN', 'AWAITING_INFO', 'ESCALATED'];
   const DONE = ['RESOLVED', 'CLOSED', 'MERGED'];
   const TYPES = { ACCOUNT: 'Account', TECHNICAL: 'Technical problem', PROJECT: 'Project or listing', OTHER: 'Other',
@@ -20,6 +23,7 @@
 
   let generation = 0;                // ignore answers that arrive after the user moved on
   let list = { section: '', page: 1, q: '', status: '', type: '', handler: '', requester_type: '' };
+  let current = { role: '', section: '' };   // the page on screen, so actions can redraw it
   let openTicket = null;             // ticket shown in the modal
   let openConversation = null;       // designer messages page
 
@@ -33,21 +37,29 @@
   function leave() { generation++; }
 
   function title(role, heading, text) {
-    const label = role === 'helpdesk' ? 'HELPDESK' : 'INTERIOR DESIGNER';
+    const label = { helpdesk: 'HELPDESK', admin: 'USER ADMIN' }[role] || 'INTERIOR DESIGNER';
     return `<div class="page-title"><div><p class="eyebrow">${label} / WORKSPACE</p><h1>${esc(heading)}</h1><p>${esc(text)}</p></div></div>`;
   }
 
   async function render(role, section) {
     const mine = ++generation;
+    current = { role, section };
     const stillHere = () => mine === generation;
     if (role === 'helpdesk' && section === 'overview') return overview(stillHere);
     if (role === 'helpdesk' && section === 'uploads') return uploads(stillHere);
-    if (role === 'helpdesk') {
+    if (role === 'helpdesk' && section === 'verification') return verifications(stillHere);
+    if (role === 'admin' && section === 'overview') return adminOverview(stillHere);
+    if (role === 'designer' && section === 'overview') return designerOverview(stillHere);
+    if (role === 'helpdesk' || (role === 'admin' && section === 'escalations')) {
       if (list.section !== section) list = { section, page: 1, q: '', status: '', type: '', handler: '', requester_type: '' };
       return ticketList(stillHere);
     }
     if (role === 'designer' && section === 'messages') return messages(stillHere);
     if (role === 'designer' && section === 'projects') return window.ProjectPortfolio.render(main(), stillHere);   // ID-03
+  }
+
+  function metric(role, label, value, note, link) {
+    return `<a class="metric metric-link" href="#${role}/${link}"><p>${esc(label)}</p><strong>${esc(value)}</strong><small>${esc(note)}</small></a>`;
   }
 
   // ---------- Helpdesk overview ----------
@@ -61,15 +73,106 @@
       R.call('GET', '/api/uploads/failures?page_size=1').then(r => r.data.total || 0),
       R.call('GET', '/api/support/tickets?scope=active&handler=me&page_size=5').then(r => r.data.items || [])]);
     if (!stillHere()) return;
-    const metric = (label, value, note, link) => `<a class="metric metric-link" href="#helpdesk/${link}">
-      <p>${label}</p><strong>${value}</strong><small>${note}</small></a>`;
     main().innerHTML = title('helpdesk', 'Your support desk, at a glance.', 'Live numbers from the ticket queue.') +
-      `<div class="metric-grid">${metric('Active tickets', active, `${unassigned} not claimed yet`, 'tickets')}
-        ${metric('Waiting for the requester', waiting, 'Awaiting information', 'tickets')}
-        ${metric('Escalated', escalated, 'Need the platform team', 'tickets')}
-        ${metric('Open reports', reports, `${failures} failed uploads logged`, 'complaints')}</div>` +
+      `<div class="metric-grid">${metric('helpdesk', 'Active tickets', active, `${unassigned} not claimed yet`, 'tickets')}
+        ${metric('helpdesk', 'Waiting for the requester', waiting, 'Awaiting information', 'tickets')}
+        ${metric('helpdesk', 'Escalated', escalated, 'Need the platform team', 'tickets')}
+        ${metric('helpdesk', 'Open reports', reports, `${failures} failed uploads logged`, 'complaints')}</div>` +
       `<section class="panel"><div class="panel-heading"><h2>My active tickets</h2><small>Claimed by you</small></div>
         ${mine.length ? ticketTable(mine) : '<div class="panel-body"><p class="small-note">You have not claimed any active tickets. Open the queue to pick one.</p></div>'}</section>`;
+  }
+
+  // ---------- User Admin overview (UA-12, UA-13) ----------
+  async function adminOverview(stillHere) {
+    const heading = title('admin', 'Your decisions, at a glance.', 'Live numbers from verification requests and escalated tickets.');
+    main().innerHTML = heading + UI.state('loading');
+    const [queue, tickets] = await Promise.all([R.call('GET', '/api/admin/verifications'),
+                                                R.call('GET', '/api/support/tickets?page_size=5')]);
+    if (!stillHere()) return;
+    const requests = Array.isArray(queue.data) ? queue.data : [];
+    const pending = requests.filter(r => r.status === 'PENDING_REVIEW');
+    const items = tickets.ok ? tickets.data.items || [] : [];
+    main().innerHTML = heading +
+      `<div class="metric-grid">${metric('admin', 'Pending verifications', pending.length,
+          `${pending.filter(r => r.recommendation).length} with a helpdesk recommendation`, 'verification')}
+        ${metric('admin', 'Escalated tickets', tickets.ok ? tickets.data.total || 0 : 0, 'Waiting for your decision', 'escalations')}
+        ${metric('admin', 'Verified companies', requests.filter(r => r.status === 'APPROVED').length, 'Approved after review', 'verification')}</div>` +
+      `<section class="panel"><div class="panel-heading"><h2>Escalated tickets</h2><small>Escalated by the helpdesk</small></div>
+        ${items.length ? ticketTable(items) : '<div class="panel-body"><p class="small-note">No escalated tickets right now.</p></div>'}</section>`;
+  }
+
+  // ---------- Designer overview ----------
+  async function designerOverview(stillHere) {
+    const heading = title('designer', 'Your studio, at a glance.', 'Live numbers from your projects, requests and quotations.');
+    main().innerHTML = heading + UI.state('loading');
+    const get = url => R.call('GET', url).then(r => (r.ok ? r.data : null));
+    const [projects, stats, enquiries, quotations, reviews] = await Promise.all([get('/api/projects'),
+      get('/api/statistics?period=daily'), get('/api/enquiries'), get('/api/quotations'), get('/api/reviews')]);
+    if (!stillHere()) return;
+    const rows = x => (Array.isArray(x) ? x : []);
+    const sum = key => ((stats && stats.projects) || []).reduce((s, p) => s + (p[key] || 0), 0);
+    const drafts = rows(projects).filter(p => p.status === 'DRAFT').length;
+    const waiting = rows(enquiries).filter(q => q.status === 'AWAITING_REPLY');
+    const rated = rows(reviews);
+    const average = rated.length ? (rated.reduce((s, r) => s + r.rating, 0) / rated.length).toFixed(1) : null;
+    main().innerHTML = heading +
+      `<div class="metric-grid">${metric('designer', 'Published projects', rows(projects).filter(p => p.status === 'PUBLISHED').length,
+          `${drafts} draft${drafts === 1 ? '' : 's'}`, 'projects')}
+        ${metric('designer', 'Views in the last 7 days', sum('period_views'), `${sum('period_favourites')} saves`, 'analytics')}
+        ${metric('designer', 'Requests awaiting your reply', waiting.length, 'Leads and enquiries', 'enquiries')}
+        ${metric('designer', 'Quotations with clients', rows(quotations).filter(q => q.status === 'WAITING_CLIENT_CONFIRMATION').length,
+          average ? `Average rating ${average} / 5` : 'No reviews yet', 'quotations')}</div>` +
+      `<section class="panel"><div class="panel-heading"><h2>Requests awaiting your reply</h2><small>Sent to your studio</small></div>
+        ${waiting.length ? `<div class="table-wrap"><table><thead><tr><th>Reference</th><th>Client</th><th>Request</th><th>Budget</th></tr></thead>
+          <tbody>${waiting.slice(0, 5).map(q => `<tr><td>${esc(q.id)}</td><td>${esc(q.client_name)}</td>
+            <td>${esc((q.requirements || '').slice(0, 90))}${q.enquiry_type ? `<small>${esc(R.label(q.enquiry_type))}${q.property_layout ? ` · ${esc(q.property_layout)}` : ''}${q.target_timeline ? ` · ${esc(q.target_timeline)}` : ''}</small>` : ''}</td>
+            <td>${q.budget ? `S$${Number(q.budget).toLocaleString('en-SG')}` : '—'}</td></tr>`).join('')}</tbody></table></div>`
+          : '<div class="panel-body"><p class="small-note">No requests are waiting for your reply.</p></div>'}</section>`;
+  }
+
+  // ---------- Helpdesk: recommend verification decisions (HD-12) ----------
+  let verificationRows = [];
+  let verificationPage = 1;
+  const VERIFICATION_PAGE_SIZE = 15;
+  const documentLinks = v => (v.documents || []).map(d => `<a href="/${esc(d)}" target="_blank" rel="noopener">${esc(d.split('/').pop())}</a>`).join(', ') || 'None';
+  const recommendationText = v => (v.recommendation
+    ? `${v.recommendation === 'APPROVE' ? 'Approve' : 'Reject'}<small>${esc(v.recommendation_reason || '')}</small>`
+    : (v.status === 'PENDING_REVIEW' ? 'Not yet' : '—'));
+
+  async function verifications(stillHere) {
+    const heading = title('helpdesk', 'Verification recommendations',
+      'Check the documents a studio sent and recommend a decision; the User Admin decides.');
+    const r = await R.call('GET', '/api/helpdesk/verifications');
+    if (!stillHere()) return;
+    if (!r.ok) { main().innerHTML = heading + UI.state('error', r.data.error || 'Could not load the verification requests.'); return; }
+    verificationRows = r.data.requests || [];
+    const order = v => (v.status === 'PENDING_REVIEW' ? 0 : 1);
+    const sorted = [...verificationRows].sort((a, b) => order(a) - order(b));
+    const pages = Math.max(1, Math.ceil(sorted.length / VERIFICATION_PAGE_SIZE));
+    verificationPage = Math.min(verificationPage, pages);
+    const rows = sorted.slice((verificationPage - 1) * VERIFICATION_PAGE_SIZE, verificationPage * VERIFICATION_PAGE_SIZE);
+    main().innerHTML = heading + UI.listPage({ total: sorted.length, noun: 'request', page: verificationPage, pages,
+      empty: 'No verification requests yet.', pageAttrs: n => `data-shared="verification-page" data-page="${n}"`,
+      body: `<div class="table-wrap"><table><thead><tr><th>Reference</th><th>Company</th><th>Documents</th><th>Submitted</th>
+        <th>Status</th><th>Recommendation</th><th></th></tr></thead><tbody>${rows.map(v => `<tr><td>${esc(v.id)}</td>
+        <td>${esc(v.company_name)}</td><td>${documentLinks(v)}</td><td>${esc(v.submitted_at)}</td><td>${statusBadge(v.status)}</td>
+        <td>${recommendationText(v)}</td><td>${v.status === 'PENDING_REVIEW' ? `<button class="text-button" data-shared="recommend"
+          data-id="${esc(v.id)}">${v.recommendation ? 'Change' : 'Recommend'} ${icon('arrow-right')}</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` });
+  }
+
+  function showRecommend(id) {
+    const v = verificationRows.find(x => x.id === id);
+    if (!v) return;
+    const { dialog, content } = modal();
+    content.innerHTML = UI.recordPage({ eyebrow: `${v.id} · Verification request`, title: v.company_name, status: v.status,
+      details: [['Documents', documentLinks(v)], ['Submitted', esc(v.submitted_at)],
+                v.rejection_reason ? ['Previous rejection', esc(v.rejection_reason)] : null,
+                ['Current recommendation', recommendationText(v)]],
+      sections: [{ title: 'Recommend a decision', icon: 'badge-check', body: `<form class="form-stack" data-shared-form="recommend" data-id="${esc(v.id)}">
+        <label>RECOMMENDATION<select name="decision"><option value="APPROVE">Approve</option><option value="REJECT">Reject</option></select></label>
+        <label>REASON<textarea name="reason" maxlength="1000" required placeholder="What you checked and why"></textarea></label>
+        <button class="button" type="submit">Send to the User Admin</button></form>` }] });
+    if (!dialog.open) dialog.showModal();
   }
 
   // ---------- Ticket lists (queue, resolved, complaints) ----------
@@ -99,23 +202,25 @@
   async function ticketList(stillHere) {
     const heading = { tickets: ['Active ticket queue', 'Open, awaiting information and escalated tickets.'],
                       resolved: ['Resolved tickets', 'Resolved, closed and merged tickets.'],
-                      complaints: ['Complaints & listings', 'Reports about projects and messages.'] }[list.section];
+                      complaints: ['Complaints & listings', 'Reports about projects and messages.'],
+                      escalations: ['Escalated tickets', 'Tickets the helpdesk escalated to you: resolve them with a note, or restore a hidden project.'] }[list.section];
+    const escalations = list.section === 'escalations';
     const statuses = list.section === 'resolved' ? DONE : ACTIVE;
     const r = await R.call('GET', `/api/support/tickets?${query()}`);
     if (!stillHere()) return;
-    if (!r.ok) { main().innerHTML = title('helpdesk', heading[0], heading[1]) + UI.state('error', r.data.error || 'Could not load tickets.'); return; }
+    if (!r.ok) { main().innerHTML = title(current.role, heading[0], heading[1]) + UI.state('error', r.data.error || 'Could not load tickets.'); return; }
     const d = r.data;
     const option = (value, text, current) => `<option value="${value}" ${current === value ? 'selected' : ''}>${text}</option>`;
-    main().innerHTML = title('helpdesk', heading[0], heading[1]) +
+    main().innerHTML = title(current.role, heading[0], heading[1]) +
       `<form class="portal-toolbar" data-shared-form="filters">
         <label>SEARCH<input name="q" value="${esc(list.q)}" placeholder="Reference, details or project"></label>
-        <label>STATUS<select name="status">${option('', 'All', list.status)}${statuses.map(s => option(s, R.label(s), list.status)).join('')}</select></label>
+        ${escalations ? '' : `<label>STATUS<select name="status">${option('', 'All', list.status)}${statuses.map(s => option(s, R.label(s), list.status)).join('')}</select></label>`}
         ${list.section === 'complaints' ? '' : `<label>TYPE<select name="type">${option('', 'All types', list.type)}${Object.entries(TYPES).map(([k, v]) => option(k, v, list.type)).join('')}</select></label>`}
         <label>REQUESTER<select name="requester_type">${option('', 'Anyone', list.requester_type)}${option('CUSTOMER', 'Customers', list.requester_type)}${option('DESIGNER', 'Interior designers', list.requester_type)}</select></label>
-        <label>HANDLER<select name="handler">${option('', 'Anyone', list.handler)}${option('me', 'Claimed by me', list.handler)}${option('none', 'Not claimed', list.handler)}</select></label>
+        ${escalations ? '' : `<label>HANDLER<select name="handler">${option('', 'Anyone', list.handler)}${option('me', 'Claimed by me', list.handler)}${option('none', 'Not claimed', list.handler)}</select></label>`}
         <button class="button outline" type="submit">${icon('search')} Apply</button></form>` +
       UI.listPage({ total: d.total, noun: 'ticket', page: d.page, pages: d.pages, body: ticketTable(d.items),
-                    empty: 'No tickets match these filters.', pageAttrs: n => `data-shared="page" data-page="${n}"` });
+                    empty: escalations ? 'No escalated tickets right now.' : 'No tickets match these filters.', pageAttrs: n => `data-shared="page" data-page="${n}"` });
   }
 
   // ---------- Ticket page (RecordPage) ----------
@@ -123,6 +228,7 @@
 
   async function showTicket(id) {
     const agent = me().role === 'helpdesk';   // HD-01: only helpdesk agents set the priority and assignee
+    const admin = me().role === 'admin';      // UA-12: the User Admin resolves escalated tickets
     const [page, notes, staff] = await Promise.all([R.call('GET', `/api/support/tickets/${encodeURIComponent(id)}`),
                                             R.call('GET', `/api/notes/REQUEST/${encodeURIComponent(id)}`),
                                             agent ? R.call('GET', '/api/support/agents') : null]);
@@ -149,9 +255,10 @@
           <small>${esc(names[page.data.reported_message.author_id] || page.data.reported_message.author_id)} · ${time(page.data.reported_message.sent_at)}</small></blockquote></dd>` : ''}
         <dt>Details</dt><dd>${esc(ticket.details)}</dd></dl>
       <div class="record-actions">
-        ${ticket.handler_id !== user.id && !readOnly ? `<button class="button outline" data-shared="claim">${icon('user-check')} Claim</button>` : ''}
+        ${agent && ticket.handler_id !== user.id && !readOnly ? `<button class="button outline" data-shared="claim">${icon('user-check')} Claim</button>` : ''}
         ${allowed.filter(s => s !== 'MERGED').map(s => `<button class="button outline" data-shared="move" data-status="${s}">${esc(MOVE_LABEL[s] || R.label(s))}</button>`).join('')}
-        ${project && ticket.type === 'REPORT_IDP' ? `<button class="button outline" data-shared="hide-project" data-project="${esc(project)}">${icon('eye-off')} Hide project</button>` : ''}
+        ${agent && project && ticket.type === 'REPORT_IDP' ? `<button class="button outline" data-shared="hide-project" data-project="${esc(project)}">${icon('eye-off')} Hide project</button>` : ''}
+        ${admin && project && ticket.type === 'REPORT_IDP' ? `<button class="button outline" data-shared="restore-project" data-project="${esc(project)}">${icon('eye')} Restore project</button>` : ''}
       </div>
       ${agent && !readOnly && staff && staff.ok ? `<form class="merge-form" data-shared-form="triage">
         <label>PRIORITY<select name="priority">${Object.entries(PRIORITY).map(([v, l]) =>
@@ -159,7 +266,7 @@
         <label>ASSIGNEE<select name="assignee_id"><option value="">Not claimed</option>${staff.data.agents.map(a =>
           `<option value="${esc(a.id)}" ${a.id === ticket.handler_id ? 'selected' : ''}>${esc(a.name)}</option>`).join('')}</select></label>
         <button class="button outline" type="submit">Save priority and assignee</button></form>` : ''}
-      ${!readOnly ? `<form class="merge-form" data-shared-form="merge">
+      ${agent && !readOnly ? `<form class="merge-form" data-shared-form="merge">
         <label>MERGE A DUPLICATE INTO THIS TICKET<input name="other" placeholder="Duplicate ticket reference, e.g. TKT-1002" required></label>
         <button class="button outline" type="submit">${icon('merge')} Merge</button></form>` : ''}
       <h3>${icon('message-square')} Conversation with the requester</h3>
@@ -171,7 +278,7 @@
       <h3>${icon('sticky-note')} Internal notes <small>(staff only)</small></h3>
       ${R.notesPanel(notes.ok ? notes.data.notes : [], names)}
       <form class="reply-form" data-shared-form="note"><label class="visually-hidden" for="note-text">Internal note</label>
-        <textarea id="note-text" name="text" maxlength="2000" required placeholder="Add a note for other agents"></textarea>
+        <textarea id="note-text" name="text" maxlength="2000" required placeholder="Add a note for other staff"></textarea>
         <button class="button outline" type="submit">${icon('sticky-note')} Add note</button></form>
       ${page.data.feedback ? `<h3>${icon('star')} Requester's feedback <small>(staff only)</small></h3>
         <p>${UI.ratingDisplay(page.data.feedback.score)}</p>${page.data.feedback.comment ? `<p>${esc(page.data.feedback.comment)}</p>` : ''}
@@ -185,7 +292,7 @@
     if (!result.ok) { toast(result.data.error || 'That did not work.'); return false; }
     if (success) toast(success);
     if (openTicket) await showTicket(openTicket.id);
-    if (list.section && location.hash.startsWith('#helpdesk/')) render('helpdesk', location.hash.split('/')[1]);
+    if (list.section && current.section && location.hash === `#${current.role}/${current.section}`) render(current.role, current.section);
     return true;
   }
 
@@ -295,7 +402,9 @@
     if (!button) return;
     const action = button.dataset.shared;
     if (action === 'open-ticket') showTicket(button.dataset.id);
-    else if (action === 'page') { list.page = Number(button.dataset.page); render('helpdesk', list.section); }
+    else if (action === 'page') { list.page = Number(button.dataset.page); render(current.role, list.section); }
+    else if (action === 'recommend') showRecommend(button.dataset.id);
+    else if (action === 'verification-page') { verificationPage = Number(button.dataset.page); render('helpdesk', 'verification'); }
     else if (action === 'uploads-page') { uploadsQuery.page = Number(button.dataset.page); render('helpdesk', 'uploads'); }
     else if (action === 'claim') afterChange(await R.call('POST', `/api/support/tickets/${openTicket.id}/assign`), 'Ticket claimed.');
     else if (action === 'move') {
@@ -311,6 +420,12 @@
         message: 'The project leaves the customer website and its designer is told why.', confirmLabel: 'Hide project' });
       if (reason === null) return;
       afterChange(await R.call('POST', `/api/projects/${button.dataset.project}/status`, { status: 'HIDDEN', reason }), 'Project hidden.');
+    } else if (action === 'restore-project') {
+      const reason = await R.confirmWithReason({ title: `Restore ${button.dataset.project} for customers`,
+        message: 'The project is shown to customers again and its designer is told. To keep it hidden, resolve the ticket and ask the designer to fix it.',
+        confirmLabel: 'Restore project', reasonRequired: true });
+      if (reason === null) return;
+      afterChange(await R.call('POST', `/api/projects/${button.dataset.project}/status`, { status: 'PUBLISHED', reason }), 'Project restored.');
     } else if (action === 'complete-enquiry') {
       if (!confirm(`Mark ${button.dataset.id} as completed? The client will be invited to review your company.`)) return;
       const r = await R.call('POST', `/api/enquiries/${encodeURIComponent(button.dataset.id)}/complete`);
@@ -338,8 +453,13 @@
         return;
       }
       Object.assign(list, criteria, { page: 1 });
-      render('helpdesk', list.section);
+      render(current.role, list.section);
     } else if (kind === 'uploads') { uploadsQuery = { q: value('q'), page: 1 }; render('helpdesk', 'uploads'); }
+    else if (kind === 'recommend') {
+      const r = await UI.formView.submit(form, 'POST', `/api/admin/verifications/${encodeURIComponent(form.dataset.id)}/recommend`,
+        { decision: value('decision'), reason: value('reason') }, 'Recommendation sent to the User Admin.');
+      if (r.ok) { toast('Recommendation sent to the User Admin.'); modal().dialog.close(); render('helpdesk', 'verification'); }
+    }
     else if (kind === 'reply') afterChange(await R.call('POST', `/api/threads/${openTicket.thread_id}/messages`, { body: value('body') }), 'Reply sent.');
     else if (kind === 'triage') afterChange(await R.call('POST', `/api/support/tickets/${openTicket.id}/triage`,
       { priority: value('priority'), assignee_id: value('assignee_id') }), 'Priority and assignee saved.');

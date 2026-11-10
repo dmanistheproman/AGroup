@@ -358,7 +358,8 @@ def create_app(registry=None, admin_provider=None, config=None):
     # ----- Helpdesk -----
     merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)
     recommend_verification = RecommendVerificationController(designer.verification_repo)
-    app.register_blueprint(create_helpdesk_blueprint(merge_tickets, login, recommend_verification))
+    app.register_blueprint(create_helpdesk_blueprint(merge_tickets, login, recommend_verification,
+                                                     verification_queue=designer.review_controller.queue))
 
     @app.get('/')
     def home():

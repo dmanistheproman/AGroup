@@ -352,8 +352,8 @@
     generation += 1;
     activeSection = '';
     document.body.classList.remove('management-live');
-    document.querySelector('.portal-top .pill').textContent = 'INTERACTIVE WIREFRAME';
-    document.querySelector('.portal-footer').textContent = 'AGroup · Academic prototype · Sample records and browser-local actions for the other workspaces.';
+    document.querySelector('.portal-top .pill').textContent = 'ACADEMIC PROTOTYPE';
+    document.querySelector('.portal-footer').textContent = 'AGroup · Academic prototype · Fictional sample data. Pages marked as not built in this version show sample records only.';
   }
 
   document.addEventListener('click', async event => {
