@@ -240,7 +240,7 @@ def build_management_controllers(store, shared_reports, status_change):
     )
 
 
-def create_app(registry=None, admin_provider=None, config=None):
+def create_app(admin_provider=None, config=None):
     app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path='', instance_path=str(ROOT / 'instance'))
     # Signs the session cookie. Set AGROUP_SECRET_KEY to keep sessions across restarts.
     app.config.update(SECRET_KEY=os.environ.get('AGROUP_SECRET_KEY') or secrets.token_hex(32),
@@ -307,10 +307,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     app.register_blueprint(create_shared_blueprint(shared))
 
     # ----- User Admin -----
-    # UA-01: suspend the real accounts. Pass `registry` to override in tests; the default is
-    # the connected UserAccountRepository, so a suspension persists and is audited (no more 503).
-    account_registry = registry if registry is not None else user_accounts
-    suspend_account = SuspendAccountController(account_registry)
+    suspend_account = SuspendAccountController(user_accounts, shared.status_change)   # UA-01 (shared status change)
     flag_account = FlagAccountController(user_accounts, shared.status_change.audit)   # UA-09: flag / unflag, audited
     if admin_provider is None:
         def admin_provider():

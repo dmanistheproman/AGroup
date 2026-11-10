@@ -33,7 +33,7 @@ class ViewAdminHistoryController:
     def _row(self, entry, details):
         account = self.accounts.get(entry.target_id)
         label = self.LABELS.get(entry.action, entry.action)
-        if entry.action == "STATUS_CHANGED":            # through StatusChangeService: UA-02 reactivation
+        if entry.action == "STATUS_CHANGED":            # through StatusChangeService: UA-01, UA-02
             label = self.STATUS_LABELS.get(str(entry.to_status), label)
         row = {"id": entry.id, "action": entry.action, "label": label,
                "date": entry.created_at, "account_id": entry.target_id,

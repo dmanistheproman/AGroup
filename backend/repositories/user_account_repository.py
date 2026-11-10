@@ -1,14 +1,13 @@
 """<<repository>> UserAccountRepository — UserAccount records in the user_account table.
 
-Implements the UA-01 contract (find_by_id, commit_suspension), so the suspension
-feature can use it by passing this repo to create_app(registry=...).
+Suspending and reactivating an account (UA-01, UA-02) are status changes through the shared StatusChangeService,
+which saves the account here and writes the shared audit log.
 """
 import sqlite3
 
 from werkzeug.security import generate_password_hash
 
 from backend.database import store_or_memory
-from backend.entities.audit_log import AuditLog
 from backend.entities.user_account import UserAccount
 
 # Demo accounts: one per role, plus a second designer to show the ownership check.
@@ -102,23 +101,3 @@ class UserAccountRepository:
         """, (start, end)).fetchall()
         found = {row["role"]: row["total"] for row in rows}
         return {role: found.get(role, 0) for role in UserAccount.ROLES}
-
-    # ---- UA-01 contract ----
-
-    def find_by_id(self, account_id):
-        return self.get(account_id)
-
-    def commit_suspension(self, account_id, record, action):
-        """ACTIVE -> SUSPENDED with an audit_log record, in one transaction; False (and no change) if not ACTIVE."""
-        with self.store.transaction(write=True) as connection:
-            changed = connection.execute("UPDATE user_account SET status = ? WHERE user_id = ? AND status = ?",
-                                         (UserAccount.STATUS_SUSPENDED, account_id,
-                                          UserAccount.STATUS_ACTIVE)).rowcount
-            if not changed:
-                return False
-            from backend.repositories.audit_log_repo import AuditLogRepo
-            AuditLogRepo.insert(connection, AuditLog(
-                None, record.admin_id, "USER_ACCOUNT", account_id, action.action_type,
-                UserAccount.STATUS_ACTIVE, UserAccount.STATUS_SUSPENDED, record.reason,
-                record.suspended_at.isoformat()))
-        return True

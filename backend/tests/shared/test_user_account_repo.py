@@ -1,4 +1,4 @@
-"""UserAccountRepository: demo accounts, lookup by email, and the UA-01 account contract."""
+"""UserAccountRepository: demo accounts and lookup by email."""
 
 from backend.entities.user_account import UserAccount
 from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository

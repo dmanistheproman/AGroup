@@ -1,6 +1,6 @@
 """<<entity>> UserAccount — one account per person, for every role (X-10).
 
-Also satisfies the UA-01 account contract (`account_id`, `status`; see SUSPENSION_SETUP.md).
+Active <-> Suspended are status changes through the shared StatusChangeService (UA-01, UA-02).
 """
 from datetime import datetime, timezone
 
@@ -45,11 +45,6 @@ class UserAccount:
     def create(cls, user_id, name, email, password, role):
         """New account with the password stored only as a hash."""
         return cls(user_id, name, email, generate_password_hash(password), role)
-
-    @property
-    def account_id(self):
-        """Name used by the UA-01 suspension contract."""
-        return self.id
 
     def verify_password(self, password):
         return bool(password) and check_password_hash(self.password_hash, password)

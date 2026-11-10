@@ -141,8 +141,8 @@ resolves a ticket with a note or restores a hidden project. The Accounts page li
 role and status filters (UA-04 to UA-06, `GET /api/user-admin/accounts?q=&role=&status=&page=`,
 `GET /api/user-admin/accounts/<id>`) and reactivates a suspended account with a reason through the shared status
 change (UA-02, `POST /api/user-admin/accounts/<id>/reactivate`).
-Suspend (UA-01, `POST /api/user-admin/accounts/<id>/suspend`) and flag (UA-09, `POST/DELETE .../flag`) work on the
-real accounts; the administrator is the logged-in User Admin (other roles get 403, nobody acts without logging in).
+Suspend (UA-01, `POST /api/user-admin/accounts/<id>/suspend`, through the shared status change like UA-02) and flag
+(UA-09, `POST/DELETE .../flag`) work on the real accounts; the administrator is the logged-in User Admin (other roles get 403, nobody acts without logging in).
 Escalated tickets (UA-12): `GET /api/support/tickets` lists only escalated tickets for the User Admin, the ticket page
 opens them, the User Admin can write in their thread and resolve them with a note
 (`POST /api/support/tickets/<id>/status {status: RESOLVED, reason}`), and can restore a hidden IDP
