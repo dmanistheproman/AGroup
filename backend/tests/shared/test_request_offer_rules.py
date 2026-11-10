@@ -118,12 +118,12 @@ def test_a_verification_decision_is_audited_and_the_designer_is_told(shared, des
     request = shared.requests.open(VerificationRequest(designer_side.verification_repo.next_reference(), "COM-FF",
                                                        "user-form-field", ["uploads/COM-FF/licence.pdf"]))
     recommended(designer_side, request.id)
-    designer_side.review_controller.review(request.id, "reject", "The licence is not readable.", reviewer="user-admin")
+    designer_side.decide_verification_controller.review(request.id, "reject", "The licence is not readable.", reviewer="user-admin")
     assert shared.status_change.history_of("VERIFICATION_REQUEST", request.id)[-1].to_status == "REJECTED"
     note = shared.notifications.list_for("user-form-field")[0]
     assert note.type == "VERIFICATION_STATUS" and "not readable" in note.text
     with pytest.raises(ValueError):
-        designer_side.review_controller.review(request.id, "approve", reviewer="user-admin")
+        designer_side.decide_verification_controller.review(request.id, "approve", reviewer="user-admin")
 
 
 # ---- offers (S-21, ID-05, ID-07, ID-09) ----
@@ -208,7 +208,7 @@ def test_a_rejected_verification_goes_back_to_review_when_resubmitted(shared, de
         upload=lambda file, owner_type, owner_id, kind="image": f"uploads/{owner_id}/{file['filename']}")
     first = designer_side.verification_controller.submit("user-form-field", {"documents": [{"filename": "a.pdf"}]})
     recommended(designer_side, first.id)
-    designer_side.review_controller.review(first.id, "reject", "Blurred scan.", reviewer="user-admin")
+    designer_side.decide_verification_controller.review(first.id, "reject", "Blurred scan.", reviewer="user-admin")
     again = designer_side.verification_controller.submit("user-form-field", {"documents": [{"filename": "b.pdf"}]})
     assert (again.id, again.status, again.documents) == (first.id, "PENDING_REVIEW", ["uploads/COM-FF/b.pdf"])
     assert [h.to_status for h in shared.status_change.history_of("VERIFICATION_REQUEST", first.id)] == \

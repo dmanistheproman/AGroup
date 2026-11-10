@@ -54,13 +54,16 @@ from backend.boundary.report_routes import create_report_blueprint
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController
 from backend.controllers.user_admin.flag_account_controller import FlagAccountController
 from backend.controllers.user_admin.view_admin_history_controller import ViewAdminHistoryController
+from backend.controllers.user_admin.reactivate_account_controller import ReactivateAccountController
+from backend.controllers.user_admin.view_user_account_controller import ViewUserAccountController
 from backend.boundary.user_admin_routes import create_user_admin_blueprint
 
 # ----- Interior Designer -----
 from backend.controllers.designer.project_controller import (CreateProjectController, DeleteProjectController,
                                                               EditProjectController)
 from backend.controllers.designer.company_controller import UpdateCompanyProfileController
-from backend.controllers.designer.verification_controller import SubmitVerificationController, ReviewVerificationController
+from backend.controllers.designer.verification_controller import SubmitVerificationController
+from backend.controllers.user_admin.decide_verification_controller import DecideVerificationController
 from backend.controllers.designer.potential_clients_controller import FindPotentialClientsController
 from backend.controllers.designer.proposal_controller import SubmitProposalController, ReviseProposalController
 from backend.controllers.designer.quotation_controller import SubmitQuotationController
@@ -144,7 +147,7 @@ def build_designer_controllers(upload_service, store, account_repo=None):
     c.delete_project_controller = DeleteProjectController(projects_repo)                              # ID-03.2
     c.company_controller = UpdateCompanyProfileController(company_repo, upload_service)
     c.verification_controller = SubmitVerificationController(company_repo, verification_repo, upload_service)
-    c.review_controller = ReviewVerificationController(verification_repo, company_repo)
+    c.decide_verification_controller = DecideVerificationController(verification_repo, company_repo)   # UA-13
     customer_repo = CustomerRepo.from_data(SEED_CUSTOMER_DATA, store)
     c.potential_clients_controller = FindPotentialClientsController(customer_repo)
     c.submit_proposal_controller = SubmitProposalController(proposal_repo, upload_service)
@@ -204,7 +207,7 @@ def _connect_designer_records(shared, designer):
     designer.delete_project_controller.on_delete = lambda reference: _remove_deleted_project(shared.store, reference)
     shared.messages.register_owner(designer.verification_repo.find_by_thread, staff_roles=(UserAccount.ROLE_USER_ADMIN,))
     designer.review_enquiry_controller.connect(shared)
-    designer.verification_controller.shared = designer.review_controller.shared = shared
+    designer.verification_controller.shared = designer.decide_verification_controller.shared = shared
     designer.submit_quotation_controller.status_change = shared.status_change
     designer.submit_proposal_controller.enquiries = designer.enquiry_repo
     designer.revise_proposal_controller.enquiries = designer.enquiry_repo   # only the enquiry's designer revises
@@ -319,7 +322,17 @@ def create_app(registry=None, admin_provider=None, config=None):
                 return None
             return {"id": user.id, "role": "User Admin" if user.role == UserAccount.ROLE_USER_ADMIN else user.role}
     admin_history = ViewAdminHistoryController(shared.status_change.audit, user_accounts)   # UA-11
-    app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider, flag_account, admin_history))
+    user_admin = SimpleNamespace(
+        suspend_account_controller=suspend_account,                                           # UA-01
+        reactivate_account_controller=ReactivateAccountController(shared.status_change),      # UA-02
+        view_user_account_controller=ViewUserAccountController(user_accounts, shared.status_change),  # UA-04 to 06
+        flag_account_controller=flag_account,                                                 # UA-09
+        view_admin_history_controller=admin_history,                                          # UA-11
+    )
+    app.extensions['user_admin'] = user_admin
+    app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider, flag_account, admin_history,
+                                                       user_admin.reactivate_account_controller,
+                                                       user_admin.view_user_account_controller))
 
     # ----- Interior Designer -----
     designer = build_designer_controllers(upload_service, store, user_accounts)
@@ -340,6 +353,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.reviews = SubmitReviewController(designer.list_reviews_controller.reviews, designer.enquiry_repo,
                                             designer.company_repo)   # C-07
     app.extensions['designer'] = designer
+    user_admin.decide_verification_controller = designer.decide_verification_controller   # UA-13 (built with ID-02)
     app.register_blueprint(create_auth_blueprint(login, accounts))
     app.register_blueprint(create_designer_blueprint(designer, str(UPLOAD_DIR), login))
 
@@ -387,7 +401,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     app.extensions['helpdesk'] = helpdesk
     recommend_verification = RecommendVerificationController(designer.verification_repo)
     app.register_blueprint(create_helpdesk_blueprint(helpdesk.merge_tickets_controller, login, recommend_verification,
-                                                     verification_queue=designer.review_controller.queue))
+                                                     verification_queue=designer.decide_verification_controller.queue))
 
     @app.get('/')
     def home():

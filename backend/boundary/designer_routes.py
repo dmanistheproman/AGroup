@@ -157,12 +157,12 @@ def create_designer_blueprint(c, upload_dir, login):
 
     @bp.route("/api/admin/verifications", methods=["GET"])
     def api_admin_queue():
-        return jsonify(c.review_controller.queue())
+        return jsonify(c.decide_verification_controller.queue())
 
     @bp.route("/api/admin/verifications/<request_id>/review", methods=["POST"])
     def api_review_verification(request_id):
         try:
-            r = c.review_controller.review(request_id, request.form.get("decision", ""), request.form.get("reason"),
+            r = c.decide_verification_controller.review(request_id, request.form.get("decision", ""), request.form.get("reason"),
                                            reviewer=current_user_id())
             return jsonify({"message": "Review recorded.", "request": r.public_view()}), 200
         except ValueError as err:

@@ -1,4 +1,5 @@
-"""<<control>> SubmitVerificationController / ReviewVerificationController — named as in the task list.
+"""<<control>> SubmitVerificationController (ID-02) — named as in the task list; the User Admin decides with
+DecideVerificationController (UA-13, controllers/user_admin).
 
 With the shared services connected (server.py sets shared), a new request is opened through RequestService (it
 gets a thread and an attachment group, and user admins are told), and every decision or resubmission goes through
@@ -46,45 +47,4 @@ class SubmitVerificationController:
             company_id=company.id, requested_by=user_id, documents=refs)
         if self.shared is not None:
             return self.shared.requests.open(request)   # BF4 submitted to the administrators; BF5 Pending Review
-        return self.verifications.save(request)
-
-class ReviewVerificationController:
-    def __init__(self, verification_repo, company_repo):
-        self.verifications = verification_repo
-        self.companies = company_repo
-        self.shared = None
-
-    def queue(self):
-        """Request list for the administrators' workspace (rows in the prototype recordPage format)."""
-        rows = []
-        for r in self.verifications.all():
-            company = self.companies.get(r.company_id)
-            rows.append({**r.public_view(), "company_name": company.name if company else r.company_id})
-        return rows
-
-    def review(self, request_id, decision, reason=None, reviewer=None):
-        """UA-13: the logged-in User Admin decides (the route only lets a User Admin in)."""
-        if not reviewer:
-            raise PermissionError("Sign in as a User Admin to decide a verification request.")
-        request = self.verifications.get(request_id)
-        if request is None:
-            raise ValueError("Verification request not found.")
-        if decision not in ("approve", "reject"):
-            raise ValueError("Decision must be approve or reject.")
-        if request.status == VerificationRequest.STATUS_PENDING and not request.is_recommended():
-            # UC-UA13 AF2: the User Admin decides on the helpdesk agent's recommendation (HD-12)
-            raise ValueError("The verification information is incomplete: a helpdesk agent has not recommended "
-                             "a decision yet.")
-        if self.shared is not None:
-            if request.status != VerificationRequest.STATUS_PENDING:
-                raise ValueError("Only pending requests can be reviewed.")
-            status = VerificationRequest.STATUS_APPROVED if decision == "approve" else VerificationRequest.STATUS_REJECTED
-            return self.shared.status_change.change_status("VERIFICATION_REQUEST", request.id, status, reviewer,
-                                                           reason if decision == "reject" else None)
-        if decision == "approve":
-            request.approve(reviewer)
-        elif decision == "reject":
-            request.reject(reviewer, reason)
-        else:
-            raise ValueError("Decision must be approve or reject.")
         return self.verifications.save(request)

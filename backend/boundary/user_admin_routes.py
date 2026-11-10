@@ -9,7 +9,7 @@ from backend.controllers.user_admin.view_admin_history_controller import ActionN
 
 
 def create_user_admin_blueprint(controller: SuspendAccountController, admin_provider=None, flag_controller=None,
-                                history_controller=None):
+                                history_controller=None, reactivate_controller=None, accounts_controller=None):
     bp = Blueprint('user_admin', __name__)
 
     def _admin():
@@ -46,6 +46,42 @@ def create_user_admin_blueprint(controller: SuspendAccountController, admin_prov
             status='SUSPENDED',
             suspendedAt=record.suspended_at.isoformat(),
         ), 200
+
+    # ---- UA-06 account list (UA-04 search, UA-05 filters) and details ----
+    @bp.get('/api/user-admin/accounts')
+    def list_accounts():
+        admin, error, status = _require_admin()
+        if admin is None:
+            return error, status
+        try:
+            return jsonify(accounts_controller.list_accounts(request.args)), 200
+        except ValueError as err:
+            return jsonify(error=str(err)), 400
+
+    @bp.get('/api/user-admin/accounts/<account_id>')
+    def account_detail(account_id):
+        admin, error, status = _require_admin()
+        if admin is None:
+            return error, status
+        try:
+            return jsonify(accounts_controller.account(account_id)), 200
+        except LookupError as err:
+            return jsonify(error=str(err)), 404
+
+    # ---- UA-02 reactivate a suspended account ----
+    @bp.post('/api/user-admin/accounts/<account_id>/reactivate')
+    def reactivate_account(account_id):
+        admin, error, status = _require_admin()
+        if admin is None:
+            return error, status
+        data = request.get_json(silent=True) or {}
+        try:
+            account = reactivate_controller.reactivate(account_id, data.get('reason'), str(admin['id']))
+        except LookupError as err:
+            return jsonify(error=str(err)), 404
+        except ValueError as err:
+            return jsonify(error=str(err)), 400
+        return jsonify(message='Account reactivated.', account=account.public_view()), 200
 
     @bp.post('/api/user-admin/accounts/<account_id>/flag')
     def flag_account(account_id):
