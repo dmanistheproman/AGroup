@@ -2,18 +2,19 @@
 
 Only projects customers may see (S-09: published, not by a suspended designer) and the active categories; the page
 filters them by style, budget, house type and location (SearchFilter)."""
-from backend.entities.interior_design_project import InteriorDesignProject
 from backend.entities.project import Project
 from backend.entities.project_category import ProjectCategory
 from backend.repositories.company_repo import CompanyRepo
+from backend.repositories.project_repository import ProjectRepository
 
 
 class SearchProjectController:
     def __init__(self, store):
         self.store = store
+        self.projects = ProjectRepository(store)
 
     def visible_projects(self):
-        projects = InteriorDesignProject(self.store).list_by_category()["projects"]
+        projects = self.projects.list_by_category()["projects"]
         return Project.visible_to_customers(projects, CompanyRepo(self.store).names_of_suspended_designers())
 
     def catalog(self):

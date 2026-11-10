@@ -88,7 +88,6 @@ from backend.boundary.designer_routes import create_designer_blueprint
 from backend.boundary.management_routes import create_management_blueprint
 from backend.controllers import management
 from backend.entities.project_category import ProjectCategory
-from backend.entities.interior_design_project import InteriorDesignProject
 from backend.entities.platform_activity_report import PlatformActivityReport
 from backend.seed import seed_demo
 from backend.storage import SQLiteStore
@@ -224,7 +223,7 @@ def _connect_designer_records(shared, designer):
 def build_management_controllers(store, shared_reports):
     categories = ProjectCategory(store)
     reports = PlatformActivityReport(store)
-    projects = InteriorDesignProject(store)
+    projects = ProjectRepository(store)
     return SimpleNamespace(
         ViewCategoriesController=management.ViewCategoriesController(categories),
         CreateCategoryController=management.CreateCategoryController(categories),

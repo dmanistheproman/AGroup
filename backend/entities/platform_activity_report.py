@@ -3,7 +3,7 @@ from io import StringIO
 import json
 from uuid import uuid4
 from backend.entities.project_category import ProjectCategory
-from backend.entities.interior_design_project import InteriorDesignProject
+from backend.repositories.project_repository import ProjectRepository
 from backend.repositories.project_event_repository import ProjectEventRepository
 from backend.repositories.user_account_repository import UserAccountRepository
 from backend.services.management_rules import ACCOUNT_LABELS, BusinessError, METRICS, category_ids, timestamp
@@ -15,8 +15,8 @@ class PlatformActivityReport:
 
     @staticmethod
     def build(connection, period, category_id):
-        return {"projects": InteriorDesignProject.count_created(connection, period, category_id),
-                "published": InteriorDesignProject.count_published(connection, period, category_id),
+        return {"projects": ProjectRepository.count_created(connection, period, category_id),
+                "published": ProjectRepository.count_published(connection, period, category_id),
                 **PlatformActivityReport._events(connection, period, category_id)}
 
     @staticmethod
