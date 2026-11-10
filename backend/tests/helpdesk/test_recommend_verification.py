@@ -52,5 +52,5 @@ def test_recommend_only_for_pending_requests():
 
 def test_recommend_unknown_request_raises():
     controller, _ = _controller()
-    with pytest.raises(ValueError, match="not found"):
+    with pytest.raises(LookupError, match="not found"):
         controller.recommend("VER-999", "user-helpdesk", "APPROVE", "reason")

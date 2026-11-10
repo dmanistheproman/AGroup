@@ -3,7 +3,6 @@
 Credit status is computed only from platform activity. A User Admin flag on the customer's
 own account contributes a negative signal with its reason.
 """
-import pytest
 
 from backend.entities.user_account import UserAccount
 from backend.repositories.enquiry_repo import EnquiryRepo

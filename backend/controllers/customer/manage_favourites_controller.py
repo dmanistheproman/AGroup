@@ -26,6 +26,7 @@ class ManageFavouritesController:
         self.project_repo = project_repo
         self.activity = activity
         self.collections = None   # CollectionService (S-22): removing a favourite takes it out of every folder
+        self.hidden_firms = None  # () -> companies of suspended designers (C-05), set in server.py
 
     def add_favourite(self, customer_id: str, project_id) -> dict:
         reference = project_reference(project_id)
@@ -60,5 +61,6 @@ class ManageFavouritesController:
         if self.project_repo is None:
             return
         record = self.project_repo.get(reference)
-        if record is None or not Project.visible_to_customers([record]):
+        hidden = self.hidden_firms() if self.hidden_firms is not None else ()
+        if record is None or not Project.visible_to_customers([record], hidden):
             raise LookupError(f"Project {reference} is not available.")

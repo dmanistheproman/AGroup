@@ -142,7 +142,7 @@ def build_designer_controllers(upload_service, store, account_repo=None):
     c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo,
                                                                                 account_repo))
     c.statistics_controller = ViewProjectStatisticsController(ProjectActivityRepo(store), projects_repo)
-    c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store))
+    c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store), company_repo)
     # ---------- ID-09: payment progress (the platform records payments but never collects them; milestones belong to accepted quotations) ----------
     c.payment_controller = PaymentController(
         payment_repo,
@@ -334,6 +334,7 @@ def create_app(registry=None, admin_provider=None, config=None):
 
     # ----- Customer -----
     favourites = ManageFavouritesController(FavouriteRepository(store), shared.projects, ProjectActivity(store))
+    favourites.hidden_firms = designer.company_repo.names_of_suspended_designers   # C-05: suspended designers hidden
     shared.collections = CollectionService(CollectionRepo(store), FavouriteRepository(store))
     shared.collections.uploads, shared.collections.attachments = upload_service, shared.attachments
     shared.collections.projects = shared.projects

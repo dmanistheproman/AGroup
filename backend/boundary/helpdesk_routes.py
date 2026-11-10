@@ -38,6 +38,8 @@ def create_helpdesk_blueprint(merge_controller, login, recommend_controller=None
             r = recommend_controller.recommend(request_id, login.current_user().id,
                                                data.get("decision"), data.get("reason"))
             return jsonify(message="Recommendation recorded.", request=r.public_view())
+        except LookupError as err:
+            return jsonify(error=str(err)), 404
         except ValueError as err:
             return jsonify(error=str(err)), 400
 

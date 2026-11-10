@@ -13,7 +13,7 @@ class RecommendVerificationController:
     def recommend(self, request_id, agent_id, decision, reason):
         request = self.verifications.get(request_id)
         if request is None:
-            raise ValueError("Verification request not found.")
+            raise LookupError("Verification request not found.")
         if decision not in VerificationRequest.RECOMMENDATIONS:
             raise ValueError("Recommendation must be approve or reject.")
         request.recommend(agent_id, decision, reason)
