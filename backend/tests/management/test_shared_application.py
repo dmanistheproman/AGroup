@@ -98,7 +98,7 @@ def test_activity_is_shared_by_management_reports_and_designer_statistics(app):
     assert stats['lifetime_favourites'] == stats['period_favourites'] == 1
     today = datetime.now(SINGAPORE).date().isoformat()
     report = send(manager, '/api/management/reports', {'period': 'daily', 'date': today}).json['report']
-    assert [row['value'] for row in report['rows']] == [1, 1, 1, 1]
+    assert [row['value'] for row in report['rows']] == [1, 0, 1, 1, 1]   # the project is a draft, not published
 
 
 def test_shared_portfolio_restricts_other_designers_and_draft_discovery(app):

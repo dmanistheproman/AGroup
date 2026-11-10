@@ -261,9 +261,9 @@ class ManagementTests(unittest.TestCase):
 
     def test_daily_boundaries_and_category_filter_have_no_double_counting(self):
         report = self.report()
-        self.assertEqual([row['value'] for row in report['rows']], [2, 2, 1, 1])
+        self.assertEqual([row['value'] for row in report['rows']], [2, 0, 2, 1, 1])   # nothing published in the fixture
         filtered = self.report(categoryId=self.source['id'])
-        self.assertEqual([row['value'] for row in filtered['rows']], [1, 2, 1, 0])
+        self.assertEqual([row['value'] for row in filtered['rows']], [1, 0, 2, 1, 0])
         self.assertEqual(filtered['period']['start'], '2026-11-03T16:00:00.000000Z')
         self.assertEqual(filtered['period']['end'], '2026-11-04T16:00:00.000000Z')
 
@@ -279,10 +279,11 @@ class ManagementTests(unittest.TestCase):
         values = {'period': 'daily', 'baselineDate': '2025-11-04', 'comparisonDate': '2026-11-04'}
         report = self.send('/reports/compare', values).json['report']
         self.assertTrue(all(row['percentChange'] is None for row in report['rows']))
-        self.assertEqual([row['difference'] for row in report['rows']], [2, 2, 1, 1])
+        self.assertEqual([row['difference'] for row in report['rows']], [2, 0, 2, 1, 1])
         values['baselineDate'] = values['comparisonDate']
         report = self.send('/reports/compare', values).json['report']
-        self.assertTrue(all(row['difference'] == 0 and row['percentChange'] == 0 for row in report['rows']))
+        self.assertTrue(all(row['difference'] == 0 for row in report['rows']))
+        self.assertTrue(all(row['percentChange'] == 0 for row in report['rows'] if row['baseline']))
 
     def test_export_retains_original_snapshot_after_new_activity_and_rename(self):
         report = self.report(categoryId=self.source['id'])

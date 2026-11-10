@@ -7,6 +7,7 @@ import unicodedata
 SINGAPORE = timezone(timedelta(hours=8))
 METRICS = (
     ("projects", "Projects created"),
+    ("published", "Projects published"),
     ("views", "Project views"),
     ("favourites", "Favourite additions"),
     ("enquiries", "Enquiries"),

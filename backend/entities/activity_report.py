@@ -16,6 +16,7 @@ class ActivityReport:
     @staticmethod
     def build(connection, period, category_id):
         return {"projects": InteriorDesignProject.count_created(connection, period, category_id),
+                "published": InteriorDesignProject.count_published(connection, period, category_id),
                 **ProjectActivity.summarise(connection, category_id, period)}
 
     def generate(self, period, category_id=None, baseline=None):

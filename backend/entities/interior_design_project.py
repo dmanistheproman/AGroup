@@ -37,6 +37,20 @@ class InteriorDesignProject:
             return {"category": category, "target": target, "projects": projects}
 
     @staticmethod
+    def count_published(connection, period, category_id):
+        """PM-05 task 1: projects published in the period (shared status change to PUBLISHED, in the audit log);
+        a project published again in the same period counts once."""
+        return connection.execute("""
+            SELECT COUNT(DISTINCT l.target_id) FROM audit_log l
+            WHERE l.target_type = 'PROJECT' AND l.to_status = 'PUBLISHED'
+            AND julianday(l.created_at) >= julianday(?) AND julianday(l.created_at) < julianday(?)
+            AND (? IS NULL OR EXISTS (
+                SELECT 1 FROM assignments a
+                WHERE a.project_id = CAST(substr(l.target_id, 5) AS INTEGER) AND a.category_id = ?
+            ))
+        """, (period.start, period.end, category_id, category_id)).fetchone()[0]
+
+    @staticmethod
     def count_created(connection, period, category_id):
         return connection.execute("""
             SELECT COUNT(*) FROM projects p WHERE p.created_at >= ? AND p.created_at < ?
