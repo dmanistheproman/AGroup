@@ -4,7 +4,7 @@ import pytest
 from backend.controllers.customer.save_favourite_controller import SaveFavouriteController
 from backend.controllers.customer.view_favourites_controller import ViewFavouritesController
 from backend.database import MemoryStore
-from backend.entities.project_activity import ProjectActivity
+from backend.controllers.shared.activity_recorder import ActivityRecorder
 from backend.repositories.favourite_repo import FavouriteRepository
 from backend.repositories.project_repository import ProjectRepository
 from backend.seed import seed_demo
@@ -20,7 +20,7 @@ def store():
 
 
 def controller(store):
-    return SaveFavouriteController(FavouriteRepository(store), ProjectRepository(store), ProjectActivity(store))
+    return SaveFavouriteController(FavouriteRepository(store), ProjectRepository(store), ActivityRecorder(store))
 
 
 def favourites_count(store, project_number):

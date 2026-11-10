@@ -9,7 +9,6 @@ from werkzeug.exceptions import HTTPException
 
 from backend.boundary.auth_guard import role_error
 from backend.entities.user_account import UserAccount
-from backend.entities.project_activity import ProjectActivity
 from backend.entities.platform_activity_report import PlatformActivityReport
 from backend.entities.report_period import Period
 from backend.services.management_rules import BusinessError, SINGAPORE, category_ids
@@ -171,6 +170,7 @@ def create_management_blueprint(c, store, login):
     @bp.post("/api/activity")
     def record_activity():
         form = data()
-        return jsonify(ProjectActivity(store).record(form.get("projectId"), form.get("type"), form.get("eventId")))
+        return jsonify(current_app.extensions["shared"].activity.record_event(   # S-18 ActivityRecorder
+            form.get("projectId"), form.get("type"), form.get("eventId")))
 
     return bp

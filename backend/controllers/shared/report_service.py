@@ -3,14 +3,14 @@ it as CSV (S-06). Sequence diagram: Seq_9_View_Report.
 
 Designer statistics (ID-13) and platform reports (PM-05, PM-06, PM-11) differ only in group and filters:
     group_by  total | project | category | day
-    filters   project_ids (IDP references or numbers), category_id
+    filters   project_ids (IDP references or numbers), category_id, category_ids (one or more)
 Periods are Singapore days, Monday-to-Sunday weeks, calendar months, or a custom range of days.
 """
 import csv
 from datetime import date, datetime, time, timedelta
 from io import StringIO
 
-from backend.entities.project_event import ProjectEvent
+from backend.repositories.project_event_repository import ProjectEventRepository
 from backend.entities.report_model import METRICS, ReportModel
 from backend.entities.report_period import Period
 from backend.repositories.project_repository import ProjectRepository
@@ -23,6 +23,7 @@ UNSAFE_START = ("=", "+", "-", "@", "\t", "\r")
 class ReportService:
     def __init__(self, store):
         self.store = store
+        self.events = ProjectEventRepository(store)
 
     @staticmethod
     def period(kind, selected_date=None, date_from=None, date_to=None):
@@ -50,8 +51,8 @@ class ReportService:
         if filters.get("project_ids") is not None:
             filters["project_ids"] = [self._number(p) for p in filters["project_ids"]]
         with self.store.transaction() as connection:
-            rows = ProjectEvent.count_by(connection, period, group_by, filters)
-            total = ProjectEvent.count_by(connection, period, "total", filters)
+            rows = self.events.count_in(connection, period, group_by, filters)
+            total = self.events.count_in(connection, period, "total", filters)
         return ReportModel(period, group_by, rows, total[0] if total else {})
 
     def export_csv(self, report):

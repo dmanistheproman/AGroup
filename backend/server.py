@@ -72,7 +72,6 @@ from backend.controllers.designer.payment_controller import RecordPaymentControl
 from backend.entities.payment_milestone import PaymentMilestone
 from backend.repositories.project_repository import ProjectRepository
 from backend.repositories.category_repo import CategoryRepo
-from backend.repositories.project_activity_repo import ProjectActivityRepo
 from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 from backend.repositories.verification_repo import VerificationRepo
 from backend.repositories.customer_repo import CustomerRepo, SEED_CUSTOMER_DATA
@@ -111,7 +110,6 @@ from backend.controllers.customer.recommendation_service import RecommendationSe
 from backend.controllers.customer.view_recommendations_controller import ViewRecommendationsController
 from backend.controllers.shared.activity_recorder import ActivityRecorder
 from backend.boundary.customer_routes import create_customer_blueprint
-from backend.entities.project_activity import ProjectActivity
 from backend.repositories.collection_repo import CollectionRepo
 from backend.controllers.shared.collection_service import CollectionService
 
@@ -163,7 +161,7 @@ def build_designer_controllers(upload_service, store, account_repo=None):
     c.review_enquiry_controller = ReviewEnquiryController(enquiry_repo)   # ID-10: requirement review (accept/decline/clarify)
     c.credit_status_controller = ViewCreditStatusController(CreditStatusService(enquiry_repo, quotation_repo, payment_repo,
                                                                                 account_repo))
-    c.statistics_controller = ViewProjectStatisticsController(ProjectActivityRepo(store), projects_repo)
+    c.statistics_controller = ViewProjectStatisticsController(ReportService(store), projects_repo)   # ID-13
     c.list_reviews_controller = ListReviewsController(ReviewRepo.from_data(SEED_REVIEW_DATA, store), company_repo)
     # ---------- ID-09: payment progress (the platform records payments but never collects them; milestones belong to accepted quotations) ----------
     c.record_payment_controller = RecordPaymentController(
@@ -215,6 +213,7 @@ def _connect_designer_records(shared, designer):
     shared.messages.register_owner(designer.verification_repo.find_by_thread, staff_roles=(UserAccount.ROLE_USER_ADMIN,))
     designer.review_enquiry_controller.connect(shared)
     designer.verification_controller.shared = designer.decide_verification_controller.shared = shared
+    designer.statistics_controller.reports = shared.reports   # ID-13 on the shared ReportService (S-06)
     designer.submit_quotation_controller.status_change = shared.status_change
     designer.submit_proposal_controller.enquiries = designer.enquiry_repo
     designer.revise_proposal_controller.enquiries = designer.enquiry_repo   # only the enquiry's designer revises
@@ -222,7 +221,7 @@ def _connect_designer_records(shared, designer):
     designer.revise_proposal_controller.rules = designer.record_payment_controller.rules = rules
 
 
-def build_management_controllers(store):
+def build_management_controllers(store, shared_reports):
     categories = ProjectCategory(store)
     reports = PlatformActivityReport(store)
     projects = InteriorDesignProject(store)
@@ -235,7 +234,7 @@ def build_management_controllers(store):
         FeatureCategoryController=management.FeatureCategoryController(categories),
         SearchCategoriesController=management.SearchCategoriesController(categories),
         MergeCategoriesController=management.MergeCategoriesController(categories),
-        ViewCategoryUsageController=management.ViewCategoryUsageController(store),
+        ViewCategoryUsageController=management.ViewCategoryUsageController(store, shared_reports),   # shared ReportService
         ViewCategoryProjectsController=management.ViewCategoryProjectsController(projects),
         ViewPlatformActivityReportController=management.ViewPlatformActivityReportController(reports),
         ViewProjectActivityReportController=management.ViewProjectActivityReportController(reports),
@@ -309,6 +308,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     # PM category changes are written to audit_log by their own controllers; registered here for history_of.
     shared.status_change.register("CATEGORY", lambda category_id: None)
     shared.reports = ReportService(store)
+    shared.activity = ActivityRecorder(store, source="customer")   # S-18: pages, favourites, enquiries
     shared.category_lookup = CategoryLookupController(store)
     app.extensions['shared'] = shared
     app.extensions['status_change'] = shared.status_change   # kept for code that already uses it
@@ -367,17 +367,17 @@ def create_app(registry=None, admin_provider=None, config=None):
     app.register_blueprint(create_report_blueprint(login, shared.category_lookup, shared.reports, shared.projects))
 
     # ----- Platform Management -----
-    app.register_blueprint(create_management_blueprint(build_management_controllers(store), store, login))
+    app.register_blueprint(create_management_blueprint(build_management_controllers(store, shared.reports), store, login))
 
     # ----- Customer -----
-    favourites = SaveFavouriteController(FavouriteRepository(store), shared.projects, ProjectActivity(store))
+    favourites = SaveFavouriteController(FavouriteRepository(store), shared.projects, shared.activity)
     favourites.hidden_firms = designer.company_repo.names_of_suspended_designers   # C-05: suspended designers hidden
     shared.collections = CollectionService(CollectionRepo(store), FavouriteRepository(store))
     shared.collections.uploads, shared.collections.attachments = upload_service, shared.attachments
     shared.collections.projects = shared.projects
     favourites.collections = shared.collections
     submit_enquiry = SubmitEnquiryController(designer.enquiry_repo, designer.company_repo, shared.requests,
-                                             ActivityRecorder(store), upload_service)
+                                             shared.activity, upload_service)
     compare_designers = CompareDesignersController(FavouriteRepository(store), shared.projects,
                                                    designer.company_repo, designer.list_reviews_controller.reviews,
                                                    customer_profiles=designer.customer_repo)

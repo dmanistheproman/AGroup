@@ -1,14 +1,21 @@
+"""ID-13: a designer's views and favourites per IDP, counted by the shared ReportService (S-06) from the events
+in the activities table (ProjectEventRepository)."""
+from datetime import datetime
+
 import pytest
-from backend.entities.activity_event import ActivityEvent
-from backend.repositories.activity_repo import ActivityRepo
+
 from backend.controllers.designer.statistics_controller import ViewProjectStatisticsController
+from backend.controllers.shared.report_service import ReportService
+from backend.database import MemoryStore
+from backend.repositories.project_event_repository import ProjectEventRepository
+from backend.services.management_rules import SINGAPORE
 
 TODAY = "2026-11-07"
-EV = [
-    {"event_id": "EV-1", "project_id": "IDP-901", "event_type": "VIEW", "occurred_at": "2026-11-07"},
-    {"event_id": "EV-2", "project_id": "IDP-901", "event_type": "VIEW", "occurred_at": "2026-11-01"},
-    {"event_id": "EV-3", "project_id": "IDP-901", "event_type": "FAVOURITE", "occurred_at": "2026-10-15"},
-    {"event_id": "EV-4", "project_id": "IDP-902", "event_type": "VIEW", "occurred_at": "2026-10-01"},
+EV = [  # (event id, project number, type, day): IDP-901 and IDP-902
+    ("EV-0001", 901, "VIEW", "2026-11-07"),
+    ("EV-0002", 901, "VIEW", "2026-11-01"),
+    ("EV-0003", 901, "FAVOURITE_ADD", "2026-10-15"),
+    ("EV-0004", 902, "VIEW", "2026-10-01"),
 ]
 
 class _Projects:
@@ -16,9 +23,17 @@ class _Projects:
     def all(self): return self._rows
 
 def _controller():
+    store = MemoryStore()
+    with store.transaction(write=True) as connection:
+        for number in (901, 902):
+            connection.execute("INSERT INTO projects(id, title, firm, details, created_at) VALUES (?, ?, '', '{}', ?)",
+                               (number, f"T-{number}", "2026-01-01T00:00:00Z"))
+    ProjectEventRepository(store).record_many(
+        [(event_id, number, kind, datetime.fromisoformat(day + "T12:00:00").replace(tzinfo=SINGAPORE), "test")
+         for event_id, number, kind, day in EV])
     rows = [{"id": "IDP-901", "title": "T-1", "status": "PUBLISHED", "views": 99, "favourites": 7},
             {"id": "IDP-902", "title": "T-2", "status": "PUBLISHED", "views": 0, "favourites": 0}]
-    return ViewProjectStatisticsController(ActivityRepo.from_data(EV), _Projects(rows))
+    return ViewProjectStatisticsController(ReportService(store), _Projects(rows))
 
 
 def _p901(out): return next(p for p in out["projects"] if p["project_id"] == "IDP-901")

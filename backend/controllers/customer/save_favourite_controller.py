@@ -37,7 +37,7 @@ class SaveFavouriteController:
         if added:
             self.favourite_repo.save(fav_list)
             if self.activity is not None:
-                self.activity.record(int(reference.split("-")[1]), "FAVOURITE_ADD",
+                self.activity.record_event(int(reference.split("-")[1]), "FAVOURITE_ADD",
                                      f"fav-{customer_id}-{reference}-{uuid4().hex[:12]}")
         return {"success": added, "favourites": fav_list.to_dict()}
 
@@ -50,7 +50,7 @@ class SaveFavouriteController:
             if self.collections is not None:
                 self.collections.remove_project_everywhere(customer_id, reference)
             if self.activity is not None:
-                self.activity.record(int(reference.split("-")[1]), "UNFAVOURITE",
+                self.activity.record_event(int(reference.split("-")[1]), "UNFAVOURITE",
                                      f"unfav-{customer_id}-{reference}-{uuid4().hex[:12]}")
         return {"success": removed, "favourites": fav_list.to_dict()}
 

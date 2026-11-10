@@ -145,7 +145,6 @@ class _Generator:
         from backend.controllers.customer.save_favourite_controller import SaveFavouriteController
         from backend.controllers.helpdesk.merge_tickets_controller import MergeTicketsController
         from backend.controllers.shared.activity_recorder import ActivityRecorder
-        from backend.entities.project_activity import ProjectActivity
         from backend.entities.project_category import ProjectCategory
         from backend.repositories.company_repo import CompanyRepo
         from backend.repositories.customer_repo import CustomerRepo
@@ -166,7 +165,7 @@ class _Generator:
             enquiries=EnquiryRepo(store),
             quotations=QuotationRepo(store), proposals=ProposalRepo(store), payments=PaymentRepo(store),
             verifications=VerificationRepo(store),
-            favourites=SaveFavouriteController(FavouriteRepository(store), self.s.projects, ProjectActivity(store)),
+            favourites=SaveFavouriteController(FavouriteRepository(store), self.s.projects, ActivityRecorder(store)),
             merge=MergeTicketsController(self.s.tickets, self.s.status_change, self.s.message_repo, self.s.note_repo),
             activity=ActivityRecorder(store))
         self.now = datetime.now(timezone.utc)
