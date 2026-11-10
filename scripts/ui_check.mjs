@@ -222,16 +222,18 @@ try {
       await page.goto("/portal.html#management/categories");
       return page.waitFor("#portal-main tbody tr");
     });
-    await step("PM-05 the report shows published projects and new accounts", async () => {
+    await step("PM-05 the report shows published projects, new accounts and activity by project", async () => {
       await page.goto("/portal.html#management/reports");
       return await page.waitFor("#management-report", { text: "Projects published", timeout: 8000 }) &&
-        page.waitFor("#management-report", { text: "New accounts by role" });
+        page.waitFor("#management-report", { text: "New accounts by role" }) &&
+        page.waitFor("#management-report", { text: "Activity by project" });
     });
-    await step("PM-11 the report covers two chosen categories", async () => {
+    await step("PM-11 the report covers two chosen categories, project by project", async () => {
       const names = await page.eval(`(() => { const f = document.querySelector('[data-management-form=report]');
         const picked = [...f.categoryId.options].filter(o => !o.text.includes('archived')).slice(0, 2);
         picked.forEach(o => { o.selected = true; }); f.requestSubmit(); return picked.map(o => o.text).join(', '); })()`);
-      return page.waitFor(".management-report-caption", { text: names.split(', ')[1] });
+      return await page.waitFor(".management-report-caption", { text: names.split(', ')[1] }) &&
+        page.waitFor("#management-report", { text: "Activity by project" });   // UC-PM11: views and favourites per project
     });
   });
 } finally {

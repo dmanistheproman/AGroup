@@ -87,7 +87,6 @@ from backend.boundary.designer_routes import create_designer_blueprint
 from backend.boundary.management_routes import create_management_blueprint
 from backend.controllers import management
 from backend.repositories.category_repository import CategoryRepository
-from backend.entities.platform_activity_report import PlatformActivityReport
 from backend.seed import seed_demo
 from backend.storage import SQLiteStore
 
@@ -221,7 +220,7 @@ def _connect_designer_records(shared, designer):
 
 def build_management_controllers(store, shared_reports, status_change):
     categories = CategoryRepository(store)
-    reports = PlatformActivityReport(store)
+    reports = shared_reports   # PM-05, PM-11, PM-12, PM-13 on the shared ReportService
     projects = ProjectRepository(store)
     return SimpleNamespace(
         CategoryRepository=categories,
@@ -238,7 +237,6 @@ def build_management_controllers(store, shared_reports, status_change):
         ViewPlatformActivityReportController=management.ViewPlatformActivityReportController(reports),
         ViewProjectActivityReportController=management.ViewProjectActivityReportController(reports),
         ComparePeriodsController=management.ComparePeriodsController(reports),
-        ExportReportController=management.ExportReportController(reports),
     )
 
 

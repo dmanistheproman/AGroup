@@ -11,4 +11,3 @@ from .merge_categories_controller import MergeCategoriesController
 from .view_category_projects_controller import ViewCategoryProjectsController
 from .view_project_activity_report_controller import ViewProjectActivityReportController
 from .compare_periods_controller import ComparePeriodsController
-from .export_report_controller import ExportReportController

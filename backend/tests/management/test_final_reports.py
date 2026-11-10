@@ -3,7 +3,8 @@
 ViewPlatformActivityReportController, ViewProjectActivityReportController and ComparePeriodsController use the shared
 ReportService (events through ProjectEventRepository, new accounts through UserAccountRepository). The comparison
 controller computes the differences; the report controller also exports the displayed report as CSV. PM-11 shows views
-and favourites per project for the chosen categories. PlatformActivityReport and ExportReportController are gone.
+and favourites per project for the chosen categories. PlatformActivityReport is the report model (PM-05 task 2);
+ExportReportController is gone.
 """
 import importlib
 
@@ -31,10 +32,12 @@ def spy(monkeypatch, target, method):
     return calls
 
 
-def test_the_duplicate_report_classes_are_gone():
-    for module in ("backend.entities.platform_activity_report", "backend.controllers.management.export_report_controller"):
-        with pytest.raises(ModuleNotFoundError):
-            importlib.import_module(module)
+def test_platform_activity_report_is_the_report_model_and_export_has_no_controller_of_its_own():
+    """PM-05 task 2 names PlatformActivityReport: it is the report model; ReportService computes it (Design Alignment)."""
+    report = importlib.import_module("backend.entities.platform_activity_report").PlatformActivityReport
+    assert {"public_view", "from_view"} <= set(dir(report)) and not {"generate", "build", "to_csv"} & set(dir(report))
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("backend.controllers.management.export_report_controller")
     assert not hasattr(importlib.import_module("backend.controllers.management"), "ExportReportController")
 
 

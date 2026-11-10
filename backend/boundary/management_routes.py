@@ -9,7 +9,6 @@ from werkzeug.exceptions import HTTPException
 
 from backend.boundary.auth_guard import role_error
 from backend.entities.user_account import UserAccount
-from backend.entities.platform_activity_report import PlatformActivityReport
 from backend.entities.report_period import Period
 from backend.services.management_rules import BusinessError, SINGAPORE, category_ids
 
@@ -137,15 +136,15 @@ def create_management_blueprint(c, store, login):
 
     @bp.get("/api/management/reports/<report_id>/export")
     def export_report(report_id):
-        text = c.ExportReportController.export_report(report_id)
+        text = c.ViewPlatformActivityReportController.export_report(report_id)   # PM-13
         return Response(text, content_type="text/csv; charset=utf-8",
                         headers={"Content-Disposition": f'attachment; filename="AGroup-report-{report_id}.csv"'})
 
     @bp.get("/api/management/overview")
     def overview():
         period = Period.selected("monthly", datetime.now(SINGAPORE).date().isoformat())
+        counts, _, _ = c.ViewPlatformActivityReportController.reports.platform_metrics(period)
         with store.transaction() as connection:
-            counts = PlatformActivityReport.build(connection, period, None)
             counts["activeCategories"] = connection.execute(
                 "SELECT COUNT(*) FROM categories WHERE status = 'Active' AND deleted_at IS NULL"
             ).fetchone()[0]

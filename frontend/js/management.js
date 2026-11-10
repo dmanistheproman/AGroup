@@ -279,6 +279,10 @@
         metrics(report.rows.map(row => [row.label, row.value, comparison ? 'Comparison period' : 'Selected period'])) +
         panel(comparison ? 'Period comparison' : 'Activity totals', table(report.rows)) +
         (report.accounts ? panel('New accounts by role', table(report.accounts)) : '') +
+        (report.projects && report.projects.length ? panel('Activity by project', `<div class="table-wrap"><table>
+          <thead><tr><th>Project</th><th>Views</th><th>Favourites</th><th>Enquiries</th></tr></thead>
+          <tbody>${report.projects.map(row => `<tr><td>${escape(row.label)}<small>${escape(row.key)}</small></td>
+            <td>${row.views}</td><td>${row.favourites}</td><td>${row.enquiries}</td></tr>`).join('')}</tbody></table></div>`) : '') +
         '<p class="small-note">Projects created counts new project records within the period; projects published counts each project made visible to customers in the period once. Activity follows current category assignments. ' +
         (report.accounts ? 'New accounts are counted by the role they were created with.' : 'New accounts belong to no category, so they are shown for all categories only.') +
         ' A zero baseline gives N/A for percentage change.</p>';
