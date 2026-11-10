@@ -7,7 +7,7 @@ import pathlib
 
 import pytest
 
-from backend.controllers.helpdesk.merge_ticket_controller import MergeFailed, MergeNotAllowed, MergeTicketController
+from backend.controllers.helpdesk.merge_tickets_controller import MergeFailed, MergeNotAllowed, MergeTicketsController
 from backend.controllers.shared.notification_rules import NotificationRules
 from backend.controllers.shared.notification_service import NotificationService
 from backend.controllers.shared.post_message_controller import PostMessageController
@@ -70,7 +70,7 @@ class Desk:
         self.notes.create("REQUEST", self.id["B"], "user-helpdesk", "bn1")
         self._set("C", "CLOSED")
         self._set("D", "MERGED", merged_into_id=self.id["A"])
-        self.controller = MergeTicketController(self.tickets, self.status_change, self.messages, self.notes)
+        self.controller = MergeTicketsController(self.tickets, self.status_change, self.messages, self.notes)
 
     def ticket(self, name):
         return self.tickets.get(self.id[name])

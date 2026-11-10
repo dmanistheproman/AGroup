@@ -106,7 +106,13 @@ from backend.repositories.collection_repo import CollectionRepo
 from backend.controllers.shared.collection_service import CollectionService
 
 # ----- Helpdesk -----
-from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
+from backend.controllers.helpdesk.merge_tickets_controller import MergeTicketsController
+from backend.controllers.helpdesk.view_ticket_queue_controller import ViewTicketQueueController
+from backend.controllers.helpdesk.request_more_info_controller import RequestMoreInfoController
+from backend.controllers.helpdesk.view_upload_error_controller import ViewUploadErrorController
+from backend.controllers.helpdesk.hide_project_controller import HideProjectController
+from backend.controllers.helpdesk.escalate_ticket_controller import EscalateTicketController
+from backend.controllers.helpdesk.close_ticket_controller import CloseTicketController
 from backend.controllers.helpdesk.recommend_verification_controller import RecommendVerificationController
 from backend.controllers.helpdesk.ticket_feedback_controller import TicketFeedbackController
 from backend.controllers.customer.submit_review_controller import SubmitReviewController
@@ -366,10 +372,21 @@ def create_app(registry=None, admin_provider=None, config=None):
         compare_controller=compare_designers,
         recommendations_controller=recommendations))
 
-    # ----- Helpdesk -----
-    merge_tickets = MergeTicketController(shared.tickets, shared.status_change, shared.message_repo, shared.note_repo)
+    # ----- Helpdesk: one control class per story (Final task list), on top of the shared tickets and project status -----
+    helpdesk = SimpleNamespace(
+        view_ticket_queue_controller=ViewTicketQueueController(shared.tickets, shared.user_accounts,
+                                                               shared.status_change),          # HD-03, HD-06
+        request_more_info_controller=RequestMoreInfoController(shared.ticket_lifecycle),       # HD-04
+        merge_tickets_controller=MergeTicketsController(shared.tickets, shared.status_change, shared.message_repo,
+                                                        shared.note_repo),                     # HD-05
+        view_upload_error_controller=ViewUploadErrorController(shared.upload_failures),        # HD-08
+        hide_project_controller=HideProjectController(shared.project_status),                  # HD-09
+        escalate_ticket_controller=EscalateTicketController(shared.ticket_lifecycle),          # HD-11
+        close_ticket_controller=CloseTicketController(shared.ticket_lifecycle),                # HD-13
+    )
+    app.extensions['helpdesk'] = helpdesk
     recommend_verification = RecommendVerificationController(designer.verification_repo)
-    app.register_blueprint(create_helpdesk_blueprint(merge_tickets, login, recommend_verification,
+    app.register_blueprint(create_helpdesk_blueprint(helpdesk.merge_tickets_controller, login, recommend_verification,
                                                      verification_queue=designer.review_controller.queue))
 
     @app.get('/')

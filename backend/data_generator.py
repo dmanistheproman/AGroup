@@ -143,7 +143,7 @@ def count_records(path):
 class _Generator:
     def __init__(self, app, rng, n, log):
         from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
-        from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
+        from backend.controllers.helpdesk.merge_tickets_controller import MergeTicketsController
         from backend.controllers.shared.activity_recorder import ActivityRecorder
         from backend.entities.project_activity import ProjectActivity
         from backend.entities.project_category import ProjectCategory
@@ -166,7 +166,7 @@ class _Generator:
             quotations=QuotationRepo(store), proposals=ProposalRepo(store), payments=PaymentRepo(store),
             verifications=VerificationRepo(store),
             favourites=ManageFavouritesController(FavouriteRepository(store), self.s.projects, ProjectActivity(store)),
-            merge=MergeTicketController(self.s.tickets, self.s.status_change, self.s.message_repo, self.s.note_repo),
+            merge=MergeTicketsController(self.s.tickets, self.s.status_change, self.s.message_repo, self.s.note_repo),
             activity=ActivityRecorder(store))
         self.now = datetime.now(timezone.utc)
         self.customers, self.designers, self.agents, self.visible = [], [], [], []
