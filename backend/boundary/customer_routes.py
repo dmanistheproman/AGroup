@@ -127,7 +127,9 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
             return jsonify(error="Enquiries are not available."), 404
         data = request.get_json(silent=True) or {}
         enquiry = submit_enquiry.submit(login.current_user(), data.get("company_id"),
-                                        data.get("requirements"), data.get("budget"), data.get("project_id"))
+                                        data.get("requirements"), data.get("budget"), data.get("project_id"),
+                                        enquiry_type=data.get("type"), property_layout=data.get("property_layout"),
+                                        target_timeline=data.get("target_timeline"))
         return jsonify(enquiry=enquiry.public_view()), 201
 
     # ---- C-08: compare the designers behind the customer's saved projects ----

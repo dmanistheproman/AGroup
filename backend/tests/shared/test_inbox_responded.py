@@ -24,7 +24,7 @@ def account(shared, user_id):
 def new_enquiry(app):
     client = app.test_client()
     assert client.post("/api/auth/login", json={"email": "customer@demo.agroup", "password": "demo"}).status_code == 200
-    return client.post("/api/enquiries", json={"company_id": "COM-FF", "requirements": "A calm living room."}).json["enquiry"]
+    return client.post("/api/enquiries", json={"type": "consultation", "company_id": "COM-FF", "requirements": "A calm living room."}).json["enquiry"]
 
 
 def row(shared, enquiry_id):

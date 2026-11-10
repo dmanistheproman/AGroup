@@ -15,16 +15,25 @@ class SubmitEnquiryController:
         self.requests = requests
         self.recorder = recorder
 
-    def submit(self, customer, company_id, requirements, budget=None, project_id=None):
+    MAX_DETAIL = 120
+
+    def submit(self, customer, company_id, requirements, budget=None, project_id=None, enquiry_type=None,
+               property_layout=None, target_timeline=None):
+        kind = str(enquiry_type or "").strip().upper()
+        if kind not in Enquiry.TYPES:
+            raise ValueError("Choose a consultation or a quotation request.")   # C-06 task 1, UC-C10 3a
         requirements = (requirements or "").strip()
         if not requirements:
             raise ValueError("Describe your project before sending the request.")
         budget = self._budget(budget)
+        layout = self._detail(property_layout, "Property layout")
+        timeline = self._detail(target_timeline, "Target timeline")
         company = self.companies.get(company_id)
         if company is None:
             raise ValueError("Designer company not found.")
 
-        enquiry = Enquiry(self.enquiries.next_reference(), customer.name, requirements, budget)
+        enquiry = Enquiry(self.enquiries.next_reference(), customer.name, requirements, budget, enquiry_type=kind,
+                          property_layout=layout, target_timeline=timeline)
         enquiry.requester_id = customer.id
         enquiry.handler_id = company.owner_id      # the designer who owns the chosen company
 
@@ -37,6 +46,14 @@ class SubmitEnquiryController:
                                    f"New enquiry from {customer.name}: {requirements[:120]}",
                                    "portal.html#designer/enquiries", "ENQUIRY", saved.id)
         return saved
+
+    @classmethod
+    def _detail(cls, value, label):
+        """UC-C10 BF2: the property layout and the target timeline are optional short texts."""
+        text = str(value or "").strip()
+        if len(text) > cls.MAX_DETAIL:
+            raise ValueError(f"{label} must be at most {cls.MAX_DETAIL} characters.")
+        return text or None
 
     @staticmethod
     def _budget(value):

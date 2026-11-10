@@ -25,7 +25,7 @@ def account(shared, user_id):
 def enquiry_from_the_customer(app):
     client = app.test_client()
     assert client.post("/api/auth/login", json={"email": "customer@demo.agroup", "password": "demo"}).status_code == 200
-    response = client.post("/api/enquiries", json={"company_id": "COM-FF", "requirements": "A calm living room."})
+    response = client.post("/api/enquiries", json={"type": "consultation", "company_id": "COM-FF", "requirements": "A calm living room."})
     assert response.status_code == 201
     return response.json["enquiry"]
 

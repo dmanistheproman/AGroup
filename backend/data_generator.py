@@ -47,6 +47,10 @@ MATERIALS = ["oak veneer", "terrazzo", "limewash", "linen", "rattan", "brushed b
 LOCATIONS = ["Tampines", "Punggol", "Bishan", "Queenstown", "Jurong East", "Woodlands", "Toa Payoh", "Clementi",
              "Sengkang", "Bukit Timah", "Ang Mo Kio", "Pasir Ris", "Bedok", "Novena", "Serangoon"]
 HOME_TYPES = ["HDB", "Condominium", "Landed"]
+LAYOUTS = ["3-room HDB", "4-room HDB", "5-room HDB", "2-bedroom condominium", "3-bedroom condominium",
+           "terrace house"]
+MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+          "November", "December"]
 IMAGES = ["living", "kitchen", "bedroom", "dining"]
 CONTACT = {"ACCOUNT": ["I cannot change my email address.", "Please help me reset my password.",
                        "My account shows the wrong name."],
@@ -280,7 +284,10 @@ class _Generator:
             enquiry = self.s.requests.open(Enquiry(customer.id, customer.name,
                                                    f"Renovate the {self.pick(ROOMS)} with {self.pick(MATERIALS)}.",
                                                    self.rng.randrange(30, 200) * 1000, status=status,
-                                                   questions=questions))
+                                                   questions=questions,
+                                                   enquiry_type=self.pick(("CONSULTATION", "QUOTATION")),   # C-06
+                                                   property_layout=f"{self.pick(LAYOUTS)}, {self.rng.randrange(60, 160, 5)} sqm",
+                                                   target_timeline=f"Start in {self.pick(MONTHS)} 2027"))
             self.s.requests.assign_handler(enquiry.id, designer.id)
             if status == "DECLINED":
                 stored = self.r.enquiries.get(enquiry.id)

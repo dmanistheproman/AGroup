@@ -32,6 +32,6 @@ def test_another_designer_cannot_see_it(app):
 
 def test_a_request_to_the_other_designer_opens_it_for_them_only(app):
     customer = logged_in(app, "customer@demo.agroup")
-    assert customer.post("/api/enquiries", json={"company_id": "COM-CG",
+    assert customer.post("/api/enquiries", json={"type": "consultation", "company_id": "COM-CG",
                                                  "requirements": "A quiet study corner."}).status_code == 201
     assert logged_in(app, "commonground@demo.agroup").get("/api/credit-status?customer_id=CUS-101").status_code == 200

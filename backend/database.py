@@ -123,6 +123,9 @@ CREATE TABLE IF NOT EXISTS enquiry (
     client_name TEXT NOT NULL,
     requirements TEXT NOT NULL,
     budget REAL,
+    enquiry_type TEXT,
+    property_layout TEXT,
+    target_timeline TEXT,
     decided_at TEXT,
     decision_reason TEXT
 );

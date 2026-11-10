@@ -23,7 +23,7 @@ def _build():
 
 def test_submit_creates_an_enquiry_linked_to_the_chosen_designer():
     controller, enquiries, opened, notified, customer = _build()
-    out = controller.submit(customer, "COM-FF", "A full renovation", budget=50000)
+    out = controller.submit(customer, "COM-FF", "A full renovation", budget=50000, enquiry_type="QUOTATION")
     assert out.requester_id == "CUS-999"
     assert out.handler_id == "user-form-field"          # Form & Field owns COM-FF
     assert out.requirements == "A full renovation"
@@ -35,19 +35,19 @@ def test_submit_creates_an_enquiry_linked_to_the_chosen_designer():
 def test_submit_requires_a_description():
     controller, *_ = _build()
     with pytest.raises(ValueError, match="Describe"):
-        controller.submit(SimpleNamespace(id="CUS-999", name="New Customer"), "COM-FF", "   ")
+        controller.submit(SimpleNamespace(id="CUS-999", name="New Customer"), "COM-FF", "   ", enquiry_type="CONSULTATION")
 
 
 def test_submit_requires_a_known_company():
     controller, *_ = _build()
     with pytest.raises(ValueError, match="not found"):
-        controller.submit(SimpleNamespace(id="CUS-999", name="New Customer"), "COM-UNKNOWN", "desc")
+        controller.submit(SimpleNamespace(id="CUS-999", name="New Customer"), "COM-UNKNOWN", "desc", enquiry_type="CONSULTATION")
 
 
 def test_submit_generates_a_unique_reference():
     controller, enquiries, *_ = _build()
-    first = controller.submit(SimpleNamespace(id="CUS-1", name="A"), "COM-FF", "first")
-    second = controller.submit(SimpleNamespace(id="CUS-2", name="B"), "COM-FF", "second")
+    first = controller.submit(SimpleNamespace(id="CUS-1", name="A"), "COM-FF", "first", enquiry_type="CONSULTATION")
+    second = controller.submit(SimpleNamespace(id="CUS-2", name="B"), "COM-FF", "second", enquiry_type="CONSULTATION")
     assert first.id != second.id
     assert first.id.startswith("ENQ-")
 
@@ -57,12 +57,12 @@ def test_a_budget_that_is_not_a_positive_number_is_refused(budget):
     """UC-C10 BF4: the system validates the input before the enquiry is recorded."""
     controller, enquiries, opened, notified, customer = _build()
     with pytest.raises(ValueError, match="Budget"):
-        controller.submit(customer, "COM-FF", "A kitchen", budget=budget)
+        controller.submit(customer, "COM-FF", "A kitchen", budget=budget, enquiry_type="CONSULTATION")
     assert opened == [] and notified == []
 
 
 def test_the_budget_is_optional_and_stored_as_a_number():
     controller, enquiries, opened, notified, customer = _build()
-    assert controller.submit(customer, "COM-FF", "A kitchen").budget is None
-    assert controller.submit(customer, "COM-FF", "A kitchen", budget="").budget is None
-    assert controller.submit(customer, "COM-FF", "A kitchen", budget="45000").budget == 45000
+    assert controller.submit(customer, "COM-FF", "A kitchen", enquiry_type="CONSULTATION").budget is None
+    assert controller.submit(customer, "COM-FF", "A kitchen", budget="", enquiry_type="CONSULTATION").budget is None
+    assert controller.submit(customer, "COM-FF", "A kitchen", budget="45000", enquiry_type="CONSULTATION").budget == 45000

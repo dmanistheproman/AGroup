@@ -23,7 +23,7 @@ FORM_FIELD, COMMON_GROUND = "designer@demo.agroup", "commonground@demo.agroup"
 
 def test_each_designer_lists_only_their_own_enquiries(app):
     customer = logged_in(app, "customer@demo.agroup")
-    sent = customer.post("/api/enquiries", json={"company_id": "COM-CG", "requirements": "A quiet study corner."})
+    sent = customer.post("/api/enquiries", json={"type": "consultation", "company_id": "COM-CG", "requirements": "A quiet study corner."})
     enquiry_id = sent.get_json()["enquiry"]["id"]
     form_field = {e["id"] for e in logged_in(app, FORM_FIELD).get("/api/enquiries").get_json()}
     common_ground = {e["id"] for e in logged_in(app, COMMON_GROUND).get("/api/enquiries").get_json()}

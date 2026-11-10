@@ -60,13 +60,16 @@ class EnquiryRepo:
         with self.store.transaction(write=True) as connection:
             save_request(connection, enquiry, REQUEST_TYPE, created_at)
             connection.execute("""
-                INSERT INTO enquiry(request_id, client_name, requirements, budget, decided_at, decision_reason)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO enquiry(request_id, client_name, requirements, budget, enquiry_type, property_layout,
+                                    target_timeline, decided_at, decision_reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(request_id) DO UPDATE SET client_name = excluded.client_name,
                     requirements = excluded.requirements, budget = excluded.budget,
+                    enquiry_type = excluded.enquiry_type, property_layout = excluded.property_layout,
+                    target_timeline = excluded.target_timeline,
                     decided_at = excluded.decided_at, decision_reason = excluded.decision_reason
-            """, (enquiry.id, enquiry.client_name, enquiry.requirements, enquiry.budget, enquiry.decided_at,
-                  enquiry.decision_reason))
+            """, (enquiry.id, enquiry.client_name, enquiry.requirements, enquiry.budget, enquiry.enquiry_type,
+                  enquiry.property_layout, enquiry.target_timeline, enquiry.decided_at, enquiry.decision_reason))
             connection.execute("DELETE FROM enquiry_question WHERE request_id = ?", (enquiry.id,))
             for order, q in enumerate(enquiry.questions):
                 connection.execute(f"""
@@ -96,7 +99,8 @@ class EnquiryRepo:
                              for q in connection.execute("SELECT * FROM enquiry_question WHERE request_id = ? "
                                                          "ORDER BY sort_order", (row["request_id"],))]
                 enquiry = Enquiry(row["request_id"], row["client_name"], row["requirements"], row["budget"],
-                                  status=row["status"], questions=questions)
+                                  status=row["status"], questions=questions, enquiry_type=row["enquiry_type"],
+                                  property_layout=row["property_layout"], target_timeline=row["target_timeline"])
                 enquiry.decided_at, enquiry.decision_reason = row["decided_at"], row["decision_reason"]
                 enquiry.created_at = row["created_at"]
                 enquiry.requester_id, enquiry.handler_id = row["requester_id"], row["handler_id"]

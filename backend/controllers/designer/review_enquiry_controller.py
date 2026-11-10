@@ -120,6 +120,9 @@ class ReviewEnquiryController:
             "client_name": enquiry.client_name,
             "requirements": enquiry.requirements,
             "budget": enquiry.budget,
+            "enquiry_type": enquiry.enquiry_type,          # C-06: consultation or quotation request
+            "property_layout": enquiry.property_layout,    # UC-ID13 BF2: area and timeline
+            "target_timeline": enquiry.target_timeline,
             "status": enquiry.status,
             "thread_id": enquiry.thread_id,
             "handler_id": enquiry.handler_id,
