@@ -189,8 +189,8 @@ class _Generator:
     # ---- PM-05 / PM-12: accounts join over the last 90 days (designers and agents first, before the projects) ----
     def spread_accounts(self):
         joined = [(a, self.rng.uniform(0, 90)) for a in self.customers]
-        joined += [(a, self.rng.uniform(75, 90)) for a, _ in self.designers]
-        joined += [(a, self.rng.uniform(75, 90)) for a in self.agents if a.id != "user-helpdesk"]
+        joined += [(a, self.rng.uniform(88, 90)) for a, _ in self.designers]
+        joined += [(a, self.rng.uniform(88, 90)) for a in self.agents if a.id != "user-helpdesk"]
         with self.s.store.transaction(write=True) as connection:
             for account, days in joined:
                 connection.execute("UPDATE user_account SET created_at = ? WHERE user_id = ?",
@@ -276,9 +276,10 @@ class _Generator:
 
     def publish(self, designer, reference):
         """ID-03.4: a new project is a draft; the designer publishes it through the shared status change (audited).
-        The project was added and published some time in the last 75 days, after its designer joined."""
+        The project was published in the last 88 days, after its designer joined; most of them more than 40 days ago,
+        so the 90 days of activity reach back to the start (activity comes only after publishing)."""
         self.s.project_status.change(designer, reference, "PUBLISHED")
-        when = self.now - timedelta(days=self.rng.uniform(0, 75))
+        when = self.now - timedelta(days=self.rng.uniform(40, 88) if self.rng.random() < 0.7 else self.rng.uniform(0, 40))
         self.published_at[reference] = when
         with self.s.store.transaction(write=True) as connection:
             connection.execute("UPDATE projects SET created_at = ? WHERE id = ?",
@@ -292,9 +293,11 @@ class _Generator:
         for reference in self.visible:
             if not reference.startswith("IDP-") or int(reference[4:]) <= 120:
                 continue   # the first 120 projects already have activity from the demo seed
-            for _ in range(self.rng.randint(15, 40)):
+            since = self.published_at.get(reference, self.now - timedelta(days=90))   # no views before publishing
+            age = (self.now - since).days
+            # a project online for longer has gathered more views, saves and enquiries
+            for _ in range(round(self.rng.randint(15, 40) * min(2.0, max(0.4, age / 45)))):
                 kind = self.rng.choices(["VIEW", "FAVOURITE_ADD", "ENQUIRY"], [7, 2, 1])[0]
-                since = self.published_at.get(reference, self.now - timedelta(days=90))   # no views before publishing
                 events.append((kind, reference, since + (self.now - since) * self.rng.random()))
         self.r.activity.record_many(events)
 
