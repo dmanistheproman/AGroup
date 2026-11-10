@@ -1,6 +1,6 @@
 """<<control>> FileUploadService — checks format and size and writes to the uploads/ folder.
 kind="image": ID-01 logo, ID-03 project images (JPG/PNG/WebP, ≤1MB)
-kind="document": ID-02 verification documents (PDF/DOC/images, ≤5MB)
+kind="document": ID-02 verification documents, C-06 floor plans (PDF/DOC/images, ≤5MB)
 A refused file is written to the failed-upload log (UploadFailureRepo) with the logged-in user (HD-08).
 An accepted file is kept as an Attachment of its owner (S-03) when an AttachmentRepo is connected.
 """
@@ -29,18 +29,24 @@ class FileUploadService:
         """Check, store and return the file's path (uploads/<owner_id>/<name>)."""
         return self.store(file, owner_type, owner_id, kind)[0]
 
-    def store(self, file, owner_type, owner_id, kind="image"):
-        """Like upload, and also return the Attachment kept for the owner (None without an AttachmentRepo)."""
+    def check(self, file, kind="image", owner_type=None, owner_id=None):
+        """Check the format and size (a refused file is logged) and return the safe file name."""
         rule = self.RULES.get(kind) or self.RULES["image"]
         filename = secure_filename((file.get("filename") or "").strip())   # no folders or "../" in the name
         ext = os.path.splitext(filename)[1].lower()
         if ext not in rule["exts"]:
             self._log_failure(filename, rule["fmt_msg"], owner_type, owner_id)
             raise ValueError(rule["fmt_msg"])
-        content = file.get("content") or b""
-        if len(content) > rule["max"]:
+        if len(file.get("content") or b"") > rule["max"]:
             self._log_failure(filename, rule["size_msg"], owner_type, owner_id)
             raise ValueError(rule["size_msg"])
+        return filename
+
+    def store(self, file, owner_type, owner_id, kind="image", group_id=None):
+        """Like upload, and also return the Attachment kept for the owner (None without an AttachmentRepo).
+        group_id: the owner's own attachment group (a request has one); otherwise AG-<OWNER TYPE>-<owner ID>."""
+        filename = self.check(file, kind, owner_type, owner_id)
+        content = file.get("content") or b""
         folder = os.path.join(self.upload_folder, owner_id)
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, filename), "wb") as fh:
@@ -49,8 +55,8 @@ class FileUploadService:
         attachment = None
         if self.attachments is not None:
             user = self.current_user() if self.current_user else None
-            group = self.attachments.group_for(owner_type, owner_id)
-            attachment = self.attachments.add(group.id, getattr(user, "id", None), filename, path,
+            group = group_id or self.attachments.group_for(owner_type, owner_id).id
+            attachment = self.attachments.add(group, getattr(user, "id", None), filename, path,
                                               mimetypes.guess_type(filename)[0], len(content))
         return path, attachment
 

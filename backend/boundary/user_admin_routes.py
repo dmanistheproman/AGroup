@@ -5,9 +5,11 @@ trusted to identify or authorise the administrator."""
 from flask import Blueprint, jsonify, request
 from backend.repositories.account_repo import AccountStoreNotConnected
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController, SuspensionError
+from backend.controllers.user_admin.view_admin_history_controller import ActionNotFound
 
 
-def create_user_admin_blueprint(controller: SuspendAccountController, admin_provider=None, flag_controller=None):
+def create_user_admin_blueprint(controller: SuspendAccountController, admin_provider=None, flag_controller=None,
+                                history_controller=None):
     bp = Blueprint('user_admin', __name__)
 
     def _admin():
@@ -71,5 +73,27 @@ def create_user_admin_blueprint(controller: SuspendAccountController, admin_prov
             return jsonify(message='Account unflagged.', account=account.public_view()), 200
         except ValueError as err:
             return jsonify(error=str(err)), 400
+
+    # ---- UA-11 View administrative action history ----
+    @bp.get('/api/user-admin/history')
+    def admin_history():
+        admin, error, status = _require_admin()
+        if admin is None:
+            return error, status
+        if history_controller is None:
+            return jsonify(error='The action history is not available.', code='UNAVAILABLE'), 503
+        return jsonify(actions=history_controller.list_actions()), 200
+
+    @bp.get('/api/user-admin/history/<log_id>')
+    def admin_history_action(log_id):
+        admin, error, status = _require_admin()
+        if admin is None:
+            return error, status
+        if history_controller is None:
+            return jsonify(error='The action history is not available.', code='UNAVAILABLE'), 503
+        try:
+            return jsonify(action=history_controller.action(log_id)), 200
+        except ActionNotFound as err:
+            return jsonify(error=str(err), code='NOT_FOUND'), 404
 
     return bp

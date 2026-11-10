@@ -16,7 +16,7 @@ from backend.entities.project import Project
 from backend.repositories.company_repo import CompanyRepo
 from backend.entities.activity_report import ActivityReport
 from backend.entities.report_period import Period
-from backend.services.management_rules import BusinessError, SINGAPORE
+from backend.services.management_rules import BusinessError, SINGAPORE, category_ids
 
 
 def create_management_blueprint(c, store, login):
@@ -125,7 +125,7 @@ def create_management_blueprint(c, store, login):
     @bp.post("/api/management/reports")
     def report():
         form = data()
-        category_id = form.get("categoryId") or None
+        category_id = category_ids(form.get("categoryId"))   # PM-11: one or more categories
         if category_id:
             result = c.FilterReportController.filter_report(form.get("period"), form.get("date"), category_id)
         else:
@@ -136,7 +136,8 @@ def create_management_blueprint(c, store, login):
     def compare_reports():
         form = data()
         result = c.CompareReportsController.compare_periods(
-            form.get("period"), form.get("baselineDate"), form.get("comparisonDate"), form.get("categoryId") or None)
+            form.get("period"), form.get("baselineDate"), form.get("comparisonDate"),
+            category_ids(form.get("categoryId")) or None)
         return jsonify(report=result)
 
     @bp.get("/api/management/reports/<report_id>/export")

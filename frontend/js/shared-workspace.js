@@ -4,7 +4,8 @@
      helpdesk: verification (HD-12 recommendations on verification requests)
      designer: overview (live numbers), messages (private conversations, enquiry and proposal threads, and their own
                support requests), projects (the project portfolio, js/project-portfolio.js)
-     admin:    overview (live numbers), escalations (tickets escalated to the User Admin, UA-12)
+     admin:    overview (live numbers), escalations (tickets escalated to the User Admin, UA-12),
+               history (actions on user accounts, UA-11, js/user-admin.js)
    The ticket page opens in the portal's #modal. Buttons use data-shared (portal.js owns data-action). */
 (() => {
   'use strict';
@@ -13,7 +14,7 @@
   const UI = window.AGroupUI;   // ListPage parts (S-05): state, pager, listPage
   const { esc, icon, statusBadge } = R;
   const HANDLED = { helpdesk: ['overview', 'tickets', 'resolved', 'complaints', 'uploads', 'verification'],
-                    designer: ['overview', 'messages', 'projects'], admin: ['overview', 'escalations'] };
+                    designer: ['overview', 'messages', 'projects'], admin: ['overview', 'escalations', 'history'] };
   const ACTIVE = ['OPEN', 'AWAITING_INFO', 'ESCALATED'];
   const DONE = ['RESOLVED', 'CLOSED', 'MERGED'];
   const TYPES = { ACCOUNT: 'Account', TECHNICAL: 'Technical problem', PROJECT: 'Project or listing', OTHER: 'Other',
@@ -49,6 +50,7 @@
     if (role === 'helpdesk' && section === 'uploads') return uploads(stillHere);
     if (role === 'helpdesk' && section === 'verification') return verifications(stillHere);
     if (role === 'admin' && section === 'overview') return adminOverview(stillHere);
+    if (role === 'admin' && section === 'history') return window.AGroupUserAdmin.history(main(), stillHere);
     if (role === 'designer' && section === 'overview') return designerOverview(stillHere);
     if (role === 'helpdesk' || (role === 'admin' && section === 'escalations')) {
       if (list.section !== section) list = { section, page: 1, q: '', status: '', type: '', handler: '', requester_type: '' };

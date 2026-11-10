@@ -66,6 +66,9 @@ try {
       await page.fill({ "#consult-form [name=type]": "quotation", "#consult-form [name=property_layout]": "4-room HDB, 92 sqm",
         "#consult-form [name=target_timeline]": "Start in March 2027", "#consult-form [name=budget]": "65000",
         "#consult-form [name=requirements]": "UI check: open kitchen and more storage." });
+      await page.eval(`(() => { const files = new DataTransfer();   // the optional floor plan (UC-C10 BF2)
+        files.items.add(new File(['%PDF-1.4 UI check'], 'floor-plan.pdf', { type: 'application/pdf' }));
+        document.querySelector('#consult-form [name=floor_plan]').files = files.files; })()`);
       await page.eval("document.querySelector('#consult-form').requestSubmit()");
       return page.waitFor("#modal", { text: "UI check: open kitchen" });
     });
@@ -164,6 +167,31 @@ try {
       await page.goto("/portal.html#admin/verification");
       return page.waitFor("#portal-main", { text: "Company verification" });
     });
+    await step("UA-09 flag a user account from the accounts page", async () => {
+      await page.goto("/portal.html#admin/accounts");
+      if (!await page.waitFor("[data-action=open-flag]")) return false;
+      await page.click("[data-action=open-flag]");
+      if (!await page.waitFor("#ua-flag-form")) return false;
+      await page.eval(`(() => { const f = document.querySelector('#ua-flag-form');
+        f.accountId.value = 'CUS-101'; f.reason.value = 'UI check: possible fake reviews.';
+        f.requestSubmit(f.querySelector('[value=flag]')); })()`);
+      return page.waitFor("#toast", { text: "is flagged" });
+    });
+    await step("UA-10 add an internal note to the account", async () => {
+      await page.click("[data-action=open-account-notes]");
+      if (!await page.waitFor("#ua-notes-form")) return false;
+      await page.eval(`(() => { const f = document.querySelector('#ua-notes-form');
+        f.accountId.value = 'CUS-101'; f.text.value = 'UI check: asked for documents.';
+        f.requestSubmit(f.querySelector('[value=save]')); })()`);
+      return page.waitFor("#ua-notes-list", { text: "UI check: asked for documents." });
+    });
+    await step("UA-11 the action history shows the flag and its details", async () => {
+      await page.eval("document.querySelector('#modal')?.close()");
+      await page.goto("/portal.html#admin/history");
+      if (!await page.waitFor("#portal-main tbody tr", { text: "Flagged the account" })) return false;
+      await page.click("[data-ua=action]");
+      return page.waitFor("#modal", { text: "UI check: possible fake reviews." });
+    });
   });
 
   // ---------- Platform Manager ----------
@@ -176,6 +204,12 @@ try {
       await page.goto("/portal.html#management/reports");
       return await page.waitFor("#management-report", { text: "Projects published", timeout: 8000 }) &&
         page.waitFor("#management-report", { text: "New accounts by role" });
+    });
+    await step("PM-11 the report covers two chosen categories", async () => {
+      const names = await page.eval(`(() => { const f = document.querySelector('[data-management-form=report]');
+        const picked = [...f.categoryId.options].filter(o => !o.text.includes('archived')).slice(0, 2);
+        picked.forEach(o => { o.selected = true; }); f.requestSubmit(); return picked.map(o => o.text).join(', '); })()`);
+      return page.waitFor(".management-report-caption", { text: names.split(', ')[1] });
     });
   });
 } finally {

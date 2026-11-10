@@ -6,7 +6,7 @@ from backend.entities.project_category import ProjectCategory
 from backend.entities.interior_design_project import InteriorDesignProject
 from backend.entities.project_activity import ProjectActivity
 from backend.repositories.user_account_repo import UserAccountRepo
-from backend.services.management_rules import ACCOUNT_LABELS, BusinessError, METRICS, timestamp
+from backend.services.management_rules import ACCOUNT_LABELS, BusinessError, METRICS, category_ids, timestamp
 
 
 class ActivityReport:
@@ -20,12 +20,19 @@ class ActivityReport:
                 **ProjectActivity.summarise(connection, category_id, period)}
 
     def generate(self, period, category_id=None, baseline=None):
+        """category_id: None (all categories), one id or several (PM-11, UC-PM11 BF4); a project in two of the
+        chosen categories counts once."""
+        ids = category_ids(category_id)
         with self.store.transaction(write=True) as connection:
-            category = ProjectCategory.find_by_id(connection, category_id) if category_id else None
-            if category and category["status"] == "Merged":
+            chosen = [ProjectCategory.find_by_id(connection, i) for i in ids]
+            if any(c is None for c in chosen):
+                raise BusinessError("Choose an existing category.", 404)
+            if any(c["status"] == "Merged" for c in chosen):
                 raise BusinessError("Choose the surviving category for reporting.", 409)
-            values = self.build(connection, period, category_id)
-            baseline_values = self.build(connection, baseline, category_id) if baseline else None
+            category = {"id": ",".join(c["id"] for c in chosen), "name": ", ".join(c["name"] for c in chosen)} \
+                if chosen else None
+            values = self.build(connection, period, ids)
+            baseline_values = self.build(connection, baseline, ids) if baseline else None
             rows = self.compare_rows(METRICS, values, baseline_values)
             # UC-PM05 BF3: new accounts by role; accounts belong to no category, so a category report has none
             accounts = None
@@ -35,7 +42,8 @@ class ActivityReport:
                 accounts = self.compare_rows(ACCOUNT_LABELS, new, earlier)
             snapshot = {"id": str(uuid4()), "kind": "comparison" if baseline else "period",
                         "period": period.serialize(), "baselinePeriod": baseline.serialize() if baseline else None,
-                        "category": {"id": category["id"], "name": category["name"]} if category else None,
+                        "category": category,
+                        "categories": [{"id": c["id"], "name": c["name"]} for c in chosen],
                         "rows": rows, "accounts": accounts, "generatedAt": timestamp()}
             connection.execute("INSERT INTO reports VALUES (?, ?, ?)",
                                (snapshot["id"], json.dumps(snapshot), snapshot["generatedAt"]))

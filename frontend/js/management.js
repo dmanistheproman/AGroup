@@ -225,10 +225,11 @@
       const previous = new Date(`${settings.today}T12:00:00Z`);
       previous.setUTCDate(1);
       previous.setUTCMonth(previous.getUTCMonth() - 1);
-      const selection = { period: 'monthly', date: settings.today, categoryId: '',
+      const selection = { period: 'monthly', date: settings.today, categoryId: [],
         baselineDate: previous.toISOString().slice(0, 10), comparisonDate: settings.today, ...this.selection };
       const categories = result.categories.filter(category => category.status !== 'Merged');
-      if (!categories.some(category => category.id === selection.categoryId)) selection.categoryId = '';
+      selection.categoryId = [].concat(selection.categoryId || [])   // PM-11: one or more categories
+        .filter(id => categories.some(category => category.id === id));
       main.innerHTML = heading(comparison ? 'Compare reporting periods' : 'Platform activity reports',
         'Review activity for a day, a Monday-to-Sunday week, or a calendar month.', button('Export displayed CSV', 'export', '', 'disabled id="management-export"')) + `
         <form data-management-form="report" class="portal-toolbar" data-comparison="${comparison}">
@@ -237,15 +238,15 @@
           ${comparison ? `<label>BASELINE DATE<input type="date" name="baselineDate" required value="${escape(selection.baselineDate)}"></label>
             <label>COMPARISON DATE<input type="date" name="comparisonDate" required value="${escape(selection.comparisonDate)}"></label>` :
             `<label>DATE IN PERIOD<input type="date" name="date" required value="${escape(selection.date)}"></label>`}
-          <label>CATEGORY<select name="categoryId"><option value="">All categories</option>${categories.map(category =>
-            `<option value="${escape(category.id)}" ${category.id === selection.categoryId ? 'selected' : ''}>${escape(category.name)}${category.status === 'Archived' ? ' (archived)' : ''}</option>`).join('')}</select></label>
+          <label>CATEGORIES<select name="categoryId" multiple size="4" aria-describedby="report-category-hint">${categories.map(category =>
+            `<option value="${escape(category.id)}" ${selection.categoryId.includes(category.id) ? 'selected' : ''}>${escape(category.name)}${category.status === 'Archived' ? ' (archived)' : ''}</option>`).join('')}</select></label>
           <button class="button">Apply selection</button>
-        </form><p class="small-note">Apply your selections to update the displayed report. Dates use Singapore time.</p>
+        </form><p class="small-note" id="report-category-hint">Apply your selections to update the displayed report. Choose one or more categories (Ctrl or Cmd to pick several), or none for all categories. Dates use Singapore time.</p>
         <p class="inline-error" id="management-report-error" role="alert"></p>
         <div id="management-report" aria-live="polite"></div>`;
       const matchingKind = this.snapshot && (this.snapshot.kind === 'comparison') === comparison;
       if (matchingKind) this.showReport();
-      else await this.generate(Object.fromEntries(new FormData(main.querySelector('form'))), comparison, token);
+      else await this.generate(reportValues(main.querySelector('form')), comparison, token);
     }
 
     async generate(selection, comparison, token = generation) {
@@ -385,12 +386,18 @@
     categoryPage.refresh();
   });
 
+  /* The report form, with every chosen category (FormData.getAll; Object.fromEntries keeps only one). */
+  function reportValues(form) {
+    const data = new FormData(form);
+    return { ...Object.fromEntries(data), categoryId: data.getAll('categoryId').filter(Boolean) };
+  }
+
   document.addEventListener('submit', async event => {
     const form = event.target.closest('[data-management-form]');
     if (!form) return;
     event.preventDefault();
     const token = generation;
-    const values = Object.fromEntries(new FormData(form));
+    const values = form.dataset.managementForm === 'report' ? reportValues(form) : Object.fromEntries(new FormData(form));
     const controls = [...form.querySelectorAll('button, input, select, textarea')];
     const previousDisabled = controls.map(control => control.disabled);
     controls.forEach(control => { control.disabled = true; });

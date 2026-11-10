@@ -250,6 +250,11 @@
   }
 
   // ---------- S-12 FormView ----------
+  async function sendForm(method, url, form) {
+    const res = await fetch(url, { method, credentials: 'same-origin', body: form });
+    return { ok: res.ok, status: res.status, data: await res.json().catch(() => ({})) };
+  }
+
   const formView = {
     clearErrors(form) {
       form.querySelectorAll('.field-error').forEach(e => e.remove());
@@ -290,14 +295,15 @@
       form.setAttribute('aria-busy', on ? 'true' : 'false');
     },
     done(form, text) { formView.message(form, text, 'success'); },
-    /* Validates with the browser, sends the body as JSON and shows the result. Resolves {ok, status, data}. */
+    /* Validates with the browser, sends the body (JSON, or multipart when it is a FormData with a file) and shows
+       the result. Resolves {ok, status, data}. */
     async submit(form, method, url, body, success = 'Saved.') {
       formView.clearErrors(form);
       if (!form.reportValidity()) return { ok: false, status: 0, data: {} };
       formView.busy(form, true);
       let result;
       try {
-        result = await window.AGroupRecords.call(method, url, body);
+        result = body instanceof FormData ? await sendForm(method, url, body) : await window.AGroupRecords.call(method, url, body);
       } catch {
         result = { ok: false, status: 0, data: { error: 'The server could not be reached. Try again.' } };
       }

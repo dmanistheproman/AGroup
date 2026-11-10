@@ -29,6 +29,14 @@ class AuditLogRepo:
         """Oldest first."""
         return self._select("WHERE target_type = ? AND target_id = ?", (target_type, str(target_id)))
 
+    def find_by_target_type(self, target_type):
+        """Every entry about one kind of record (e.g. all user accounts, UA-11), newest first."""
+        return self._select("WHERE target_type = ?", (target_type,))[::-1]
+
+    def get(self, log_id):
+        found = self._select("WHERE log_id = ?", (log_id,))
+        return found[0] if found else None
+
     def all(self):
         return self._select("", ())
 

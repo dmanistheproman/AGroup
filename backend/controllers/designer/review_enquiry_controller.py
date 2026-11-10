@@ -114,6 +114,14 @@ class ReviewEnquiryController:
             raise ValueError("Enquiry not found.")
         return enquiry
 
+    attachments = None   # AttachmentRepo (S-03), set in server.py
+
+    def _floor_plan(self, enquiry):
+        if self.attachments is None or not enquiry.attachment_group_id:
+            return None
+        files = self.attachments.for_group(enquiry.attachment_group_id)
+        return {"name": files[0].file_name, "path": files[0].file_path} if files else None
+
     def _view(self, enquiry):
         return {
             "id": enquiry.id,
@@ -122,6 +130,7 @@ class ReviewEnquiryController:
             "budget": enquiry.budget,
             "enquiry_type": enquiry.enquiry_type,          # C-06: consultation or quotation request
             "property_layout": enquiry.property_layout,    # UC-ID13 BF2: area and timeline
+            "floor_plan": self._floor_plan(enquiry),       # C-06: optional floor plan from the customer
             "target_timeline": enquiry.target_timeline,
             "status": enquiry.status,
             "thread_id": enquiry.thread_id,

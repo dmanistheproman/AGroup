@@ -1,6 +1,7 @@
 """BCE entities for categories, projects, activity and report snapshots."""
 
 from datetime import datetime, timedelta, timezone
+import json
 import unicodedata
 
 
@@ -82,3 +83,20 @@ def primary_category(categories, details):
     if category is None:
         category = next((item for item in categories if item["name"] == details.get("style")), None)
     return category or (categories[0] if categories else {"id": "", "name": ""})
+
+
+def category_ids(value):
+    """PM-11 (UC-PM11 BF4: one or more categories): None, one id or a list of ids -> a list without repeats."""
+    values = value if isinstance(value, (list, tuple)) else [value]
+    ids = []
+    for item in values:
+        text = str(item).strip() if item is not None else ""
+        if text and text not in ids:
+            ids.append(text)
+    return ids
+
+
+def category_param(value):
+    """The categories as one SQL parameter: NULL for all categories, else a JSON array read with json_each."""
+    ids = category_ids(value)
+    return json.dumps(ids) if ids else None

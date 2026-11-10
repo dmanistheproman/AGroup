@@ -16,7 +16,8 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
 
     @bp.errorhandler(ValueError)
     def bad_request(err):
-        return jsonify(error=str(err)), 400
+        field = getattr(err, "field", None)   # FieldError: show the message beside that field
+        return (jsonify(error=str(err), field=field) if field else jsonify(error=str(err))), 400
 
     @bp.errorhandler(LookupError)
     def not_found(err):
@@ -125,11 +126,13 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
     def submit_enquiry_request():
         if submit_enquiry is None:
             return jsonify(error="Enquiries are not available."), 404
-        data = request.get_json(silent=True) or {}
+        data = request.get_json(silent=True) or request.form.to_dict()
+        upload = request.files.get("floor_plan")
+        floor_plan = {"filename": upload.filename, "content": upload.read()} if upload and upload.filename else None
         enquiry = submit_enquiry.submit(login.current_user(), data.get("company_id"),
-                                        data.get("requirements"), data.get("budget"), data.get("project_id"),
+                                        data.get("requirements"), data.get("budget"), data.get("project_id") or None,
                                         enquiry_type=data.get("type"), property_layout=data.get("property_layout"),
-                                        target_timeline=data.get("target_timeline"))
+                                        target_timeline=data.get("target_timeline"), floor_plan=floor_plan)
         return jsonify(enquiry=enquiry.public_view()), 201
 
     # ---- C-08: compare the designers behind the customer's saved projects ----

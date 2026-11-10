@@ -3,22 +3,25 @@
 A logged-in customer sends a consultation or quotation request to a designer company.
 The enquiry is opened through the shared RequestService (it gets a message thread and an
 attachment group), the designer is notified, and an ENQUIRY activity event is recorded
-when the request is made from a specific project.
+when the request is made from a specific project. An optional floor plan (UC-C10 BF2) is checked before
+anything is saved and kept in the enquiry's attachment group (shared upload, S-03).
 """
+from backend.controllers.shared.account_service import FieldError
 from backend.entities.enquiry import Enquiry
 
 
 class SubmitEnquiryController:
-    def __init__(self, enquiry_repo, company_repo, requests, recorder=None):
+    def __init__(self, enquiry_repo, company_repo, requests, recorder=None, uploads=None):
         self.enquiries = enquiry_repo
         self.companies = company_repo
         self.requests = requests
         self.recorder = recorder
+        self.uploads = uploads   # FileUploadService (S-03), for the optional floor plan
 
     MAX_DETAIL = 120
 
     def submit(self, customer, company_id, requirements, budget=None, project_id=None, enquiry_type=None,
-               property_layout=None, target_timeline=None):
+               property_layout=None, target_timeline=None, floor_plan=None):
         kind = str(enquiry_type or "").strip().upper()
         if kind not in Enquiry.TYPES:
             raise ValueError("Choose a consultation or a quotation request.")   # C-06 task 1, UC-C10 3a
@@ -31,6 +34,11 @@ class SubmitEnquiryController:
         company = self.companies.get(company_id)
         if company is None:
             raise ValueError("Designer company not found.")
+        if floor_plan and self.uploads is not None:
+            try:
+                self.uploads.check(floor_plan, "document", "Enquiry", None)
+            except ValueError as err:
+                raise FieldError("floor_plan", str(err)) from None
 
         enquiry = Enquiry(self.enquiries.next_reference(), customer.name, requirements, budget, enquiry_type=kind,
                           property_layout=layout, target_timeline=timeline)
@@ -38,6 +46,8 @@ class SubmitEnquiryController:
         enquiry.handler_id = company.owner_id      # the designer who owns the chosen company
 
         saved = self.requests.open(enquiry)
+        if floor_plan and self.uploads is not None:
+            self.uploads.store(floor_plan, "Enquiry", saved.id, kind="document", group_id=saved.attachment_group_id)
 
         if self.recorder is not None and project_id:
             self.recorder.record("ENQUIRY", project_id, customer.id)

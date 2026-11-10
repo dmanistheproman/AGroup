@@ -53,6 +53,7 @@ from backend.boundary.report_routes import create_report_blueprint
 # ----- User Admin -----
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController
 from backend.controllers.user_admin.flag_account_controller import FlagAccountController
+from backend.controllers.user_admin.view_admin_history_controller import ViewAdminHistoryController
 from backend.boundary.user_admin_routes import create_user_admin_blueprint
 
 # ----- Interior Designer -----
@@ -303,10 +304,12 @@ def create_app(registry=None, admin_provider=None, config=None):
             if user is None:
                 return None
             return {"id": user.id, "role": "User Admin" if user.role == UserAccount.ROLE_USER_ADMIN else user.role}
-    app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider, flag_account))
+    admin_history = ViewAdminHistoryController(shared.status_change.audit, user_accounts)   # UA-11
+    app.register_blueprint(create_user_admin_blueprint(suspend_account, admin_provider, flag_account, admin_history))
 
     # ----- Interior Designer -----
     designer = build_designer_controllers(upload_service, store, user_accounts)
+    designer.review_enquiry_controller.attachments = shared.attachments   # C-06 floor plan on ID-10
     shared.rules.customer_profiles = designer.customer_repo   # C-12: new projects in the customer's preferred styles
 
     # ----- Shared: login and Create Account (X-03, S-13) -----
@@ -340,7 +343,7 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.collections.projects = shared.projects
     favourites.collections = shared.collections
     submit_enquiry = SubmitEnquiryController(designer.enquiry_repo, designer.company_repo, shared.requests,
-                                             ActivityRecorder(store))
+                                             ActivityRecorder(store), upload_service)
     compare_designers = CompareDesignersController(FavouriteRepository(store), shared.projects,
                                                    designer.company_repo, designer.list_reviews_controller.reviews,
                                                    customer_profiles=designer.customer_repo)

@@ -48,3 +48,43 @@ def test_layout_and_timeline_are_optional_but_not_too_long(app):
     short = {k: v for k, v in DETAILS.items() if k not in ("property_layout", "target_timeline")}
     assert customer.post("/api/enquiries", json={**short, "type": "consultation"}).status_code == 201
     assert customer.post("/api/enquiries", json={**DETAILS, "property_layout": "x" * 121}).status_code == 400
+
+
+# ---- UC-C10 BF2: an optional floor plan attachment (shared upload, S-03) ----
+
+@pytest.fixture
+def uploads_in(app, tmp_path):
+    app.extensions["shared"].uploads.upload_folder = str(tmp_path / "uploads")
+    return tmp_path / "uploads"
+
+
+def form_with(file_name, content=b"%PDF-1.4 plan"):
+    from io import BytesIO
+    return {**{k: str(v) for k, v in DETAILS.items()}, "floor_plan": (BytesIO(content), file_name)}
+
+
+def test_a_floor_plan_is_kept_with_the_request_and_the_designer_sees_it(app, uploads_in):
+    response = logged_in(app, "customer@demo.agroup").post("/api/enquiries", data=form_with("plan.pdf"),
+                                                           content_type="multipart/form-data")
+    assert response.status_code == 201
+    enquiry_id = response.get_json()["enquiry"]["id"]
+    assert (uploads_in / enquiry_id / "plan.pdf").read_bytes() == b"%PDF-1.4 plan"
+    row = next(r for r in logged_in(app, "designer@demo.agroup").get("/api/enquiries").get_json()
+               if r["id"] == enquiry_id)
+    assert row["floor_plan"] == {"name": "plan.pdf", "path": f"uploads/{enquiry_id}/plan.pdf"}
+
+
+def test_a_wrong_floor_plan_file_is_refused_and_nothing_is_sent(app, uploads_in):
+    repo = app.extensions["designer"].enquiry_repo
+    before = len(repo.all())
+    response = logged_in(app, "customer@demo.agroup").post("/api/enquiries", data=form_with("plan.exe"),
+                                                           content_type="multipart/form-data")
+    assert response.status_code == 400 and response.get_json()["field"] == "floor_plan"
+    assert len(repo.all()) == before and not uploads_in.exists()
+
+
+def test_a_request_without_a_floor_plan_has_none(app):
+    enquiry_id = logged_in(app, "customer@demo.agroup").post("/api/enquiries", json=DETAILS).get_json()["enquiry"]["id"]
+    row = next(r for r in logged_in(app, "designer@demo.agroup").get("/api/enquiries").get_json()
+               if r["id"] == enquiry_id)
+    assert row["floor_plan"] is None
