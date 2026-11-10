@@ -67,7 +67,8 @@ payment reminders and overdue payments (`PAYMENT_REMINDER`), the invitation to r
 (`TICKET_FEEDBACK`), new projects in the preferred styles (`NEW_PROJECT`, C-12); all but the last can be turned off in
 Preferences, which saves with Save Changes and also shows the customer's own credit status (ID-12).
 Submitting an enquiry (C-06): `POST /api/enquiries {company_id, type: consultation or quotation, requirements, budget,
-property_layout, target_timeline, project_id}`; type and requirements are required. The request form page is not built yet.
+property_layout, target_timeline, project_id}`; type and requirements are required. The customer site's studio pages,
+request form, "Your enquiries", comparison (C-08) and recommendations (C-09) use these APIs.
 
 ### Interior Designer
 Ready:
@@ -123,8 +124,9 @@ Ready:
 Pages: the portal's helpdesk **Overview, Active ticket queue, Resolved tickets, Complaints & listings and Upload
 diagnostics** use these APIs; the ticket page (claim, status change with reason, reply, notes, merge, hide project,
 history, reported message, and the requester's feedback once a closed ticket is rated) opens from any list.
-Closing a resolved ticket invites the requester to rate it (HD-13). Verification recommendations (HD-12) have a backend
-(`POST /api/admin/verifications/<id>/recommend {decision, reason}`); the page is still a browser demo.
+Closing a resolved ticket invites the requester to rate it (HD-13). Verification recommendations (HD-12): the portal
+page lists the requests (`GET /api/helpdesk/verifications`, read only) and sends
+`POST /api/admin/verifications/<id>/recommend {decision, reason}`.
 
 ### User Admin
 Ready: `USER_ACCOUNT` is registered in `StatusChangeService` (suspend / reactivate with a reason, audited);
@@ -133,7 +135,8 @@ Ready: `USER_ACCOUNT` is registered in `StatusChangeService` (suspend / reactiva
 (`POST /api/admin/verifications/<id>/review`) are audited as `VERIFICATION_REQUEST` and need a helpdesk recommendation
 first (HD-12, UC-UA13 AF2); a resubmitted request needs a new one. User admins get `NEW_VERIFICATION` when a company
 submits or resubmits. Flagging and unflagging an account are audited with the User Admin (`FLAG_ACCOUNT`,
-`UNFLAG_ACCOUNT`).
+`UNFLAG_ACCOUNT`). The portal's Escalated tickets page (UA-12) reuses the shared ticket list and page: the User Admin
+resolves a ticket with a note or restores a hidden project. The account list (UA-04 to UA-08) is not built.
 Suspend (UA-01, `POST /api/user-admin/accounts/<id>/suspend`) and flag (UA-09, `POST/DELETE .../flag`) work on the
 real accounts; the administrator is the logged-in User Admin (other roles get 403, nobody acts without logging in).
 Escalated tickets (UA-12): `GET /api/support/tickets` lists only escalated tickets for the User Admin, the ticket page
