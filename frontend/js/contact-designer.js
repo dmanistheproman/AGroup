@@ -48,6 +48,10 @@
       const data = await (await fetch(`/api/companies/${encodeURIComponent(company.id)}/reviews`)).json();
       const UI = window.AGroupUI;
       if (!data.count) { slot.innerHTML = '<small>No reviews yet. Customers can review after a completed project.</small>'; return; }
+      if (slot.dataset.summary) {   // a studio card in a list shows the average only
+        slot.innerHTML = UI ? UI.ratingDisplay(data.average, data.count) : `${data.average} / 5 (${data.count})`;
+        return;
+      }
       slot.innerHTML = `${UI ? UI.ratingDisplay(data.average, data.count) : `${data.average} / 5 (${data.count})`}
         <ul class="review-list">${data.reviews.slice(0, 4).map(r => `<li><b>${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</b>
           <p>${esc(r.comment)}</p><small>${esc(r.customer)} · ${esc(r.date)}</small></li>`).join('')}</ul>`;
