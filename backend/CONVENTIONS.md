@@ -76,21 +76,26 @@ Every shared part is built once in `server.py` and offered as `app.extensions["s
 | `login` | `current_user()`; use with `@require_role` |
 | `user_accounts`, `account_service` | Accounts; `account_service.create_account(name, email, password, role)` (S-13) |
 | `notifications` | `send(recipient_id, type, text, link, target_type, target_id)`, `list_for`, `mark_read_for_target` (S-07) |
-| `status_change` | `change_status(type, id, new_status, actor_id, reason)`, `history_of(type, id)` (S-04). Registered types: `SUPPORT_TICKET`, `USER_ACCOUNT`, `PROJECT`, `QUOTATION`, `DESIGN_PROPOSAL`, `ENQUIRY`, `VERIFICATION_REQUEST` (and `CATEGORY` for history only). A record whose change sets more than the status gives itself `apply_status(status, reason, actor_id)` |
+| `status_change` | `change_status(type, id, new_status, actor_id, reason)`, `history_of(type, id)` (S-04). Registered types: `SUPPORT_TICKET`, `USER_ACCOUNT`, `PROJECT`, `QUOTATION`, `DESIGN_PROPOSAL`, `ENQUIRY`, `VERIFICATION_REQUEST`, `PAYMENT_MILESTONE`, `CATEGORY`. A record whose change sets more than the status gives itself `apply_status(status, reason, actor_id)` |
 | `requests` | `open(request)` creates the thread and attachment group; `assign_handler`, `find` (S-19). Registered: support tickets, `Enquiry`, `VerificationRequest` |
 | `tickets`, `ticket_lifecycle`, `submit_ticket` | Support tickets and their status moves (S-15) |
 | `messages` | `post_message(thread_id, user, body)`, `list_messages(thread_id, user)` (S-01); `register_owner(find_by_thread, staff_roles)` for a new kind of thread |
 | `notes` | `add_note(target_type, target_id, author, text)`, `list_notes(...)`; targets `REQUEST`, `USER_ACCOUNT`; staff only (S-02) |
 | `project_status` | `change(user, project_id, status, reason)`: designers publish / unpublish their own projects, the helpdesk hides / restores (S-04, S-17) |
-| `projects`, `category_lookup`, `reports` | Project records, active categories (S-10), activity reports and CSV (S-06) |
+| `projects`, `categories`, `category_lookup`, `reports` | Project records (`ProjectRepository`), categories (`CategoryRepository`), active categories (S-10), activity reports and CSV (S-06: `ReportService`, also the PM's platform reports and the designers' statistics) |
+| `activity` | `ActivityRecorder`: `record_event(project, type, event_id)` from a page, `record_many(...)`; written through `ProjectEventRepository` (S-18) |
 | `threads`, `attachments` | Threads and attachment groups (S-01, S-03) |
 | `conversations` | `start_conversation(customer, company_id)`, `list_conversations(user)`: private customer–designer conversations; post with `messages` (S-16) |
 | `inbox` | `inbox_for(user)`: the user's requests and conversations with unread counts (S-14) |
-| `preferences` | `list_for(customer)`, `update(customer, event_type, is_enabled)`; notification rules respect them (C-12) |
 | `offers` | `offers_for(customer)`, `accept`, `request_adjustment`, `give_feedback`: the client's answer to quotations and proposals (S-21) |
 | `collections` | `create(customer, name, kind)`, `rename`, `delete`, `add_item`, `remove_item`, `reorder`: folders of favourites and moodboards (S-22) |
 | `companies` | Company records (public list `GET /api/companies`) |
 | `uploads`, `upload_failures` | `FileUploadService` logs refused files with the logged-in user; `upload_failures.all()` is the HD-08 log (S-03) |
+
+Each role's own control classes are named as in the Final task list and use cases, and are thin classes on top of
+the shared parts; they are offered as `app.extensions["customer"]`, `["designer"]`, `["helpdesk"]`, `["user_admin"]`
+and `["management"]` (attribute names are the class names in snake case; `management` keeps the class names). For example the customer's notification preferences (C-12):
+`app.extensions["customer"].update_notification_preference_controller`.
 
 For form checks, `ValidationRules` (`controllers/shared/validation_rules.py`: `required`, `max_length`, `is_email`, `is_unique_email`, `is_unique_name`) is what `require_text` / `require_email` and `AccountService` use (S-12).
 

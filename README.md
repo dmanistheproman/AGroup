@@ -90,7 +90,9 @@ backend/
 Adding a use case: control class in `backend/controllers/<role>/`, routes in `backend/boundary/<role>_routes.py`
 (registered in `server.py`), tests in `backend/tests/<role>/`, page code in `frontend/js/`. Read
 `backend/CONVENTIONS.md` first (naming, error-to-HTTP mapping, the logged-in user) and use the shared parts from
-`app.extensions["shared"]` (see `SHARED_PARTS.md`). Icons are [Lucide](https://lucide.dev) only, added through
+`app.extensions["shared"]` (see `SHARED_PARTS.md`). Each role's own control classes are named as in the Final task list and use cases, and are thin classes on top of
+the shared parts; they are offered as `app.extensions["customer"]`, `["designer"]`, `["helpdesk"]`, `["user_admin"]`
+and `["management"]` (attribute names are the class names in snake case; `management` keeps the class names). Icons are [Lucide](https://lucide.dev) only, added through
 `scripts/build_icons.py`.
 
 Platform Management (PM-01 to PM-14): reports use Singapore time, Monday-to-Sunday weeks and calendar months;
@@ -113,17 +115,16 @@ page) · ❌ not done (backlog, reported in the report).
 | Customer (18) | 17 | 1 |
 | Interior Designer (17) | 16 | 1 |
 | Helpdesk (13) | 12 | 1 |
-| User Admin (13) | 6 | 7 |
+| User Admin (13) | 10 | 3 |
 | Platform Manager (14) | 14 | 0 |
-| **Total (75)** | **65** | **10** |
+| **Total (75)** | **69** | **6** |
 
 - **Customer**: ✅ C-01.1, C-02, C-03, C-04.1–C-04.4, C-05 to C-10, C-11.1, C-11.2, C-12, C-13 ·
   ❌ C-01.2 set design preferences (no endpoint or page).
 - **Interior Designer**: ✅ ID-01, ID-02, ID-03.1–ID-03.4, ID-04 to ID-13 · ❌ ID-14 blacklist a customer.
 - **Helpdesk**: ✅ HD-01 to HD-09, HD-11 to HD-13 · ❌ HD-10 log a complaint against an ID.
-- **User Admin**: ✅ UA-01 suspend, UA-09 flag, UA-10 account notes, UA-11 action history, UA-12 resolve escalated
-  tickets, UA-13 decide verification (UA-01, UA-09 and UA-10 take an account ID, as there is no account list) ·
-  ❌ UA-02 reactivate, UA-03 create accounts with a role, UA-04 search, UA-05 filter, UA-06 view details,
-  UA-07 update, UA-08 change role (no account list endpoint).
+- **User Admin**: ✅ UA-01 suspend, UA-02 reactivate, UA-04 search, UA-05 filter, UA-06 view details (the Accounts
+  page), UA-09 flag, UA-10 account notes, UA-11 action history, UA-12 resolve escalated tickets, UA-13 decide
+  verification · ❌ UA-03 create accounts with a role, UA-07 update, UA-08 change role.
 - **Platform Manager**: ✅ PM-01 to PM-14.
 - **Shared parts**: ✅ S-01 to S-22 (see `SHARED_PARTS.md`).

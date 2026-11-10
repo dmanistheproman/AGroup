@@ -44,7 +44,7 @@ Log in as the User Admin (`admin@demo.agroup`, password `demo`), visit
 **Suspend User Account (backend)**. **Do not** use `python -m http.server`
 for the API workflow.
 
-The suspension uses the real account repository (`UserAccountRepo`), so it
+The suspension uses the real account repository (`UserAccountRepository`), so it
 persists and is audited. The `ACC-401` and
 `ACC-402` records in `portal.js` are sample wireframe records, not real users.
 
@@ -66,7 +66,7 @@ commit_suspension(account_id: str, record: SuspensionRecord, action: AdminAction
 4. Return `True` on success, or `False` if the account was no longer active.
 
 It must not partially commit the status or audit records. `create_app` uses
-`UserAccountRepo` by default; pass another registry only in tests.
+`UserAccountRepository` by default; pass another registry only in tests.
 
 The administrator is the logged-in account. By default `create_app` builds
 `admin_provider` from the login session and returns

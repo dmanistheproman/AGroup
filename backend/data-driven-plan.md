@@ -20,7 +20,7 @@ Type of model: a ranking (recommendation) model learned from implicit feedback. 
 ## 2. Data Collection
 
 The platform already records the data the model needs (internal data, no public datasets):
-- Activity events (shared activity events, `activities` table): every VIEW, FAVOURITE_ADD, UNFAVOURITE and ENQUIRY of a project, with its time. They are aggregated per project by ProjectRepo.
+- Activity events (shared activity events, `activities` table): every VIEW, FAVOURITE_ADD, UNFAVOURITE and ENQUIRY of a project, with its time. They are written and counted through ProjectEventRepository, and aggregated per project by ProjectRepository.
 - Favourites (C-04.1, `favourite` table): the projects each customer has saved.
 - Projects (shared project model): category (design style), budget, house type, location and status.
 - Customer preferences (C-01, CustomerProfile): preferred styles, budget and home type.

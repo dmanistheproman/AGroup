@@ -32,7 +32,8 @@ In `server.py`, pass what your controller needs, for example `MyController(share
 
 Change a status only through `shared.status_change.change_status(type, id, new_status, actor_id, reason)`. It checks
 the transition, asks for a reason where needed, writes the audit log and notifies. Registered types:
-`SUPPORT_TICKET`, `USER_ACCOUNT`, `PROJECT`, `QUOTATION`. To add one, give the entity class `TRANSITIONS` and
+`SUPPORT_TICKET`, `USER_ACCOUNT`, `PROJECT`, `QUOTATION`, `DESIGN_PROPOSAL`, `ENQUIRY`, `VERIFICATION_REQUEST`,
+`PAYMENT_MILESTONE` (ID-09: paid and overdue) and `CATEGORY` (PM-04, PM-07). To add one, give the entity class `TRANSITIONS` and
 `REASON_REQUIRED` and call `shared.status_change.register("MY_TYPE", repo.get, repo.save)`.
 
 ## 3. By role
@@ -136,23 +137,27 @@ Ready: `USER_ACCOUNT` is registered in `StatusChangeService` (suspend / reactiva
 first (HD-12, UC-UA13 AF2); a resubmitted request needs a new one. User admins get `NEW_VERIFICATION` when a company
 submits or resubmits. Flagging and unflagging an account are audited with the User Admin (`FLAG_ACCOUNT`,
 `UNFLAG_ACCOUNT`). The portal's Escalated tickets page (UA-12) reuses the shared ticket list and page: the User Admin
-resolves a ticket with a note or restores a hidden project. The account list (UA-04 to UA-08) is not built.
+resolves a ticket with a note or restores a hidden project. The Accounts page lists the accounts with search and
+role and status filters (UA-04 to UA-06, `GET /api/user-admin/accounts?q=&role=&status=&page=`,
+`GET /api/user-admin/accounts/<id>`) and reactivates a suspended account with a reason through the shared status
+change (UA-02, `POST /api/user-admin/accounts/<id>/reactivate`).
 Suspend (UA-01, `POST /api/user-admin/accounts/<id>/suspend`) and flag (UA-09, `POST/DELETE .../flag`) work on the
 real accounts; the administrator is the logged-in User Admin (other roles get 403, nobody acts without logging in).
 Escalated tickets (UA-12): `GET /api/support/tickets` lists only escalated tickets for the User Admin, the ticket page
 opens them, the User Admin can write in their thread and resolve them with a note
 (`POST /api/support/tickets/<id>/status {status: RESOLVED, reason}`), and can restore a hidden IDP
 (`POST /api/projects/<IDP-xxx>/status {status: PUBLISHED}`).
-Open: an account list, search, filter, details, update, role change and reactivation have no routes or pages yet
-(UA-02 to UA-08); the admin portal's account and escalation pages still use sample data.
+Open: creating accounts with a role, updating an account and changing its role (UA-03, UA-07, UA-08).
 
 ### Platform Manager
-Ready: the PM workspace (#24) is unchanged. Shared extras: `GET /api/categories` (active categories),
-`GET /api/reports/activity?period=&group_by=project|category|day&format=csv` (`ReportService`), and the
-customer catalogue now hides projects that are not `PUBLISHED`. Archiving, restoring and merging a category
-are also written to the shared audit log (`GET /api/history/CATEGORY/<id>`), with the manager as the actor; the PM's
-own `audit` table is kept. Removing a favourite records an `UNFAVOURITE` event, which reports do not count (older
-databases are updated on start).
+Ready: the PM's reports, category usage and trending use the shared `ReportService` (events through
+`ProjectEventRepository`, new accounts through `UserAccountRepository`); categories are kept by `CategoryRepository`.
+Archiving and restoring a category go through `StatusChangeService`; creating, editing, featuring, deleting and
+merging are recorded in the same shared audit log (`GET /api/history/CATEGORY/<id>`), with the manager as the actor,
+so the PM has no audit table of its own. Creating and editing check the details with `ValidationRules`. Shared extras:
+`GET /api/categories` (active categories), `GET /api/reports/activity?period=&group_by=project|category|day&format=csv`,
+and the customer catalogue hides projects that are not `PUBLISHED`. Removing a favourite records an `UNFAVOURITE`
+event, which reports do not count (older databases are updated on start).
 
 ## 4. Statuses
 
@@ -165,7 +170,8 @@ databases are updated on start).
 | Design proposal | DRAFT → UNDER_REVIEW → CONFIRMED (a revision keeps UNDER_REVIEW with a new version) |
 | Enquiry | AWAITING_REPLY → CONFIRMED, DECLINED\*; CONFIRMED → COMPLETED |
 | Verification request | PENDING_REVIEW → APPROVED, REJECTED\*; REJECTED → PENDING_REVIEW (resubmitted) |
-| Category (PM, audit only) | ACTIVE ⇄ ARCHIVED; ACTIVE → MERGED |
+| Category | Active ⇄ Archived; Active → Merged (in the merge's own transaction) |
+| Payment milestone | Pending → Paid, Overdue; Overdue → Paid |
 
 ## 5. Data
 
@@ -186,7 +192,7 @@ databases are updated on start).
 
 - Pages for the backends of C-06 (submit an enquiry), C-08 (compare designers), C-09 (recommendations), HD-12
   (verification recommendation), UA-09 (flag an account) and UA-12 (escalated tickets).
-- ID-14 (blacklist a customer), UA-02 to UA-08 (account management).
+- ID-14 (blacklist a customer), UA-03, UA-07, UA-08 (create, update an account, change its role).
 
 ## 8. Shared front-end components
 
