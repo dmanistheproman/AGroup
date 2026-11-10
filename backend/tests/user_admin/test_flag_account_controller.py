@@ -2,12 +2,12 @@
 import pytest
 
 from backend.controllers.user_admin.flag_account_controller import FlagAccountController
-from backend.repositories.user_account_repo import UserAccountRepo, SEED_ACCOUNT_DATA
+from backend.repositories.user_account_repository import UserAccountRepository, SEED_ACCOUNT_DATA
 
 
 @pytest.fixture()
 def repo():
-    return UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    return UserAccountRepository.from_data(SEED_ACCOUNT_DATA)
 
 
 def test_flag_marks_an_account_with_a_reason(repo):

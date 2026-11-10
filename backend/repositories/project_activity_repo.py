@@ -2,7 +2,7 @@
 from datetime import datetime
 
 from backend.entities.activity_event import ActivityEvent
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.project_repository import ProjectRepository
 from backend.services.management_rules import SINGAPORE
 
 
@@ -15,7 +15,7 @@ class ProjectActivityRepo:
             records = connection.execute("""
                 SELECT * FROM activities WHERE project_id = ? AND type IN ('VIEW', 'FAVOURITE_ADD')
                 ORDER BY occurred_at, id
-            """, (ProjectRepo.database_id(reference),)).fetchall()
+            """, (ProjectRepository.database_id(reference),)).fetchall()
         return [ActivityEvent(
             record["id"], reference, "FAVOURITE" if record["type"] == "FAVOURITE_ADD" else "VIEW",
             datetime.fromisoformat(record["occurred_at"].replace("Z", "+00:00")).astimezone(SINGAPORE).date().isoformat(),

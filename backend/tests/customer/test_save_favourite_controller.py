@@ -6,7 +6,7 @@ from backend.controllers.customer.view_favourites_controller import ViewFavourit
 from backend.database import MemoryStore
 from backend.entities.project_activity import ProjectActivity
 from backend.repositories.favourite_repo import FavouriteRepository
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.project_repository import ProjectRepository
 from backend.seed import seed_demo
 
 
@@ -14,13 +14,13 @@ from backend.seed import seed_demo
 def store():
     s = MemoryStore()
     seed_demo(s)
-    ProjectRepo(s).save({"id": "IDP-501", "title": "Draft loft", "description": "d", "category_id": "CAT-01",
+    ProjectRepository(s).save({"id": "IDP-501", "title": "Draft loft", "description": "d", "category_id": "CAT-01",
                          "status": "DRAFT", "owner_id": "user-form-field", "firm": "Form & Field"})
     return s
 
 
 def controller(store):
-    return SaveFavouriteController(FavouriteRepository(store), ProjectRepo(store), ProjectActivity(store))
+    return SaveFavouriteController(FavouriteRepository(store), ProjectRepository(store), ProjectActivity(store))
 
 
 def favourites_count(store, project_number):

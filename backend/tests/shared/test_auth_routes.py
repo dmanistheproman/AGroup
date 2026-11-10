@@ -4,7 +4,7 @@ from flask import Flask, jsonify
 from backend.boundary.auth_guard import require_role
 from backend.controllers.shared.login_controller import LoginController
 from backend.entities.user_account import UserAccount
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 from backend.server import create_app
 
 
@@ -68,7 +68,7 @@ def test_session_cookie_is_http_only():
 # ---- require_role guard ----
 
 def guarded_client():
-    repo = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    repo = UserAccountRepository.from_data(SEED_ACCOUNT_DATA)
     app = Flask(__name__)
     app.secret_key = "test"
     from flask import session

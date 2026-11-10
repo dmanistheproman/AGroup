@@ -119,10 +119,10 @@ def test_active_category_lookup_leaves_out_archived_categories(store):
 # ---- boundary ----
 
 def test_catalogue_leaves_out_projects_customers_must_not_see(tmp_path):
-    from backend.repositories.project_repo import ProjectRepo
+    from backend.repositories.project_repository import ProjectRepository
     from backend.server import create_app
     app = create_app(config={"DATABASE": str(tmp_path / "app.sqlite3")})
-    repo = ProjectRepo(app.extensions["management_store"])
+    repo = ProjectRepository(app.extensions["management_store"])
     for ref, status in (("IDP-501", "DRAFT"), ("IDP-502", "HIDDEN"), ("IDP-503", "PUBLISHED")):
         repo.save({"id": ref, "title": f"Project {ref}", "description": "d", "category_id": "CAT-01",
                    "status": status, "owner_id": "user-form-field", "firm": "Form & Field"})

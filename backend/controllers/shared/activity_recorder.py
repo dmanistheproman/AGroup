@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from backend.entities.project_event import ProjectEvent
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.project_repository import ProjectRepository
 
 
 class ActivityRecorder:
@@ -34,7 +34,7 @@ class ActivityRecorder:
     def _number(project_id):
         if isinstance(project_id, int):
             return project_id
-        number = ProjectRepo.database_id(project_id)
+        number = ProjectRepository.database_id(project_id)
         if number is None:
             raise ValueError(f"Unknown project reference: {project_id}.")
         return number

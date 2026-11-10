@@ -1,4 +1,4 @@
-"""<<repository>> UserAccountRepo — UserAccount records in the user_account table.
+"""<<repository>> UserAccountRepository — UserAccount records in the user_account table.
 
 Implements the UA-01 contract (find_by_id, commit_suspension), so the suspension
 feature can use it by passing this repo to create_app(registry=...).
@@ -34,7 +34,7 @@ COLUMNS = ("user_id", "name", "email", "password_hash", "contact_phone", "role",
            "is_flagged", "flag_reason", "created_at")
 
 
-class UserAccountRepo:
+class UserAccountRepository:
     def __init__(self, store=None):
         self.store = store_or_memory(store)
 

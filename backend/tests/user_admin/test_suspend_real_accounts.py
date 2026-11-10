@@ -1,7 +1,7 @@
 """UA-01 — the suspension controller runs against the real connected account repository.
 
 Until now create_app passed UnconnectedAccountRegistry, so a suspension returned 503
-without changing anything. These tests prove the real UserAccountRepo satisfies the
+without changing anything. These tests prove the real UserAccountRepository satisfies the
 registry contract: a suspension persists the SUSPENDED status and is written to the
 shared audit log.
 """
@@ -9,12 +9,12 @@ import pytest
 
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController
 from backend.repositories.audit_log_repo import AuditLogRepo
-from backend.repositories.user_account_repo import UserAccountRepo, SEED_ACCOUNT_DATA
+from backend.repositories.user_account_repository import UserAccountRepository, SEED_ACCOUNT_DATA
 
 
 @pytest.fixture()
 def repo():
-    return UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    return UserAccountRepository.from_data(SEED_ACCOUNT_DATA)
 
 
 def test_real_repo_suspends_an_active_account(repo):

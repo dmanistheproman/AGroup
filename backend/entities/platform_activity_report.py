@@ -5,7 +5,7 @@ from uuid import uuid4
 from backend.entities.project_category import ProjectCategory
 from backend.entities.interior_design_project import InteriorDesignProject
 from backend.entities.project_activity import ProjectActivity
-from backend.repositories.user_account_repo import UserAccountRepo
+from backend.repositories.user_account_repository import UserAccountRepository
 from backend.services.management_rules import ACCOUNT_LABELS, BusinessError, METRICS, category_ids, timestamp
 
 
@@ -37,8 +37,8 @@ class PlatformActivityReport:
             # UC-PM05 BF3: new accounts by role; accounts belong to no category, so a category report has none
             accounts = None
             if category is None:
-                new = UserAccountRepo.count_created_by_role(connection, period.start, period.end)
-                earlier = UserAccountRepo.count_created_by_role(connection, baseline.start, baseline.end)                     if baseline else None
+                new = UserAccountRepository.count_created_by_role(connection, period.start, period.end)
+                earlier = UserAccountRepository.count_created_by_role(connection, baseline.start, baseline.end)                     if baseline else None
                 accounts = self.compare_rows(ACCOUNT_LABELS, new, earlier)
             snapshot = {"id": str(uuid4()), "kind": "comparison" if baseline else "period",
                         "period": period.serialize(), "baselinePeriod": baseline.serialize() if baseline else None,

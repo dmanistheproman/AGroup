@@ -1,6 +1,6 @@
 """<<entity>> Project — an interior design project (IDP) and its parts (S-17).
 
-Projects are stored by ProjectRepo (SQLite, see storage.py) as records; Project.from_record reads
+Projects are stored by ProjectRepository (SQLite, see storage.py) as records; Project.from_record reads
 either a catalogue record or a designer portfolio record into the fields of the class diagram.
 
 Customer-visible rule (S-09): a project is shown to customers only when it is PUBLISHED.

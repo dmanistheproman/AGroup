@@ -8,8 +8,8 @@ from backend.database import MemoryStore
 from backend.entities.collection import Collection, Moodboard
 from backend.repositories.collection_repo import CollectionRepo
 from backend.repositories.favourite_repo import FavouriteRepository
-from backend.repositories.project_repo import ProjectRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.project_repository import ProjectRepository
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 from backend.seed import seed_demo
 
 
@@ -17,8 +17,8 @@ from backend.seed import seed_demo
 def setup():
     store = MemoryStore()
     seed_demo(store)
-    accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
-    favourites = SaveFavouriteController(FavouriteRepository(store), ProjectRepo(store))
+    accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
+    favourites = SaveFavouriteController(FavouriteRepository(store), ProjectRepository(store))
     collections = CollectionService(CollectionRepo(store), FavouriteRepository(store))
     favourites.collections = collections
     for ref in ("IDP-001", "IDP-002", "IDP-003"):

@@ -21,8 +21,8 @@ from backend.database import install_schema  # noqa: E402
 from backend.entities.user_account import UserAccount  # noqa: E402
 from backend.repositories.company_repo import CompanyRepo  # noqa: E402
 from backend.repositories.favourite_repo import FavouriteRepository  # noqa: E402
-from backend.repositories.project_repo import ProjectRepo  # noqa: E402
-from backend.repositories.user_account_repo import UserAccountRepo  # noqa: E402
+from backend.repositories.project_repository import ProjectRepository  # noqa: E402
+from backend.repositories.user_account_repository import UserAccountRepository  # noqa: E402
 from backend.storage import SQLiteStore  # noqa: E402
 
 LIMIT = 5
@@ -30,9 +30,9 @@ LIMIT = 5
 
 def evaluate(path):
     store = install_schema(SQLiteStore(path))
-    accounts = UserAccountRepo(store)
+    accounts = UserAccountRepository(store)
     service = RecommendationService(
-        FavouriteRepository(store), ProjectRepo(store),
+        FavouriteRepository(store), ProjectRepository(store),
         customers=lambda: [a.id for a in accounts.all() if a.role == UserAccount.ROLE_CUSTOMER],
         hidden_firms=CompanyRepo(store).names_of_suspended_designers)
     return service.evaluate_all(LIMIT)

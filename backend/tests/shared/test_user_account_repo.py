@@ -1,14 +1,14 @@
-"""UserAccountRepo: demo accounts, lookup by email, and the UA-01 account contract."""
+"""UserAccountRepository: demo accounts, lookup by email, and the UA-01 account contract."""
 from datetime import datetime, timezone
 
 from backend.repositories.audit_log_repo import AuditLogRepo
 from backend.entities.account import AdminAction, SuspensionRecord
 from backend.entities.user_account import UserAccount
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 
 
 def build():
-    return UserAccountRepo.from_data(SEED_ACCOUNT_DATA)   # fresh data for every test
+    return UserAccountRepository.from_data(SEED_ACCOUNT_DATA)   # fresh data for every test
 
 
 def test_seed_has_one_demo_account_per_role():

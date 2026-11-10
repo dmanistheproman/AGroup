@@ -5,7 +5,7 @@ from backend.controllers.customer.compare_designers_controller import CompareDes
 from backend.database import MemoryStore
 from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 from backend.repositories.favourite_repo import FavouriteRepository
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.project_repository import ProjectRepository
 from backend.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
 from backend.seed import seed_demo
 
@@ -15,7 +15,7 @@ def controller():
     store = MemoryStore()
     seed_demo(store)
     favourites = FavouriteRepository(store)
-    return (CompareDesignersController(favourites, ProjectRepo(store),
+    return (CompareDesignersController(favourites, ProjectRepository(store),
                                        CompanyRepo.from_data(SEED_COMPANY_DATA, store),
                                        ReviewRepo.from_data(SEED_REVIEW_DATA, store)), favourites)
 

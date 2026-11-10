@@ -22,7 +22,7 @@ from backend.repositories.message_repo import MessageRepo
 from backend.repositories.notification_repo import NotificationRepo
 from backend.repositories.support_ticket_repo import SupportTicketRepo
 from backend.repositories.thread_repo import ThreadRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 
 ROWS = []
 
@@ -48,7 +48,7 @@ class Desk:
 
     def __init__(self):
         store = MemoryStore()
-        self.accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
+        self.accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
         self.tickets, self.messages, self.notes = SupportTicketRepo(store), MessageRepo(store), InternalNoteRepo(store)
         rules = NotificationRules(NotificationService(NotificationRepo(store)), self.accounts, self.tickets)
         requests = RequestService(self.tickets, rules, ThreadRepo(store))

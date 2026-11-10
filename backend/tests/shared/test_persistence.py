@@ -12,7 +12,7 @@ from backend.repositories.audit_log_repo import AuditLogRepo
 from backend.repositories.notification_repo import NotificationRepo, SEED_NOTIFICATION_DATA
 from backend.repositories.support_ticket_repo import SupportTicketRepo
 from backend.repositories.thread_repo import ThreadRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 from backend.storage import SQLiteStore
 
 
@@ -35,20 +35,20 @@ def test_installing_the_schema_twice_is_harmless(store):
 
 
 def test_accounts_survive_a_restart_and_seeding_does_not_overwrite_changes(store):
-    repo = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
+    repo = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
     repo.save(UserAccount.create("CUS-106", "Sam Wong", "sam@example.com", "long enough", "CUSTOMER"))
     account = repo.get("CUS-101")
     account.status = UserAccount.STATUS_SUSPENDED
     repo.save(account)
 
-    again = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
+    again = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
     assert again.find_by_email("sam@example.com").verify_password("long enough")
     assert again.get("CUS-101").status == "SUSPENDED"
     assert len(again.all()) == len(SEED_ACCOUNT_DATA) + 1
 
 
 def test_a_second_account_with_the_same_email_is_refused(store):
-    repo = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
+    repo = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
     with pytest.raises(ValueError, match="email"):
         repo.save(UserAccount.create("CUS-107", "Copy", "customer@demo.agroup", "long enough", "CUSTOMER"))
 
@@ -56,12 +56,12 @@ def test_a_second_account_with_the_same_email_is_refused(store):
 def test_suspension_is_saved_with_an_audit_record(store):
     from datetime import datetime, timezone
     from backend.entities.account import AdminAction, SuspensionRecord
-    repo = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
+    repo = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
     now = datetime(2026, 11, 8, 10, 0, tzinfo=timezone.utc)
     record = SuspensionRecord("SUS-1", "CUS-101", "Spam messages", "user-admin", now)
     action = AdminAction("ACT-1", "CUS-101", "SUSPEND", "user-admin", "Spam messages", now)
     assert repo.commit_suspension("CUS-101", record, action) is True
-    assert UserAccountRepo(store).get("CUS-101").status == "SUSPENDED"
+    assert UserAccountRepository(store).get("CUS-101").status == "SUSPENDED"
     [entry] = AuditLogRepo(store).find_by_target("USER_ACCOUNT", "CUS-101")
     assert (entry.actor_id, entry.from_status, entry.to_status, entry.reason) == \
         ("user-admin", "ACTIVE", "SUSPENDED", "Spam messages")

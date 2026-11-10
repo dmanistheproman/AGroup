@@ -3,11 +3,11 @@ import pytest
 
 from backend.controllers.shared.login_controller import AuthenticationError, LoginController
 from backend.entities.user_account import UserAccount
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 
 
 def build():
-    repo = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    repo = UserAccountRepository.from_data(SEED_ACCOUNT_DATA)
     session = {}                                      # stands in for Flask's session
     return LoginController(repo, lambda: session), repo, session
 

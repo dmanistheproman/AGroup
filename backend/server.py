@@ -10,7 +10,7 @@ from flask import Flask, has_request_context, session
 
 # ----- Shared: login -----
 from backend.database import install_schema
-from backend.repositories.user_account_repo import UserAccountRepo, SEED_ACCOUNT_DATA
+from backend.repositories.user_account_repository import UserAccountRepository, SEED_ACCOUNT_DATA
 from backend.controllers.shared.login_controller import LoginController
 from backend.boundary.auth_routes import create_auth_blueprint
 from backend.controllers.shared.account_service import AccountService
@@ -70,7 +70,7 @@ from backend.controllers.designer.review_controller import ListReviewsController
 from backend.controllers.designer.review_enquiry_controller import ReviewEnquiryController
 from backend.controllers.designer.payment_controller import RecordPaymentController
 from backend.entities.payment_milestone import PaymentMilestone
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.project_repository import ProjectRepository
 from backend.repositories.category_repo import CategoryRepo
 from backend.repositories.project_activity_repo import ProjectActivityRepo
 from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
@@ -144,7 +144,7 @@ def build_designer_controllers(upload_service, store, account_repo=None):
     enquiry_repo = EnquiryRepo.from_data(SEED_ENQUIRY_DATA, store, handler_id="user-form-field")   # Form & Field handles the seeds
     quotation_repo = QuotationRepo.from_data(SEED_QUOTATION_DATA, store)
 
-    projects_repo = ProjectRepo(store)
+    projects_repo = ProjectRepository(store)
     payment_repo = PaymentRepo(store)
 
     c = SimpleNamespace()
@@ -261,14 +261,14 @@ def create_app(registry=None, admin_provider=None, config=None):
     upload_service = FileUploadService(upload_folder=str(UPLOAD_DIR), failure_repo=UploadFailureRepo(store))
 
     # ----- Shared: login (X-03) -----
-    user_accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
+    user_accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
     login = LoginController(user_accounts, lambda: session)
     upload_service.current_user = lambda: login.current_user() if has_request_context() else None
     app.extensions['login'] = login   # for role guards in other blueprints
 
     # ----- Shared services (S-01 to S-22), offered to every role as app.extensions['shared'] -----
     shared = SimpleNamespace(login=login, user_accounts=user_accounts, store=store)
-    shared.projects = ProjectRepo(store)
+    shared.projects = ProjectRepository(store)
     shared.notifications = NotificationService(NotificationRepo.from_data(SEED_NOTIFICATION_DATA, store))
     shared.tickets = SupportTicketRepo(store)
     shared.rules = NotificationRules(shared.notifications, user_accounts, shared.tickets, shared.projects)
@@ -316,7 +316,7 @@ def create_app(registry=None, admin_provider=None, config=None):
 
     # ----- User Admin -----
     # UA-01: suspend the real accounts. Pass `registry` to override in tests; the default is
-    # the connected UserAccountRepo, so a suspension persists and is audited (no more 503).
+    # the connected UserAccountRepository, so a suspension persists and is audited (no more 503).
     account_registry = registry if registry is not None else user_accounts
     suspend_account = SuspendAccountController(account_registry)
     flag_account = FlagAccountController(user_accounts, shared.status_change.audit)   # UA-09: flag / unflag, audited

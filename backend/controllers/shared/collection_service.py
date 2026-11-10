@@ -25,7 +25,7 @@ class CollectionService:
         self.favourites = favourite_repo
         self.uploads = None        # FileUploadService (S-03), set in server.py: moodboard images
         self.attachments = None    # AttachmentRepo, set in server.py: where an image item's file is
-        self.projects = None       # ProjectRepo, set in server.py: project cards on a shared moodboard
+        self.projects = None       # ProjectRepository, set in server.py: project cards on a shared moodboard
 
     def create(self, customer, name, kind=Collection.KIND_FOLDER):
         if customer is None or customer.role != UserAccount.ROLE_CUSTOMER:

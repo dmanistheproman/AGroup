@@ -140,8 +140,8 @@ def test_manager_sees_all_projects_and_designer_only_their_own(app):
     all_rows = manager.get_json()["report"]["rows"]
     own_rows = designer.get_json()["report"]["rows"]
     assert 0 < len(own_rows) < len(all_rows)
-    from backend.repositories.project_repo import ProjectRepo
-    owned = {p["id"] for p in ProjectRepo(app.extensions["management_store"]).all()
+    from backend.repositories.project_repository import ProjectRepository
+    owned = {p["id"] for p in ProjectRepository(app.extensions["management_store"]).all()
              if p["owner_id"] == "user-form-field"}
     assert {r["key"] for r in own_rows} <= owned
 

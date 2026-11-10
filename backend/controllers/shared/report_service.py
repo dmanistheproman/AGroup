@@ -13,7 +13,7 @@ from io import StringIO
 from backend.entities.project_event import ProjectEvent
 from backend.entities.report_model import METRICS, ReportModel
 from backend.entities.report_period import Period
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.project_repository import ProjectRepository
 from backend.services.management_rules import BusinessError, SINGAPORE, timestamp
 
 MAX_CUSTOM_DAYS = 366
@@ -79,7 +79,7 @@ class ReportService:
     def _number(reference):
         if isinstance(reference, int):
             return reference
-        number = ProjectRepo.database_id(reference)
+        number = ProjectRepository.database_id(reference)
         if number is None:
             raise ValueError(f"Unknown project reference: {reference}.")
         return number

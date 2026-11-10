@@ -9,11 +9,11 @@ from backend.repositories.attachment_repo import AttachmentRepo
 from backend.repositories.notification_repo import NotificationRepo
 from backend.repositories.support_ticket_repo import SupportTicketRepo
 from backend.repositories.thread_repo import ThreadRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 
 
 def build():
-    accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA)
     tickets, threads, attachments = SupportTicketRepo(), ThreadRepo(), AttachmentRepo()
     rules = NotificationRules(NotificationService(NotificationRepo()), accounts, tickets)
     return RequestService(tickets, rules, threads, attachments), tickets, threads, attachments
@@ -33,7 +33,7 @@ def test_open_creates_a_thread_and_an_attachment_group_for_the_request():
 
 def test_request_service_still_works_without_explicit_thread_and_attachment_stores():
     tickets = SupportTicketRepo()
-    accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA)
     rules = NotificationRules(NotificationService(NotificationRepo()), accounts, tickets)
     saved = RequestService(tickets, rules).open(ticket())
     assert saved.thread_id and saved.attachment_group_id

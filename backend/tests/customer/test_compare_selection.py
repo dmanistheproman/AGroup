@@ -8,7 +8,7 @@ from backend.database import MemoryStore
 from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 from backend.repositories.customer_repo import CustomerRepo, SEED_CUSTOMER_DATA
 from backend.repositories.favourite_repo import FavouriteRepository
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.project_repository import ProjectRepository
 from backend.repositories.review_repo import ReviewRepo, SEED_REVIEW_DATA
 from backend.seed import seed_demo
 from backend.server import create_app
@@ -23,7 +23,7 @@ def controller():
     for reference in ("IDP-001", "IDP-002", "IDP-003"):    # Form & Field, Common Ground, Studio Sunday
         fav_list.add_project(reference)
     favourites.save(fav_list)
-    return CompareDesignersController(favourites, ProjectRepo(store), CompanyRepo.from_data(SEED_COMPANY_DATA, store),
+    return CompareDesignersController(favourites, ProjectRepository(store), CompanyRepo.from_data(SEED_COMPANY_DATA, store),
                                       ReviewRepo.from_data(SEED_REVIEW_DATA, store),
                                       customer_profiles=CustomerRepo.from_data(SEED_CUSTOMER_DATA, store))
 

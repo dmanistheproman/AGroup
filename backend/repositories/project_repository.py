@@ -8,7 +8,7 @@ from backend.entities.project_category_assignment import ProjectCategoryAssignme
 from backend.services.management_rules import BusinessError, primary_category, timestamp
 
 
-class ProjectRepo:
+class ProjectRepository:
     DEMO_OWNERS = {"Form & Field": "user-form-field", "Common Ground": "user-common-ground",
                    "Studio Sunday": "user-studio-sunday"}
     def __init__(self, store):
@@ -32,7 +32,7 @@ class ProjectRepo:
         """, (row["id"],))}
         return {
             **details, "id": f'IDP-{row["id"]:03d}', "title": row["title"], "firm": row["firm"],
-            "owner_id": details.get("owner_id") or ProjectRepo.DEMO_OWNERS.get(row["firm"], "unassigned"),
+            "owner_id": details.get("owner_id") or ProjectRepository.DEMO_OWNERS.get(row["firm"], "unassigned"),
             "description": details.get("description", details.get("summary", "")),
             "status": details.get("status", "PUBLISHED"),
             "stage": details.get("stage", "Past project"), "attachments": details.get("attachments", []),

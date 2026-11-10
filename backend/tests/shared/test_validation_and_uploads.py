@@ -7,7 +7,7 @@ from backend.database import MemoryStore
 from backend.repositories.company_repo import CompanyRepo
 from backend.repositories.customer_repo import CustomerRepo
 from backend.repositories.upload_failure_repo import UploadFailureRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 from backend.services.file_upload_service import FileUploadService
 from backend.services.validators import require_email, require_text
 
@@ -30,7 +30,7 @@ def test_is_email(value, ok):
 
 
 def test_unique_email_ignores_case_and_spaces():
-    rules = ValidationRules(UserAccountRepo.from_data(SEED_ACCOUNT_DATA))
+    rules = ValidationRules(UserAccountRepository.from_data(SEED_ACCOUNT_DATA))
     assert not rules.is_unique_email("  Customer@Demo.AGroup ")
     assert rules.is_unique_email("new@example.com")
 
@@ -41,7 +41,7 @@ def test_unique_name_ignores_case_and_spaces():
 
 
 def test_account_service_and_shared_validators_use_the_same_rules():
-    accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA)
     service = AccountService(accounts, CustomerRepo(), CompanyRepo())
     assert isinstance(service.rules, ValidationRules)
     assert require_text("  Oak  ", "Title", 10) == "Oak"
