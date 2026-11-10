@@ -18,6 +18,7 @@ the customer website. The staff portal is `/portal.html`.
 |---|---|
 | `--database instance/test-data.sqlite3` | Use another database, e.g. the generated test data |
 | `--check` / `--check quick` | Check everything instead of starting the site (below) |
+| `--check --random 3 [--scale 2]` | Also check 3 more data sets generated with random seeds (optionally larger) |
 | `--page portal`, `--port 5100`, `--no-browser` | Open the portal, try another port, do not open a browser |
 
 ## Demo accounts
@@ -49,6 +50,7 @@ demo database `instance/agroup.sqlite3` is never touched; delete it to start aga
 |---|---|---|
 | `python run.py --check` | Generates test data, runs the backend tests with line coverage, starts the app on that data, then the API smoke test, the page check, the business rules and the C-09 offline check. Prints a text report and saves it in `instance/reports/` | ~4 min |
 | `python run.py --check quick` | The same without the backend tests | ~1 min |
+| `python run.py --check --random 3` | Also generates 3 data sets with random seeds and checks each (API, pages, rules, C-09); the report names the seed of any failure | +1-2 min each |
 | `.venv/Scripts/python -m pytest backend/tests` | Backend tests only (`.venv/bin/python` on macOS / Linux) | ~2 min |
 | `python scripts/ui_check.py` | Every role's main pages in a headless browser: live data, no JavaScript errors | ~10 s |
 | `python scripts/check_data.py [db]` | Business rules that must hold for any data | ~2 s |
@@ -100,3 +102,28 @@ transaction and rejects stale versions.
 - **Packages fail to install**: check the connection, delete `.venv`, run `python run.py` again.
 - **Data is missing on a page**: open the address `run.py` prints, not the HTML file (`python -m http.server` serves pages only).
 - **Page check skipped**: install Node 22+ and Chrome or Edge, or set `BROWSER` to the browser's path.
+
+## Implementation status
+
+Checked story by story against the final user stories (75) and use case descriptions. ✅ done (backend and
+page) · ❌ not done (backlog, reported in the report).
+
+| Role | ✅ | ❌ |
+|---|---|---|
+| Customer (18) | 17 | 1 |
+| Interior Designer (17) | 16 | 1 |
+| Helpdesk (13) | 12 | 1 |
+| User Admin (13) | 6 | 7 |
+| Platform Manager (14) | 14 | 0 |
+| **Total (75)** | **65** | **10** |
+
+- **Customer**: ✅ C-01.1, C-02, C-03, C-04.1–C-04.4, C-05 to C-10, C-11.1, C-11.2, C-12, C-13 ·
+  ❌ C-01.2 set design preferences (no endpoint or page).
+- **Interior Designer**: ✅ ID-01, ID-02, ID-03.1–ID-03.4, ID-04 to ID-13 · ❌ ID-14 blacklist a customer.
+- **Helpdesk**: ✅ HD-01 to HD-09, HD-11 to HD-13 · ❌ HD-10 log a complaint against an ID.
+- **User Admin**: ✅ UA-01 suspend, UA-09 flag, UA-10 account notes, UA-11 action history, UA-12 resolve escalated
+  tickets, UA-13 decide verification (UA-01, UA-09 and UA-10 take an account ID, as there is no account list) ·
+  ❌ UA-02 reactivate, UA-03 create accounts with a role, UA-04 search, UA-05 filter, UA-06 view details,
+  UA-07 update, UA-08 change role (no account list endpoint).
+- **Platform Manager**: ✅ PM-01 to PM-14.
+- **Shared parts**: ✅ S-01 to S-22 (see `SHARED_PARTS.md`).
