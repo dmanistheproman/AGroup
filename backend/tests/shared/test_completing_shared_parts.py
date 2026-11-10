@@ -172,7 +172,8 @@ def test_archiving_a_category_is_in_the_shared_audit_log(app, shared):
                             json={"version": category["version"]}, headers={"X-CSRF-Token": token})
     assert archived.status_code == 200, archived.get_data(as_text=True)
     history = manager.get(f"/api/history/CATEGORY/{category['id']}").get_json()["history"]
-    assert [(h["from_status"], h["to_status"], h["actor_id"]) for h in history] == [("ACTIVE", "ARCHIVED", "user-manager")]
+    # through StatusChangeService the log keeps the category's own status values (CategoryStatus), as for every record
+    assert [(h["from_status"], h["to_status"], h["actor_id"]) for h in history] == [("Active", "Archived", "user-manager")]
 
 
 # ---- S-03: every accepted upload is kept as an attachment of its owner ----

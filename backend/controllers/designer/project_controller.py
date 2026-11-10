@@ -5,6 +5,7 @@ A project holds what customers see (C-03): description, images, materials, estim
 type and area. New projects are drafts; publishing (ID-03.4) goes through the shared ProjectStatusController (S-04).
 Deleting removes the project from customers' favourites and folders and keeps its activity for reports.
 """
+from backend.entities.category import Category
 from backend.services.validators import require_text
 
 MAX_COST = 10_000_000
@@ -58,7 +59,7 @@ class CreateProjectController:
             attachments.append(self.uploads.upload(image, "Project", project_id))
         # 3) isActive(categoryId): the category must be ACTIVE (sequence diagram msg8-9)
         category = self.categories.get(data.get("category_id"))
-        if category is None or category.get("status") != "ACTIVE":
+        if category is None or not Category.from_record(category).is_active():
             raise ValueError("Selected category is not active. Please choose an active category.")
         # 4) save(projectData): a new project is DRAFT (sequence diagram msg10-11)
         extra = _details(data)
@@ -102,7 +103,7 @@ class EditProjectController:
         if not title or not description:
             raise ValueError("Title and description are required.")
         category = self.categories.get(data.get("category_id"))
-        if category is None or category.get("status") != "ACTIVE":
+        if category is None or not Category.from_record(category).is_active():
             raise ValueError("Selected category is not active. Please choose an active category.")
         attachments = list(project.get("attachments") or [])
         for image in data.get("images") or []:

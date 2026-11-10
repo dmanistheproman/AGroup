@@ -145,7 +145,7 @@ class _Generator:
         from backend.controllers.customer.save_favourite_controller import SaveFavouriteController
         from backend.controllers.helpdesk.merge_tickets_controller import MergeTicketsController
         from backend.controllers.shared.activity_recorder import ActivityRecorder
-        from backend.entities.project_category import ProjectCategory
+        from backend.repositories.category_repository import CategoryRepository
         from backend.repositories.company_repo import CompanyRepo
         from backend.repositories.customer_repo import CustomerRepo
         from backend.repositories.enquiry_repo import EnquiryRepo
@@ -157,11 +157,12 @@ class _Generator:
 
         self.s = app.extensions["shared"]
         self.customer = app.extensions["customer"]   # C-12 preferences go through the customer's controller
+        self.management = app.extensions["management"]   # PM-04: archiving goes through the shared status change
         store = self.s.store
         self.rng, self.n, self.log = rng, n, log
         self.accounts = _FastAccounts(self.s.account_service)
         self.r = SimpleNamespace(
-            categories=ProjectCategory(store), customers=CustomerRepo(store), companies=CompanyRepo(store),
+            categories=CategoryRepository(store), customers=CustomerRepo(store), companies=CompanyRepo(store),
             enquiries=EnquiryRepo(store),
             quotations=QuotationRepo(store), proposals=ProposalRepo(store), payments=PaymentRepo(store),
             verifications=VerificationRepo(store),
@@ -239,7 +240,7 @@ class _Generator:
                 continue
             category = self.r.categories.create(name, f"{name} interiors: a generated test category.")
             if self.rng.random() < 0.1:
-                self.r.categories.change_status(category["id"], category["version"], "Active", "Archived")
+                self.management.ArchiveCategoryController.archive_category(category["id"], category["version"])
             made += 1
 
     def projects(self):

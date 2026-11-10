@@ -1,7 +1,7 @@
 from datetime import date, datetime, time, timedelta
 from types import SimpleNamespace
 
-from backend.entities.project_category import ProjectCategory
+from backend.repositories.category_repository import CategoryRepository
 from backend.services.management_rules import SINGAPORE, timestamp
 
 ALL_TIME = SimpleNamespace(start="", end="9999")   # every event, for the usage summary
@@ -22,7 +22,7 @@ class ViewCategoryUsageController:
     def view_category_usage(self, category_id=None):
         counts = self._events_per_category(ALL_TIME)
         with self.store.transaction() as connection:
-            categories = ProjectCategory.usage_categories(connection, category_id)
+            categories = CategoryRepository.usage_categories(connection, category_id)
         return [{**dict(category), **counts.get(category["id"], ZERO)} for category in categories]
 
     def trending(self, today=None, days=30):
@@ -38,7 +38,7 @@ class ViewCategoryUsageController:
                         connection.execute("SELECT id, featured FROM categories WHERE deleted_at IS NULL")}
             rows = [{"id": category["id"], "name": category["name"], "featured": featured.get(category["id"], False),
                      **counts.get(category["id"], ZERO)}
-                    for category in ProjectCategory.usage_categories(connection) if category["status"] == "Active"]
+                    for category in CategoryRepository.usage_categories(connection) if category["status"] == "Active"]
         for row in rows:
             row["activity"] = row["views"] + row["favourites"] + row["enquiries"]
         rows.sort(key=lambda row: -row["activity"])   # stable: alphabetical within the same activity

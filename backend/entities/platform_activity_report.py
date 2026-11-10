@@ -2,7 +2,7 @@ import csv
 from io import StringIO
 import json
 from uuid import uuid4
-from backend.entities.project_category import ProjectCategory
+from backend.repositories.category_repository import CategoryRepository
 from backend.repositories.project_repository import ProjectRepository
 from backend.repositories.project_event_repository import ProjectEventRepository
 from backend.repositories.user_account_repository import UserAccountRepository
@@ -30,7 +30,7 @@ class PlatformActivityReport:
         chosen categories counts once."""
         ids = category_ids(category_id)
         with self.store.transaction(write=True) as connection:
-            chosen = [ProjectCategory.find_by_id(connection, i) for i in ids]
+            chosen = [CategoryRepository.find_by_id(connection, i) for i in ids]
             if any(c is None for c in chosen):
                 raise BusinessError("Choose an existing category.", 404)
             if any(c["status"] == "Merged" for c in chosen):

@@ -4,7 +4,7 @@ import json
 import re
 import sqlite3
 
-from backend.entities.project_category import ProjectCategory
+from backend.repositories.category_repository import CategoryRepository
 from backend.entities.project_category_assignment import ProjectCategoryAssignment
 from backend.services.management_rules import BusinessError, category_param, primary_category, timestamp
 
@@ -66,7 +66,7 @@ class ProjectRepository:
                 row = connection.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
                 if row is None or self._deleted(row):
                     raise LookupError(f"Project {project['id']} was not found.")
-                category = ProjectCategory.find_by_id(connection, project["category_id"])
+                category = CategoryRepository.find_by_id(connection, project["category_id"])
                 if category["status"] != "Active":
                     raise ValueError("Selected category is not active. Please choose an active category.")
                 old = json.loads(row["details"])
@@ -100,7 +100,7 @@ class ProjectRepository:
             raise ValueError("Supply a valid project reference.")
         try:
             with self.store.transaction(write=True) as connection:
-                category = ProjectCategory.find_by_id(connection, project["category_id"])
+                category = CategoryRepository.find_by_id(connection, project["category_id"])
                 if category["status"] != "Active":
                     raise ValueError("Selected category is not active. Please choose an active category.")
                 details = {**project, "primary_category_id": category["id"], "style": category["name"],
@@ -144,7 +144,7 @@ class ProjectRepository:
         """Projects (catalogue view: numeric id, style, category names), all or those in one category, with the
         category and the category it was merged into."""
         with self.store.transaction() as connection:
-            category = ProjectCategory.find_by_id(connection, category_id) if category_id else None
+            category = CategoryRepository.find_by_id(connection, category_id) if category_id else None
             rows = connection.execute("""
                 SELECT p.* FROM projects p WHERE (? IS NULL OR EXISTS (
                     SELECT 1 FROM assignments a WHERE a.project_id = p.id AND a.category_id = ?
@@ -168,7 +168,7 @@ class ProjectRepository:
                                  "categoryNames": [item["name"] for item in categories]})
             target = None
             if category and category["merged_into_id"]:
-                target = ProjectCategory.find_by_id(connection, category["merged_into_id"], include_deleted=True)
+                target = CategoryRepository.find_by_id(connection, category["merged_into_id"], include_deleted=True)
             return {"category": category, "target": target, "projects": projects}
 
     @staticmethod

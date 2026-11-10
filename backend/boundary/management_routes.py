@@ -152,8 +152,7 @@ def create_management_blueprint(c, store, login):
             counts["featuredCategories"] = connection.execute(
                 "SELECT COUNT(*) FROM categories WHERE status = 'Active' AND featured = 1 AND deleted_at IS NULL"
             ).fetchone()[0]
-            recent = [dict(row) for row in connection.execute("SELECT * FROM audit ORDER BY id DESC LIMIT 6")]
-        return jsonify(counts=counts, recent=recent, period=period.serialize())
+        return jsonify(counts=counts, recent=c.CategoryRepository.recent_changes(), period=period.serialize())
 
     @bp.get("/api/catalog")
     def catalog():

@@ -35,14 +35,15 @@ def timestamp(value=None):
     return value.astimezone(timezone.utc).isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
-def clean_details(name, description):
+def clean_details(name, description, rules):
+    """UC-PM02 / UC-PM03: a category's name and description, checked with the shared ValidationRules (S-12)."""
     if not isinstance(name, str) or not isinstance(description, str):
         raise BusinessError("Enter a category name and description as text.")
     name = unicodedata.normalize("NFKC", name).strip()
     description = description.strip()
-    if not name or len(name) > 70:
+    if not rules.required(name) or not rules.max_length(name, 70):
         raise BusinessError("Enter a category name between 1 and 70 characters.")
-    if len(description) > 500:
+    if not rules.max_length(description, 500):
         raise BusinessError("Keep the description within 500 characters.")
     return name, description
 
@@ -52,21 +53,7 @@ def check_version(category, expected):
         raise BusinessError("This category changed since you opened it. Refresh and try again.", 409)
 
 
-def audit(connection, action, name, category_id=None, from_status=None, to_status=None):
-    connection.execute(
-        "INSERT INTO audit(action, record, occurred_at) VALUES (?, ?, ?)",
-        (action, name, timestamp()),
-    )
-    if category_id and to_status:
-        # A status change is also written to the shared audit log (S-04), so history and UA-11 see it.
-        from backend.entities.audit_log import AuditLog
-        from backend.repositories.audit_log_repo import AuditLogRepo
-        AuditLogRepo.insert(connection, AuditLog(None, _actor(), "CATEGORY", category_id, AuditLog.ACTION_STATUS_CHANGED,
-                                                 from_status.upper() if from_status else None, to_status.upper(),
-                                                 action))
-
-
-def _actor():
+def actor():
     """The logged-in user's ID when called during a request, otherwise "system"."""
     try:
         from flask import current_app, has_request_context

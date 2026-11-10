@@ -71,7 +71,6 @@ from backend.controllers.designer.review_enquiry_controller import ReviewEnquiry
 from backend.controllers.designer.payment_controller import RecordPaymentController
 from backend.entities.payment_milestone import PaymentMilestone
 from backend.repositories.project_repository import ProjectRepository
-from backend.repositories.category_repo import CategoryRepo
 from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 from backend.repositories.verification_repo import VerificationRepo
 from backend.repositories.customer_repo import CustomerRepo, SEED_CUSTOMER_DATA
@@ -87,7 +86,7 @@ from backend.controllers.designer.statistics_controller import ViewProjectStatis
 from backend.boundary.designer_routes import create_designer_blueprint
 from backend.boundary.management_routes import create_management_blueprint
 from backend.controllers import management
-from backend.entities.project_category import ProjectCategory
+from backend.repositories.category_repository import CategoryRepository
 from backend.entities.platform_activity_report import PlatformActivityReport
 from backend.seed import seed_demo
 from backend.storage import SQLiteStore
@@ -145,7 +144,7 @@ def build_designer_controllers(upload_service, store, account_repo=None):
     payment_repo = PaymentRepo(store)
 
     c = SimpleNamespace()
-    categories = CategoryRepo(store)
+    categories = CategoryRepository(store)
     c.create_project_controller = CreateProjectController(projects_repo, categories, upload_service)   # ID-03.1
     c.edit_project_controller = EditProjectController(projects_repo, categories, upload_service)       # ID-03.3
     c.delete_project_controller = DeleteProjectController(projects_repo)                              # ID-03.2
@@ -220,16 +219,17 @@ def _connect_designer_records(shared, designer):
     designer.revise_proposal_controller.rules = designer.record_payment_controller.rules = rules
 
 
-def build_management_controllers(store, shared_reports):
-    categories = ProjectCategory(store)
+def build_management_controllers(store, shared_reports, status_change):
+    categories = CategoryRepository(store)
     reports = PlatformActivityReport(store)
     projects = ProjectRepository(store)
     return SimpleNamespace(
+        CategoryRepository=categories,
         ViewCategoriesController=management.ViewCategoriesController(categories),
         CreateCategoryController=management.CreateCategoryController(categories),
         UpdateCategoryController=management.UpdateCategoryController(categories),
-        ArchiveCategoryController=management.ArchiveCategoryController(categories),
-        RestoreCategoryController=management.RestoreCategoryController(categories),
+        ArchiveCategoryController=management.ArchiveCategoryController(categories, status_change),
+        RestoreCategoryController=management.RestoreCategoryController(categories, status_change),
         FeatureCategoryController=management.FeatureCategoryController(categories),
         SearchCategoriesController=management.SearchCategoriesController(categories),
         MergeCategoriesController=management.MergeCategoriesController(categories),
@@ -280,13 +280,9 @@ def create_app(registry=None, admin_provider=None, config=None):
     shared.project_status = ProjectStatusController(shared.status_change, shared.projects)   # registers PROJECT
     shared.project_status.on_hidden = shared.ticket_lifecycle.escalate_reports_about   # HD-09 task 3 -> UA-12
 
-    def category_status(category_id):
-        """ID-03.4: the status of a category, or None when it does not exist (PM categories)."""
-        with store.transaction() as connection:
-            row = connection.execute("SELECT status FROM categories WHERE id = ? AND deleted_at IS NULL",
-                                     (category_id,)).fetchone()
-        return row["status"] if row else None
-    shared.project_status.category_status = category_status
+    shared.categories = CategoryRepository(store)
+    shared.status_change.register("CATEGORY", shared.categories.entity, shared.categories.save_status)   # PM-04, PM-07
+    shared.project_status.category_status = lambda category_id: (shared.categories.get(category_id) or {}).get("status")   # ID-03.4
     shared.message_repo = MessageRepo(store)
     shared.messages = PostMessageController(shared.threads, shared.message_repo, shared.rules)
     shared.messages.register_owner(shared.tickets.find_by_thread,
@@ -305,7 +301,6 @@ def create_app(registry=None, admin_provider=None, config=None):
     upload_service.attachments = shared.attachments   # every accepted upload is kept as an attachment (S-03)
     shared.ticket_feedback = TicketFeedbackController(TicketFeedbackRepo(store), shared.tickets)   # HD-13
     # PM category changes are written to audit_log by their own controllers; registered here for history_of.
-    shared.status_change.register("CATEGORY", lambda category_id: None)
     shared.reports = ReportService(store)
     shared.activity = ActivityRecorder(store, source="customer")   # S-18: pages, favourites, enquiries
     shared.category_lookup = CategoryLookupController(store)
@@ -366,7 +361,9 @@ def create_app(registry=None, admin_provider=None, config=None):
     app.register_blueprint(create_report_blueprint(login, shared.category_lookup, shared.reports, shared.projects))
 
     # ----- Platform Management -----
-    app.register_blueprint(create_management_blueprint(build_management_controllers(store, shared.reports), store, login))
+    management = build_management_controllers(store, shared.reports, shared.status_change)
+    app.extensions['management'] = management
+    app.register_blueprint(create_management_blueprint(management, store, login))
 
     # ----- Customer -----
     favourites = SaveFavouriteController(FavouriteRepository(store), shared.projects, shared.activity)

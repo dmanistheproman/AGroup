@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from backend.entities.project_category import ProjectCategory
+from backend.repositories.category_repository import CategoryRepository
 from backend.repositories.project_repository import ProjectRepository
 from backend.server import create_app
 from backend.services.management_rules import SINGAPORE
@@ -120,9 +120,9 @@ def test_concurrent_reference_allocation_and_category_change_during_save(app):
     with ThreadPoolExecutor(max_workers=4) as executor:
         references = list(executor.map(lambda _: repo.next_reference('IDP'), range(12)))
     assert len(set(references)) == 12
-    categories = ProjectCategory(store)
+    categories = CategoryRepository(store)
     source = categories.create('Race condition', '')
-    categories.change_status(source['id'], 1, 'Active', 'Archived')
+    app.extensions['management'].ArchiveCategoryController.archive_category(source['id'], 1)   # shared status change
     with pytest.raises(ValueError, match='not active'):
         repo.save({'id': references[0], 'title': 'Blocked', 'description': 'Details', 'category_id': source['id']})
     assert repo.all() == []
