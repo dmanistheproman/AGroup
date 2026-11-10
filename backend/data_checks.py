@@ -168,9 +168,18 @@ def _verification_decisions_follow_a_recommendation(rows):
                           "AND v.recommendation IS NULL")]
 
 
+def _no_activity_before_a_project_is_published(rows):
+    """S-18 / ID-13: customers see a project only once it is published, so no view, save or enquiry comes earlier."""
+    return [f"Activity {r['id']} on project {r['project_id']} is dated before the project was first published."
+            for r in rows("SELECT a.id, a.project_id FROM activities a JOIN (SELECT CAST(substr(target_id, 5) AS INTEGER) "
+                          "AS project, MIN(julianday(created_at)) AS first FROM audit_log WHERE target_type = 'PROJECT' "
+                          "AND to_status = 'PUBLISHED' GROUP BY target_id) p ON p.project = a.project_id "
+                          "WHERE julianday(a.occurred_at) < p.first")]
+
+
 RULES = (_statuses_are_known, _merged_tickets_point_at_a_live_ticket, _audited_changes_follow_the_lifecycles,
          _favourites_point_at_projects, _notifications_have_a_recipient, _payments_belong_to_accepted_quotations,
          _quotations_answer_enquiries, _conversations_have_real_participants,
          _ticket_messages_come_from_the_requester_or_helpdesk, _notes_are_written_by_staff,
          _enquiries_are_handled_by_designers, _each_thread_has_one_owner, _folders_hold_saved_projects_of_their_owner,
-         _verification_decisions_follow_a_recommendation)
+         _verification_decisions_follow_a_recommendation, _no_activity_before_a_project_is_published)

@@ -93,3 +93,10 @@ def test_enquiry_verification_and_proposal_changes_follow_their_lifecycles(datab
     broken = corrupt(database, tmp_path, f"INSERT INTO audit_log VALUES ('LOG-99998', 'user-admin', '{target_type}', "
                                          f"'X-1', 'STATUS_CHANGED', {change}, 'test', '2026-11-08T00:00:00')")
     assert any(target_type in p and "not an allowed change" in p for p in check_database(broken))
+
+
+def test_no_activity_before_a_project_is_published(database, tmp_path):
+    broken = corrupt(database, tmp_path, "INSERT INTO activities SELECT 'ACT-EARLY', CAST(substr(target_id, 5) AS INTEGER), "
+                                         "'VIEW', '2000-01-01T00:00:00.000000Z', 'test' FROM audit_log "
+                                         "WHERE target_type = 'PROJECT' AND to_status = 'PUBLISHED' LIMIT 1")
+    assert any("before the project was first published" in p for p in check_database(broken))
