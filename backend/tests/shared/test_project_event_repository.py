@@ -54,3 +54,22 @@ def test_the_designers_statistics_use_the_shared_report_service(app, monkeypatch
     assert client.post("/api/auth/login", json={"email": "designer@demo.agroup", "password": "demo"}).status_code == 200
     statistics = client.get("/api/statistics?period=daily").get_json()
     assert statistics["projects"] and len(statistics["projects"][0]["series"]) == 7 and calls
+
+
+def test_the_public_methods_are_the_ones_the_shared_class_diagram_draws():
+    """Class_3 draws record, recordMany and countBy; counting inside a transaction is an internal helper."""
+    repo = importlib.import_module("backend.repositories.project_event_repository").ProjectEventRepository
+    public = {name for name in vars(repo) if not name.startswith("_")}
+    assert public == {"record", "record_many", "count_by"}
+
+
+def test_the_report_service_counts_through_count_by_as_in_seq_9(app, monkeypatch):
+    """Seq_9 View a Report: ReportService -> ProjectEventRepository: countBy(period, groupBy, filters)."""
+    reports = app.extensions["shared"].reports
+    calls = []
+    original = reports.events.count_by
+    monkeypatch.setattr(reports.events, "count_by", lambda *a, **k: calls.append(a) or original(*a, **k))
+    period = reports.period("monthly", "2026-11-01")
+    reports.aggregate(period, "project")
+    reports.platform_metrics(period)
+    assert len(calls) >= 3 and {c[1] for c in calls} >= {"project", "total"}
