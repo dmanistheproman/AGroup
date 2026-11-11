@@ -46,6 +46,11 @@ class UserAccount:
         """New account with the password stored only as a hash."""
         return cls(user_id, name, email, generate_password_hash(password), role)
 
+    @property
+    def account_id(self):
+        """The account's id, as accountId() in the shared class diagram (Class_4)."""
+        return self.id
+
     def verify_password(self, password):
         return bool(password) and check_password_hash(self.password_hash, password)
 
