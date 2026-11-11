@@ -176,14 +176,19 @@ try {
       await page.click("[data-ua=account]");
       return page.waitFor("#modal", { text: "customer@demo.agroup" });
     });
-    await step("UA-01 suspend and UA-02 reactivate the account", async () => {
-      const move = reason => page.eval(`(() => { const f = document.querySelector('#ua-account-status');
-        f.reason.value = '${reason}'; f.requestSubmit(); })()`);
-      await move("UI check: suspended for a test.");
+    await step("UA-01 suspend and UA-02 reactivate the account (shared reason dialog)", async () => {
+      const move = async (kind, reason) => {
+        await page.click(`[data-ua=status][data-move=${kind}]`);
+        if (!await page.waitFor("#reason-dialog[open]")) return false;              // S-04 ConfirmWithReasonDialog
+        await page.eval(`(() => { const f = document.querySelector('#reason-dialog form');
+          f.reason.value = '${reason}'; f.querySelector('button[value=confirm]').click(); })()`);
+        return true;
+      };
+      if (!await move("suspend", "UI check: suspended for a test.")) return false;
       if (!await page.waitFor("#toast", { text: "Account suspended." })) return false;
       await page.click("[data-ua=account]");
-      if (!await page.waitFor("#ua-account-status[data-move=reactivate]")) return false;
-      await move("UI check: appeal accepted.");
+      if (!await page.waitFor("[data-ua=status][data-move=reactivate]")) return false;
+      if (!await move("reactivate", "UI check: appeal accepted.")) return false;
       return page.waitFor("#toast", { text: "Account reactivated." });
     });
     await step("UA-09 flag the account", async () => {
