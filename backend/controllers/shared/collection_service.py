@@ -9,7 +9,7 @@ link that the owner can revoke (C-13).
 import re
 import secrets
 
-from backend.controllers.customer.manage_favourites_controller import project_reference
+from backend.controllers.customer.save_favourite_controller import project_reference
 from backend.controllers.shared.validation_rules import ValidationRules
 from backend.entities.collection import Collection
 from backend.entities.user_account import UserAccount
@@ -25,7 +25,7 @@ class CollectionService:
         self.favourites = favourite_repo
         self.uploads = None        # FileUploadService (S-03), set in server.py: moodboard images
         self.attachments = None    # AttachmentRepo, set in server.py: where an image item's file is
-        self.projects = None       # ProjectRepo, set in server.py: project cards on a shared moodboard
+        self.projects = None       # ProjectRepository, set in server.py: project cards on a shared moodboard
 
     def create(self, customer, name, kind=Collection.KIND_FOLDER):
         if customer is None or customer.role != UserAccount.ROLE_CUSTOMER:

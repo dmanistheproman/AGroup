@@ -23,6 +23,12 @@ def shared(app):
 
 
 @pytest.fixture
+def preferences(app):
+    """C-12: UpdateNotificationPreferenceController, offered with the customer's controllers."""
+    return app.extensions["customer"].update_notification_preference_controller
+
+
+@pytest.fixture
 def designer_side(app):
     return app.extensions["designer"]
 
@@ -118,12 +124,12 @@ def test_a_verification_decision_is_audited_and_the_designer_is_told(shared, des
     request = shared.requests.open(VerificationRequest(designer_side.verification_repo.next_reference(), "COM-FF",
                                                        "user-form-field", ["uploads/COM-FF/licence.pdf"]))
     recommended(designer_side, request.id)
-    designer_side.review_controller.review(request.id, "reject", "The licence is not readable.", reviewer="user-admin")
+    designer_side.decide_verification_controller.review(request.id, "reject", "The licence is not readable.", reviewer="user-admin")
     assert shared.status_change.history_of("VERIFICATION_REQUEST", request.id)[-1].to_status == "REJECTED"
     note = shared.notifications.list_for("user-form-field")[0]
     assert note.type == "VERIFICATION_STATUS" and "not readable" in note.text
     with pytest.raises(ValueError):
-        designer_side.review_controller.review(request.id, "approve", reviewer="user-admin")
+        designer_side.decide_verification_controller.review(request.id, "approve", reviewer="user-admin")
 
 
 # ---- offers (S-21, ID-05, ID-07, ID-09) ----
@@ -171,8 +177,8 @@ def test_a_payment_reminder_reaches_the_customer(shared, designer_side):
     shared.requests.assign_handler("CUS-101", "user-form-field")
     milestone = designer_side.payment_repo.create_for_quotation("QT-101", [
         {"name": "Deposit", "amount": 5000, "due_date": "2026-01-01"}])[0]
-    designer_side.payment_controller._quotations_for = lambda user_id: ["QT-101"]
-    result = designer_side.payment_controller.remind(milestone.id, "user-form-field")
+    designer_side.record_payment_controller._quotations_for = lambda user_id: ["QT-101"]
+    result = designer_side.record_payment_controller.remind(milestone.id, "user-form-field")
     assert result["reminded"] and "not implemented" not in result["message"]
     note = shared.notifications.list_for("CUS-101")[0]
     assert note.type == "PAYMENT_REMINDER" and "Deposit" in note.text
@@ -194,10 +200,10 @@ def test_the_request_page_is_for_its_customer_and_designer(app, shared, designer
     assert other.get("/api/requests/CUS-101").status_code == 403
 
 
-def test_customers_choose_enquiry_offer_and_payment_updates(shared):
-    types = [p["event_type"] for p in shared.preferences.list_for(user(shared, "CUS-101"))]
+def test_customers_choose_enquiry_offer_and_payment_updates(shared, preferences):
+    types = [p["event_type"] for p in preferences.list_for(user(shared, "CUS-101"))]
     assert {"ENQUIRY_UPDATE", "OFFER_SENT", "PAYMENT_REMINDER"} <= set(types)
-    shared.preferences.update(user(shared, "CUS-101"), "OFFER_SENT", False)
+    preferences.update(user(shared, "CUS-101"), "OFFER_SENT", False)
     assert shared.rules.notify("CUS-101", "OFFER_SENT", "x") is None
 
 
@@ -208,7 +214,7 @@ def test_a_rejected_verification_goes_back_to_review_when_resubmitted(shared, de
         upload=lambda file, owner_type, owner_id, kind="image": f"uploads/{owner_id}/{file['filename']}")
     first = designer_side.verification_controller.submit("user-form-field", {"documents": [{"filename": "a.pdf"}]})
     recommended(designer_side, first.id)
-    designer_side.review_controller.review(first.id, "reject", "Blurred scan.", reviewer="user-admin")
+    designer_side.decide_verification_controller.review(first.id, "reject", "Blurred scan.", reviewer="user-admin")
     again = designer_side.verification_controller.submit("user-form-field", {"documents": [{"filename": "b.pdf"}]})
     assert (again.id, again.status, again.documents) == (first.id, "PENDING_REVIEW", ["uploads/COM-FF/b.pdf"])
     assert [h.to_status for h in shared.status_change.history_of("VERIFICATION_REQUEST", first.id)] == \
@@ -275,8 +281,8 @@ def test_records_naming_a_customer_without_an_account_change_without_notifying(s
     assert len(shared.notifications.list_for("user-form-field")) == before
 
 
-def test_turning_off_offer_updates_stops_them(shared, designer_side):
-    shared.preferences.update(user(shared, "CUS-101"), "OFFER_SENT", False)
+def test_turning_off_offer_updates_stops_them(shared, preferences, designer_side):
+    preferences.update(user(shared, "CUS-101"), "OFFER_SENT", False)
     shared.requests.assign_handler("CUS-101", "user-form-field")
     q = designer_side.submit_quotation_controller.create("user-form-field", {
         "enquiry_id": "CUS-101", "design_fee": 1, "material_cost": 1, "construction_fee": 1,

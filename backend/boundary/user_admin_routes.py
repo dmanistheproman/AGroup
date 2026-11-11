@@ -2,14 +2,15 @@
 
 The administrator is the logged-in account (shared Log In), given by `admin_provider`; the frontend is never
 trusted to identify or authorise the administrator."""
+from datetime import datetime, timezone
+
 from flask import Blueprint, jsonify, request
-from backend.repositories.account_repo import AccountStoreNotConnected
 from backend.controllers.user_admin.suspend_account_controller import SuspendAccountController, SuspensionError
 from backend.controllers.user_admin.view_admin_history_controller import ActionNotFound
 
 
 def create_user_admin_blueprint(controller: SuspendAccountController, admin_provider=None, flag_controller=None,
-                                history_controller=None):
+                                history_controller=None, reactivate_controller=None, accounts_controller=None):
     bp = Blueprint('user_admin', __name__)
 
     def _admin():
@@ -33,19 +34,51 @@ def create_user_admin_blueprint(controller: SuspendAccountController, admin_prov
         if not isinstance(data, dict):
             return jsonify(error='Expected a JSON request body.', code='INVALID_JSON'), 400
         try:
-            record = controller.suspend_account(
-                account_id, data.get('reason'), str(admin['id'])
-            )
+            account = controller.suspend_account(account_id, data.get('reason'), str(admin['id']))
         except SuspensionError as exc:
             return jsonify(error=str(exc), code=exc.code), exc.http_status
-        except AccountStoreNotConnected as exc:
-            return jsonify(error=str(exc), code='ACCOUNTS_NOT_CONNECTED'), 503
         return jsonify(
             message='Account suspended successfully.',
-            accountId=record.account_id,
-            status='SUSPENDED',
-            suspendedAt=record.suspended_at.isoformat(),
+            accountId=account.id,
+            status=account.status,
+            suspendedAt=datetime.now(timezone.utc).isoformat(),
         ), 200
+
+    # ---- UA-06 account list (UA-04 search, UA-05 filters) and details ----
+    @bp.get('/api/user-admin/accounts')
+    def list_accounts():
+        admin, error, status = _require_admin()
+        if admin is None:
+            return error, status
+        try:
+            return jsonify(accounts_controller.list_accounts(request.args)), 200
+        except ValueError as err:
+            return jsonify(error=str(err)), 400
+
+    @bp.get('/api/user-admin/accounts/<account_id>')
+    def account_detail(account_id):
+        admin, error, status = _require_admin()
+        if admin is None:
+            return error, status
+        try:
+            return jsonify(accounts_controller.account(account_id)), 200
+        except LookupError as err:
+            return jsonify(error=str(err)), 404
+
+    # ---- UA-02 reactivate a suspended account ----
+    @bp.post('/api/user-admin/accounts/<account_id>/reactivate')
+    def reactivate_account(account_id):
+        admin, error, status = _require_admin()
+        if admin is None:
+            return error, status
+        data = request.get_json(silent=True) or {}
+        try:
+            account = reactivate_controller.reactivate(account_id, data.get('reason'), str(admin['id']))
+        except LookupError as err:
+            return jsonify(error=str(err)), 404
+        except ValueError as err:
+            return jsonify(error=str(err)), 400
+        return jsonify(message='Account reactivated.', account=account.public_view()), 200
 
     @bp.post('/api/user-admin/accounts/<account_id>/flag')
     def flag_account(account_id):

@@ -43,12 +43,7 @@ CREATE TABLE IF NOT EXISTS reports (
     snapshot TEXT NOT NULL,
     generated_at TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS audit (
-    id INTEGER PRIMARY KEY,
-    action TEXT NOT NULL,
-    record TEXT NOT NULL,
-    occurred_at TEXT NOT NULL
-);
+DROP TABLE IF EXISTS audit;  -- category changes are in the shared audit_log (UC-PM Design Alignment)
 CREATE TABLE IF NOT EXISTS sequences (
     name TEXT PRIMARY KEY,
     value INTEGER NOT NULL

@@ -1,5 +1,5 @@
 import pytest
-from backend.controllers.designer.project_controller import ProjectController
+from backend.controllers.designer.project_controller import CreateProjectController, DeleteProjectController
 from backend.repositories.memory_repo import MemoryRepo, SEED_CATEGORIES, SEED_PROJECTS
 
 class FakeUploadService:
@@ -8,8 +8,13 @@ class FakeUploadService:
 
 def build():
     projects = MemoryRepo(SEED_PROJECTS)          # same seeds as run.py
-    return (ProjectController(projects, MemoryRepo(SEED_CATEGORIES), FakeUploadService()),
-            projects)
+    return DeleteProjectController(projects), projects
+
+
+def build_create():
+    """ID-03.1: adding a project and the "My Projects" list (CreateProjectController)."""
+    projects = MemoryRepo(SEED_PROJECTS)
+    return CreateProjectController(projects, MemoryRepo(SEED_CATEGORIES), FakeUploadService()), projects
 
 # ---- BF3-6: a project with no client activity is deleted after one confirmation ----
 def test_delete_draft_project_without_activity():
@@ -52,12 +57,12 @@ def test_delete_missing_project_raises():
 
 # ---- Regression guard: create() behaviour and the original keys are unchanged ----
 def test_create_still_returns_original_keys():
-    controller, _ = build()
+    controller, _ = build_create()
     p = controller.create({"title": "T", "description": "D", "category_id": "cat-japandi", "images": []})
     assert set(p) >= {"id", "title", "description", "category_id", "category_name", "attachments", "status"}
 
 def test_list_projects_returns_seeded_and_created():
-    controller, _ = build()
+    controller, _ = build_create()
     controller.create({"title": "New one", "description": "D", "category_id": "cat-japandi", "images": []})
     titles = [p["title"] for p in controller.list_projects()]
     assert "The quiet everyday" in titles and "New one" in titles

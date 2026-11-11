@@ -1,6 +1,6 @@
 import pytest
 
-from backend.controllers.designer.payment_controller import PaymentController
+from backend.controllers.designer.payment_controller import RecordPaymentController
 from backend.entities.payment_milestone import PaymentMilestone
 from backend.repositories.payment_repo import PaymentRepo
 from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
@@ -13,7 +13,7 @@ OWNER_CG = "user-common-ground"   # seed owner of COM-CG (Common Ground)
 def make_controller(repo, ff=("QT-103",), cg=("QT-104",)):
     companies = CompanyRepo.from_data(SEED_COMPANY_DATA)
     scope = {OWNER_FF: list(ff), OWNER_CG: list(cg)}
-    return PaymentController(repo, companies, quotations_for=lambda uid: scope.get(uid, []))
+    return RecordPaymentController(repo, companies, quotations_for=lambda uid: scope.get(uid, []))
 
 
 @pytest.fixture()

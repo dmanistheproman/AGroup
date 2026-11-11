@@ -2,6 +2,8 @@
      AGroupUserAdmin.flag()                 UA-09 Flag a user account, or remove the flag (modal)
      AGroupUserAdmin.notes()                UA-10 Internal notes on a user account (modal, shared NotesPanel S-02)
      AGroupUserAdmin.history(main, stillHere)  UA-11 Action history page: actions on accounts, newest first
+     AGroupUserAdmin.accounts(main, stillHere) UA-06 Account list (UA-04 search, UA-05 filters) and an account's
+                                            details, with suspend (UA-01) / reactivate (UA-02), flag and notes
    portal.js opens the modals (data-action) and passes their forms to submit(); the history page is drawn through
    SharedWorkspace (admin / history). Buttons on the history page use data-ua. */
 (() => {
@@ -109,13 +111,15 @@
     if (!stillHere()) return;
     if (!res.ok) { main.innerHTML = heading + window.AGroupUI.state('error', res.data.error); return; }
     const actions = res.data.actions || [];
-    main.innerHTML = heading + `<section class="panel"><div class="panel-heading"><h2>Actions on accounts</h2>
-        <small>${actions.length} recorded</small></div>
-      ${actions.length ? `<div class="table-wrap"><table><thead><tr><th>Date</th><th>Action</th><th>Account</th><th></th></tr></thead>
-        <tbody>${actions.map(a => `<tr><td>${R.time(a.date)}</td><td>${esc(a.label)}</td>
-          <td>${esc(a.account_name)}<small>${esc(a.account_id)}</small></td>
-          <td><button class="text-button" data-ua="action" data-id="${esc(a.id)}">View</button></td></tr>`).join('')}</tbody></table></div>`
-        : window.AGroupUI.state('empty', 'No administrative actions have been recorded yet.')}</section>`;
+    const UI = window.AGroupUI;   // UA-11 task 3: the shared ListPage (S-05)
+    main.innerHTML = heading + UI.listPage({ total: actions.length, noun: 'action',
+      empty: 'No administrative actions have been recorded yet.',
+      body: UI.table([
+        { label: 'Date', cell: a => R.time(a.date) },
+        { label: 'Action', cell: a => esc(a.label) },
+        { label: 'Account', cell: a => `${esc(a.account_name)}<small>${esc(a.account_id)}</small>` },
+        { label: '', cell: a => `<button class="text-button" data-ua="action" data-id="${esc(a.id)}">View</button>` },
+      ], actions) });
   }
 
   async function showAction(id) {
@@ -133,10 +137,100 @@
       <div class="row"><button class="button outline" data-action="close">Close</button></div>`);
   }
 
-  document.addEventListener('click', event => {
-    const button = event.target.closest('[data-ua="action"]');
-    if (button) showAction(button.dataset.id);
+  // ---------- UA-06 Accounts: list (UA-04 search, UA-05 filters) and details (UA-01, UA-02, UA-09, UA-10) ----------
+  const ROLES = ['CUSTOMER', 'DESIGNER', 'HELPDESK', 'USER_ADMIN', 'PLATFORM_MANAGER'];
+  const STATUSES = ['ACTIVE', 'SUSPENDED'];
+  let listing = { q: '', role: '', status: '', page: 1 };
+  let drawAccounts = null;   // redraws the list after a change
+
+  const accountsHeading = `<div class="page-title"><div><p class="eyebrow">USER ADMIN / WORKSPACE</p><h1>Accounts</h1>
+    <p>Find an account by name or email, filter by role or status, and open it to suspend, reactivate, flag or add a note.</p></div></div>`;
+
+  function filters() {   // UA-04, UA-05: the shared ListPage toolbar (S-05)
+    const options = (values, all) => [['', all], ...values.map(v => [v, R.label(v)])];
+    return window.AGroupUI.toolbar({ id: 'ua-accounts-filter' }, [
+      { name: 'q', label: 'SEARCH', type: 'search', value: listing.q, placeholder: 'Name or email' },
+      { name: 'role', label: 'ROLE', type: 'select', value: listing.role, options: options(ROLES, 'All roles') },
+      { name: 'status', label: 'STATUS', type: 'select', value: listing.status, options: options(STATUSES, 'All statuses') },
+    ], 'Search');
+  }
+
+  async function accounts(main, stillHere) {
+    drawAccounts = () => accounts(main, stillHere);
+    main.innerHTML = accountsHeading + window.AGroupUI.state('loading');
+    const query = new URLSearchParams(Object.entries(listing).filter(([, v]) => v !== '' && v !== null));
+    const res = await R.call('GET', `/api/user-admin/accounts?${query}`);
+    if (!stillHere()) return;
+    if (!res.ok) { main.innerHTML = accountsHeading + window.AGroupUI.state('error', res.data.error); return; }
+    const { items, total, page, pages } = res.data;
+    const UI = window.AGroupUI;   // UA-06 task 2: the shared ListPage (S-05) over the PagedQuery result
+    main.innerHTML = accountsHeading + UI.listPage({ toolbar: filters(), total, noun: 'account', page, pages,
+      empty: 'No accounts match the search.', pageAttrs: p => `data-ua="page" data-page="${p}"`,
+      body: UI.table([
+        { label: 'Name', cell: a => `${esc(a.name)}<small>${esc(a.id)}</small>` },
+        { label: 'Email', cell: a => esc(a.email) },
+        { label: 'Role', cell: a => esc(R.label(a.role)) },
+        { label: 'Status', cell: a => `${R.statusBadge(a.status)}${a.flagged ? ' <small>flagged</small>' : ''}` },
+        { label: '', cell: a => `<button class="text-button" data-ua="account" data-id="${esc(a.id)}">Open</button>` },
+      ], items) });
+  }
+
+  async function showAccount(id) {
+    const res = await R.call('GET', `/api/user-admin/accounts/${encodeURIComponent(id)}`);
+    if (!res.ok) { toast(res.data.error || 'This account could not be opened.'); return; }
+    const { account: a, allowed_statuses: allowed } = res.data;
+    const move = allowed.includes('SUSPENDED') ? ['suspend', 'Suspend account', 'Why is the account suspended?']
+      : allowed.includes('ACTIVE') ? ['reactivate', 'Reactivate account', 'Why can the account be used again?'] : null;
+    open(window.AGroupUI.recordPage({   // UA-06 task 3: the account detail page is the shared RecordPage (S-20)
+      eyebrow: `ACCOUNT ${a.id}`, title: a.name, status: a.status,
+      details: [['Email', esc(a.email)], ['Role', esc(R.label(a.role))],
+                ['Flag', a.flagged ? esc(a.flag_reason || 'Flagged') : 'Not flagged']],
+      actions: `${move ? `<button class="button" data-ua="status" data-id="${esc(a.id)}" data-move="${move[0]}"
+          data-title="${esc(move[1])}" data-placeholder="${esc(move[2])}">${esc(move[1])}</button>` : ''}
+        <button class="button outline" data-ua="flag" data-id="${esc(a.id)}">Flag or remove flag</button>
+        <button class="button outline" data-ua="notes" data-id="${esc(a.id)}">Internal notes</button>
+        <button class="text-button" data-action="close">Close</button>` }));
+  }
+
+  /* UA-01 task 3, UA-02: suspend or reactivate with the shared ConfirmWithReasonDialog (S-04) on the account page. */
+  async function changeStatus(button) {
+    const { id, move, title, placeholder } = button.dataset;
+    const reason = await R.confirmWithReason({ title, confirmLabel: title, reasonRequired: true, placeholder,
+      message: move === 'suspend' ? 'The account holder cannot log in until the account is reactivated.'
+                                  : 'The account holder can log in again.' });
+    if (reason === null) return;
+    const res = await R.call('POST', `/api/user-admin/accounts/${encodeURIComponent(id)}/${move}`, { reason });
+    if (!res.ok) { toast(res.data.error || 'The account could not be changed.'); return; }
+    modal().close();
+    toast(move === 'suspend' ? 'Account suspended.' : 'Account reactivated.');
+    if (drawAccounts) drawAccounts();
+  }
+
+  function withAccount(openModal, id) {   // the flag and notes modals, already filled in with this account
+    openModal();
+    content().querySelector('[name="accountId"]').value = id;
+  }
+
+  document.addEventListener('submit', event => {
+    const form = event.target;
+    if (form.id === 'ua-accounts-filter') {
+      event.preventDefault();
+      listing = { ...listing, ...Object.fromEntries(new FormData(form)), page: 1 };
+      if (drawAccounts) drawAccounts();
+    }
   });
 
-  window.AGroupUserAdmin = { flag, notes, submit, history };
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-ua]');
+    if (!button) return;
+    const kind = button.dataset.ua;
+    if (kind === 'action') showAction(button.dataset.id);
+    else if (kind === 'account') showAccount(button.dataset.id);
+    else if (kind === 'status') changeStatus(button);
+    else if (kind === 'page' && !button.disabled) { listing.page = Number(button.dataset.page); drawAccounts(); }
+    else if (kind === 'flag') withAccount(flag, button.dataset.id);
+    else if (kind === 'notes') withAccount(notes, button.dataset.id);
+  });
+
+  window.AGroupUserAdmin = { flag, notes, submit, history, accounts };
 })();

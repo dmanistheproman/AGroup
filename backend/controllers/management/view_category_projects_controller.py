@@ -1,6 +1,6 @@
 
 
-class ReviewCategoryProjectsController:
+class ViewCategoryProjectsController:
     def __init__(self, projects):
         self.projects = projects
 

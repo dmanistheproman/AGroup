@@ -15,9 +15,9 @@ from backend.entities.verification_request import VerificationRequest
 from backend.repositories.audit_log_repo import AuditLogRepo
 from backend.repositories.enquiry_repo import EnquiryRepo
 from backend.repositories.notification_repo import NotificationRepo
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.project_repository import ProjectRepository
 from backend.repositories.support_ticket_repo import SupportTicketRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 from backend.repositories.verification_repo import VerificationRepo
 from backend.seed import seed_demo
 from backend.server import create_app
@@ -71,10 +71,10 @@ def test_paged_query_refuses_bad_paging(page, size):
 def projects():
     store = MemoryStore()
     seed_demo(store)
-    repo = ProjectRepo(store)
+    repo = ProjectRepository(store)
     repo.save({"id": "IDP-501", "title": "Draft loft", "description": "d", "category_id": "CAT-01",
                "status": "DRAFT", "owner_id": "user-form-field", "firm": "Form & Field"})
-    accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
+    accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
     notifications = NotificationService(NotificationRepo(store))
     rules = NotificationRules(notifications, accounts, SupportTicketRepo(store), repo)
     status_change = StatusChangeService(AuditLogRepo(store), rules)
@@ -145,7 +145,7 @@ def test_unknown_project_is_not_found(projects):
 
 def test_request_service_opens_enquiries_and_verification_requests_with_threads():
     store = MemoryStore()
-    accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
+    accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
     tickets = SupportTicketRepo(store)
     rules = NotificationRules(NotificationService(NotificationRepo(store)), accounts, tickets)
     service = RequestService(tickets, rules)
@@ -166,7 +166,7 @@ def test_request_service_refuses_an_unregistered_request_type():
         pass
     tickets = SupportTicketRepo()
     service = RequestService(tickets, NotificationRules(NotificationService(NotificationRepo()),
-                                                        UserAccountRepo(), tickets))
+                                                        UserAccountRepository(), tickets))
     with pytest.raises(ValueError, match="request type"):
         service.open(Other())
 

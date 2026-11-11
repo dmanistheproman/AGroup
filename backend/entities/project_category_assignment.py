@@ -45,9 +45,9 @@ class ProjectCategoryAssignment:
 
     @staticmethod
     def assign(connection, project_id, category_id):
-        from backend.entities.project_category import ProjectCategory
+        from backend.repositories.category_repository import CategoryRepository
 
-        category = ProjectCategory.find_by_id(connection, category_id)
+        category = CategoryRepository.find_by_id(connection, category_id)
         if category["status"] != "Active":
             raise BusinessError("New assignments require an active category.", 409)
         connection.execute(

@@ -6,6 +6,10 @@ class PaymentMilestone:
     PAID = "Paid"
     OVERDUE = "Overdue"
     VALID_STATUSES = (PENDING, PAID, OVERDUE)
+    RECORD_TYPE = "PAYMENT_MILESTONE"   # its name in the shared StatusChangeService and the audit log (S-04)
+    # ID-09 tasks 3 and 4: paying and falling overdue are status changes through StatusChangeService
+    TRANSITIONS = {PENDING: {PAID, OVERDUE}, OVERDUE: {PAID}}
+    REASON_REQUIRED = set()
 
     def __init__(self, milestone_id, quotation_id, name, amount, due_date,
                  status=PENDING, paid_date=None):
@@ -37,6 +41,9 @@ class PaymentMilestone:
             raise ValueError("Milestone is already paid")
         self.status = self.PAID
         self.paid_date = paid_date
+
+    def set_status(self, status):
+        self.status = status
 
     def is_overdue(self, today):
         return self.status == self.PENDING and self.due_date < today

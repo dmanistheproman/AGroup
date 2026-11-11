@@ -1,6 +1,6 @@
 """<<entity>> UserAccount — one account per person, for every role (X-10).
 
-Also satisfies the UA-01 account contract (`account_id`, `status`; see SUSPENSION_SETUP.md).
+Active <-> Suspended are status changes through the shared StatusChangeService (UA-01, UA-02).
 """
 from datetime import datetime, timezone
 
@@ -48,7 +48,7 @@ class UserAccount:
 
     @property
     def account_id(self):
-        """Name used by the UA-01 suspension contract."""
+        """The account's id, as accountId() in the shared class diagram (Class_4)."""
         return self.id
 
     def verify_password(self, password):

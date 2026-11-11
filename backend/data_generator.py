@@ -142,11 +142,10 @@ def count_records(path):
 
 class _Generator:
     def __init__(self, app, rng, n, log):
-        from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
-        from backend.controllers.helpdesk.merge_ticket_controller import MergeTicketController
+        from backend.controllers.customer.save_favourite_controller import SaveFavouriteController
+        from backend.controllers.helpdesk.merge_tickets_controller import MergeTicketsController
         from backend.controllers.shared.activity_recorder import ActivityRecorder
-        from backend.entities.project_activity import ProjectActivity
-        from backend.entities.project_category import ProjectCategory
+        from backend.repositories.category_repository import CategoryRepository
         from backend.repositories.company_repo import CompanyRepo
         from backend.repositories.customer_repo import CustomerRepo
         from backend.repositories.enquiry_repo import EnquiryRepo
@@ -157,16 +156,18 @@ class _Generator:
         from backend.repositories.verification_repo import VerificationRepo
 
         self.s = app.extensions["shared"]
+        self.customer = app.extensions["customer"]   # C-12 preferences go through the customer's controller
+        self.management = app.extensions["management"]   # PM-04: archiving goes through the shared status change
         store = self.s.store
         self.rng, self.n, self.log = rng, n, log
         self.accounts = _FastAccounts(self.s.account_service)
         self.r = SimpleNamespace(
-            categories=ProjectCategory(store), customers=CustomerRepo(store), companies=CompanyRepo(store),
+            categories=CategoryRepository(store), customers=CustomerRepo(store), companies=CompanyRepo(store),
             enquiries=EnquiryRepo(store),
             quotations=QuotationRepo(store), proposals=ProposalRepo(store), payments=PaymentRepo(store),
             verifications=VerificationRepo(store),
-            favourites=ManageFavouritesController(FavouriteRepository(store), self.s.projects, ProjectActivity(store)),
-            merge=MergeTicketController(self.s.tickets, self.s.status_change, self.s.message_repo, self.s.note_repo),
+            favourites=SaveFavouriteController(FavouriteRepository(store), self.s.projects, ActivityRecorder(store)),
+            merge=MergeTicketsController(self.s.tickets, self.s.status_change, self.s.message_repo, self.s.note_repo),
             activity=ActivityRecorder(store))
         self.now = datetime.now(timezone.utc)
         self.customers, self.designers, self.agents, self.visible = [], [], [], []
@@ -239,7 +240,7 @@ class _Generator:
                 continue
             category = self.r.categories.create(name, f"{name} interiors: a generated test category.")
             if self.rng.random() < 0.1:
-                self.r.categories.change_status(category["id"], category["version"], "Active", "Archived")
+                self.management.ArchiveCategoryController.archive_category(category["id"], category["version"])
             made += 1
 
     def projects(self):
@@ -488,7 +489,8 @@ class _Generator:
 
     def preferences(self):
         for customer in self.rng.sample(self.customers, min(self.n["preferences"], len(self.customers))):
-            self.s.preferences.update(customer, self.pick(["NEW_MESSAGE", "TICKET_STATUS"]), False)
+            self.customer.update_notification_preference_controller.update(
+                customer, self.pick(["NEW_MESSAGE", "TICKET_STATUS"]), False)
 
     # ---- failed uploads (S-03, HD-08) ----
     def upload_failures(self):

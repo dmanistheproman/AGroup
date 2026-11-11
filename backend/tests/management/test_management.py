@@ -14,7 +14,7 @@ from backend.server import create_app
 from backend.controllers.management.merge_categories_controller import MergeCategoriesController
 from backend.services.management_rules import BusinessError
 from backend.entities.report_period import Period
-from backend.entities.project_category import ProjectCategory
+from backend.repositories.category_repository import CategoryRepository
 from backend.entities.project_category_assignment import ProjectCategoryAssignment
 from backend.storage import SQLiteStore
 
@@ -30,7 +30,7 @@ class ManagementTests(unittest.TestCase):
         self.client.post('/api/auth/login', json={'email': 'manager@demo.agroup', 'password': 'demo'})
         self.token = self.client.get('/api/session').json['csrfToken']
         self.store = self.app.extensions['management_store']
-        self.entity = ProjectCategory(self.store)
+        self.entity = CategoryRepository(self.store)
         self.source = self.entity.create('Modern Style', 'Source category')
         self.target = self.entity.create('Modern', 'Target category')
         with self.store.transaction(write=True) as connection:
@@ -66,7 +66,7 @@ class ManagementTests(unittest.TestCase):
     def merge_state(self):
         state = {}
         with self.store.transaction() as connection:
-            for table in ['categories', 'assignments', 'projects', 'activities', 'audit', 'reports']:
+            for table in ['categories', 'assignments', 'projects', 'activities', 'audit_log', 'reports']:
                 rows = connection.execute(f'SELECT * FROM {table} ORDER BY rowid').fetchall()
                 state[table] = [dict(row) for row in rows]
         return state
@@ -151,13 +151,13 @@ class ManagementTests(unittest.TestCase):
             connection.execute("""CREATE TRIGGER simulated_failure BEFORE UPDATE OF status ON categories
                 WHEN NEW.status = 'Merged' BEGIN SELECT RAISE(ABORT, 'simulated write failure'); END""")
         with self.assertRaises(sqlite3.IntegrityError):
-            MergeCategoriesController(ProjectCategory(self.store)).merge_categories(self.source['id'], self.target['id'], 1, 1)
+            MergeCategoriesController(CategoryRepository(self.store)).merge_categories(self.source['id'], self.target['id'], 1, 1)
         self.assertEqual(self.category(self.source['id'])['count'], 2)
         self.assertEqual(self.category(self.target['id'])['count'], 2)
         self.assertEqual(self.category(self.source['id'])['status'], 'Active')
 
     def test_merge_messages_follow_the_sequence_diagram(self):
-        controller = MergeCategoriesController(ProjectCategory(self.store))
+        controller = MergeCategoriesController(CategoryRepository(self.store))
         messages = Mock()
         with (
             patch.object(controller.categories, 'find_pair', wraps=controller.categories.find_pair) as find_pair,
@@ -180,8 +180,8 @@ class ManagementTests(unittest.TestCase):
 
     def test_invalid_merge_paths_stop_before_entity_mutation(self):
         archived = self.entity.create('Archived choice', '')
-        self.entity.change_status(archived['id'], 1, 'Active', 'Archived')
-        controller = MergeCategoriesController(ProjectCategory(self.store))
+        self.app.extensions['management'].ArchiveCategoryController.archive_category(archived['id'], 1)
+        controller = MergeCategoriesController(CategoryRepository(self.store))
         selections = [
             (self.source['id'], self.source['id'], 1, 1),
             (archived['id'], self.target['id'], 2, 1),
@@ -245,8 +245,8 @@ class ManagementTests(unittest.TestCase):
             self.assertEqual(connection.execute('PRAGMA foreign_key_check').fetchall(), [])
             columns = [row['name'] for row in connection.execute('PRAGMA table_info(categories)')]
             self.assertEqual(columns.count('deleted_at'), 1)
-        result = MergeCategoriesController(ProjectCategory(migrated)).merge_categories(self.source['id'], self.target['id'], 1, 1)
-        entity = ProjectCategory(migrated)
+        result = MergeCategoriesController(CategoryRepository(migrated)).merge_categories(self.source['id'], self.target['id'], 1, 1)
+        entity = CategoryRepository(migrated)
         entity.delete(self.source['id'], 2)
         self.assertEqual(entity.list_deleted()[0]['target'], result['target']['name'])
 

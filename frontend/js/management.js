@@ -27,8 +27,12 @@
       data-id="${escape(id)}" ${extra}>${escape(label)}</button>`;
   }
 
+  // Shared parts (S-04 StatusBadge, ConfirmWithReasonDialog, HistoryTimeline; S-05 ListPage table and states)
+  const sharedRecords = () => window.AGroupRecords;
+  const ui = () => window.AGroupUI;
+
   function status(value) {
-    return `<span class="status">${escape(value)}</span>`;
+    return sharedRecords().statusBadge(value);
   }
 
   function metrics(items) {
@@ -56,7 +60,7 @@
     return new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore', dateStyle: 'medium', timeStyle: 'short' });
   }
 
-  class CategoryManagementPage {
+  class CategoryListPage {   // PM-01 to PM-14: the category list (Final Design Alignment name)
     constructor() {
       this.categories = [];
       this.search = '';
@@ -93,17 +97,20 @@
           return item ? `#${item.trendingRank}<small>${item.views} views · ${item.favourites} saves · ${item.enquiries} enquiries</small>` : '—';
         };
         document.querySelector('#management-list-error').textContent = '';
-        document.querySelector('#management-categories').innerHTML = `<div class="table-wrap"><table>
-          <thead><tr><th>Category</th><th>Projects</th><th>Status</th><th>Trending (${trending.days} days)</th><th>Featured</th><th>Actions</th></tr></thead>
-          <tbody>${this.categories.map(category => `<tr>
-            <td><b>${escape(category.name)}</b><small>${escape(category.description)}</small>
-              ${category.target ? `<small>Merged into ${escape(category.target)}</small>` : ''}</td>
-            <td>${category.count}</td><td>${status(category.status)}</td><td>${trendCell(category)}</td>
-            <td>${category.featured ? 'Featured' : '—'}</td>
-            <td>${button('Manage', 'edit', category.id)} ${button('Projects', 'projects', category.id)}
-              ${category.status === 'Active' ? button(category.featured ? 'Unfeature' : 'Feature', 'feature', category.id) : ''}</td>
-          </tr>`).join('') || '<tr><td colspan="6">No categories match your search and status selection.</td></tr>'}</tbody>
-          </table></div>${trending.noRecentActivity ? `<p class="hint">No category has activity in the last ${trending.days} days. You can still feature a category.</p>` : ''}`;
+        const columns = [
+          { label: 'Category', cell: category => `<b>${escape(category.name)}</b><small>${escape(category.description)}</small>
+              ${category.target ? `<small>Merged into ${escape(category.target)}</small>` : ''}` },
+          { label: 'Projects', cell: category => escape(category.count) },
+          { label: 'Status', cell: category => status(category.status) },
+          { label: `Trending (${trending.days} days)`, cell: trendCell },
+          { label: 'Featured', cell: category => category.featured ? 'Featured' : '—' },
+          { label: 'Actions', cell: category => `${button('Manage', 'edit', category.id)} ${button('Projects', 'projects', category.id)}
+              ${category.status === 'Active' ? button(category.featured ? 'Unfeature' : 'Feature', 'feature', category.id) : ''}` },
+        ];
+        document.querySelector('#management-categories').innerHTML = (this.categories.length
+          ? ui().table(columns, this.categories)
+          : ui().state('empty', 'No categories match your search and status selection.')) +
+          (trending.noRecentActivity ? `<p class="hint">No category has activity in the last ${trending.days} days. You can still feature a category.</p>` : '');
       } catch (error) {
         if (token === generation && searchToken === this.searchGeneration) {
           showError(error, document.querySelector('#management-list-error'));
@@ -129,7 +136,21 @@
           ${category.status === 'Active' ? button('Archive', 'archive', id) + button(category.featured ? 'Unfeature' : 'Feature category', 'feature', id) : ''}
           ${category.status === 'Archived' ? button('Restore category', 'restore', id) : ''}
           ${button('Review assigned projects', 'projects', id)}</div>
-          <p class="hint">${category.target ? `Merged into ${escape(category.target)}.` : 'Review the assigned projects to assess the impact of a change.'}</p>` : ''}`);
+          <p class="hint">${category.target ? `Merged into ${escape(category.target)}.` : 'Review the assigned projects to assess the impact of a change.'}</p>
+          <h3>Status history</h3><div id="management-history">${ui().state('loading')}</div>` : ''}`);
+      if (category) this.history(id, token);
+    }
+
+    /* S-04 HistoryTimeline: the category's status changes from the shared audit log. */
+    async history(id, token) {
+      const target = () => document.querySelector('#management-history');
+      try {
+        const result = await api.get(`/api/history/CATEGORY/${encodeURIComponent(id)}`);
+        if (token !== generation || !target()) return;
+        target().innerHTML = sharedRecords().historyTimeline(result.history.filter(entry => entry.to_status));
+      } catch (error) {
+        if (target()) target().innerHTML = ui().state('error', error.message);
+      }
     }
 
     async confirm(id, action) {
@@ -145,6 +166,17 @@
       };
       const labels = { archive: 'Archive', restore: 'Restore', feature: category.featured ? 'Unfeature' : 'Feature' };
       const label = labels[action];
+      if (action !== 'feature') {   // PM-04, PM-07: status changes use the shared ConfirmWithReasonDialog (S-04)
+        const reason = await sharedRecords().confirmWithReason({
+          title: `${label} ${category.name}?`, message: descriptions[action], confirmLabel: `${label} category`,
+          reasonRequired: false, placeholder: 'Why is this category changing? It is kept in the status history.' });
+        if (reason === null || token !== generation) return;
+        await api.send(`${base}/categories/${encodeURIComponent(id)}/${action}`, { version: category.version, reason }, 'POST');
+        AG.toast('Category updated.');
+        if (modal.open) modal.close();
+        await render(activeSection);
+        return;
+      }
       showDialog(`<h2>${label} ${escape(category.name)}?</h2><p>${descriptions[action]}</p>
         <form data-management-form="state" data-id="${escape(id)}" data-version="${category.version}"
           data-operation="${action}" data-featured="${!category.featured}" class="form-stack">
@@ -190,11 +222,10 @@
         <p>${result.projects.length} assigned projects · ${escape(result.category.status)}</p>
         ${result.target ? `<p>Merged into ${escape(result.target.name)}.
           ${button('Review target projects', 'projects', result.target.id)}</p>` : ''}
-        <div class="management-project-list">${result.projects.map(project => `
-          <article class="management-project"><img src="${escape(project.attachments?.[0] || 'assets/' + (project.image || 'living') + '.jpg')}" alt="" loading="lazy">
-            <div><b>${escape(project.title)}</b><p>${[project.firm, project.type, project.location].filter(Boolean).map(escape).join(' · ')}</p>
-              <small>${project.categoryNames.map(escape).join(' · ')}</small></div></article>`).join('') ||
-          '<p>No projects are currently assigned to this category.</p>'}</div>`);
+        ${result.projects.length ? `<div class="project-grid">${result.projects.map(project => `<div>${ui().projectCard(   // PM-10: shared ProjectCard (S-08)
+            { ...project, image: project.attachments?.[0] || project.image }, { saved: null, link: `index.html#project-${project.id}` })}
+            <small>${project.categoryNames.map(escape).join(' · ')}</small></div>`).join('')}</div>`
+          : ui().state('empty', 'No projects are currently assigned to this category.')}`);
     }
   }
 
@@ -203,12 +234,14 @@
       const result = await api.get(`${base}/categories/usage`);
       if (token !== generation) return;
       main.innerHTML = heading('Category usage', 'Review current project assignments and all recorded activity before changing a category.', button('Refresh', 'refresh')) +
-        panel('Usage by category', `<div class="table-wrap"><table>
-          <thead><tr><th>Category</th><th>Projects</th><th>Views</th><th>Favourite additions</th><th>Enquiries</th><th>Action</th></tr></thead>
-          <tbody>${result.categories.map(category => `<tr><td><b>${escape(category.name)}</b><small>${escape(category.status)}</small></td>
-            <td>${category.projects}</td><td>${category.views}</td><td>${category.favourites}</td><td>${category.enquiries}</td>
-            <td>${button('Review projects', 'projects', category.id)}</td></tr>`).join('') ||
-          '<tr><td colspan="6">Create a category to begin tracking its usage.</td></tr>'}</tbody></table></div>`, 'All available history') +
+        panel('Usage by category', result.categories.length ? ui().table([
+          { label: 'Category', cell: category => `<b>${escape(category.name)}</b><small>${escape(category.status)}</small>` },
+          { label: 'Projects', cell: category => escape(category.projects) },
+          { label: 'Views', cell: category => escape(category.views) },
+          { label: 'Favourite additions', cell: category => escape(category.favourites) },
+          { label: 'Enquiries', cell: category => escape(category.enquiries) },
+          { label: 'Action', cell: category => button('Review projects', 'projects', category.id) },
+        ], result.categories) : ui().state('empty', 'Create a category to begin tracking its usage.'), 'All available history') +
         '<p class="small-note">Figures follow current category assignments. Projects can appear in several categories. Favourite additions count recorded save actions.</p>';
     }
   }
@@ -279,6 +312,10 @@
         metrics(report.rows.map(row => [row.label, row.value, comparison ? 'Comparison period' : 'Selected period'])) +
         panel(comparison ? 'Period comparison' : 'Activity totals', table(report.rows)) +
         (report.accounts ? panel('New accounts by role', table(report.accounts)) : '') +
+        (report.projects && report.projects.length ? panel('Activity by project', `<div class="table-wrap"><table>
+          <thead><tr><th>Project</th><th>Views</th><th>Favourites</th><th>Enquiries</th></tr></thead>
+          <tbody>${report.projects.map(row => `<tr><td>${escape(row.label)}<small>${escape(row.key)}</small></td>
+            <td>${row.views}</td><td>${row.favourites}</td><td>${row.enquiries}</td></tr>`).join('')}</tbody></table></div>`) : '') +
         '<p class="small-note">Projects created counts new project records within the period; projects published counts each project made visible to customers in the period once. Activity follows current category assignments. ' +
         (report.accounts ? 'New accounts are counted by the role they were created with.' : 'New accounts belong to no category, so they are shown for all categories only.') +
         ' A zero baseline gives N/A for percentage change.</p>';
@@ -304,7 +341,7 @@
     }
   }
 
-  const categoryPage = new CategoryManagementPage();
+  const categoryPage = new CategoryListPage();
   const usagePage = new CategoryUsagePage();
   const reportPage = new ActivityReportPage();
 

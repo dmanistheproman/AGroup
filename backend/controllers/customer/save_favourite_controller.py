@@ -1,4 +1,5 @@
-"""<<control>> ManageFavouritesController — C-04 save projects to a favourites list.
+"""<<control>> SaveFavouriteController — C-04.1 save a project to the favourites list, C-04.4 remove it.
+The list itself is shown by ViewFavouritesController (C-04.2).
 
 Only projects customers can see (S-09) can be saved. Saving records a FAVOURITE_ADD event and removing an
 UNFAVOURITE event (S-18); ID-13
@@ -20,7 +21,7 @@ def project_reference(project_id) -> str:
     return f"IDP-{int(match.group(1)):03d}"
 
 
-class ManageFavouritesController:
+class SaveFavouriteController:
     def __init__(self, favourite_repo: FavouriteRepository, project_repo=None, activity=None):
         self.favourite_repo = favourite_repo
         self.project_repo = project_repo
@@ -36,7 +37,7 @@ class ManageFavouritesController:
         if added:
             self.favourite_repo.save(fav_list)
             if self.activity is not None:
-                self.activity.record(int(reference.split("-")[1]), "FAVOURITE_ADD",
+                self.activity.record_event(int(reference.split("-")[1]), "FAVOURITE_ADD",
                                      f"fav-{customer_id}-{reference}-{uuid4().hex[:12]}")
         return {"success": added, "favourites": fav_list.to_dict()}
 
@@ -49,13 +50,9 @@ class ManageFavouritesController:
             if self.collections is not None:
                 self.collections.remove_project_everywhere(customer_id, reference)
             if self.activity is not None:
-                self.activity.record(int(reference.split("-")[1]), "UNFAVOURITE",
+                self.activity.record_event(int(reference.split("-")[1]), "UNFAVOURITE",
                                      f"unfav-{customer_id}-{reference}-{uuid4().hex[:12]}")
         return {"success": removed, "favourites": fav_list.to_dict()}
-
-    def get_favourites(self, customer_id: str) -> dict:
-        fav_list = self.favourite_repo.get_by_customer(customer_id)
-        return fav_list.to_dict()
 
     def _check_visible(self, reference):
         if self.project_repo is None:

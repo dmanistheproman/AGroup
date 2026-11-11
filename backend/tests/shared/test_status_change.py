@@ -11,7 +11,7 @@ from backend.entities.support_ticket import SupportTicket
 from backend.repositories.audit_log_repo import AuditLogRepo
 from backend.repositories.notification_repo import NotificationRepo
 from backend.repositories.support_ticket_repo import SupportTicketRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 
 TICKET = "SUPPORT_TICKET"
 
@@ -120,7 +120,7 @@ def test_audit_log_ids_are_numbered():
 # ---- TicketLifecycle (S-15) ----
 
 def build_lifecycle():
-    accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA)
     tickets = SupportTicketRepo()
     notifications = NotificationService(NotificationRepo())
     rules = NotificationRules(notifications, accounts, tickets)

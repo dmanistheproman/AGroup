@@ -1,5 +1,6 @@
 import pytest
-from backend.controllers.designer.verification_controller import SubmitVerificationController, ReviewVerificationController
+from backend.controllers.designer.verification_controller import SubmitVerificationController
+from backend.controllers.user_admin.decide_verification_controller import DecideVerificationController
 from backend.repositories.company_repo import CompanyRepo, SEED_COMPANY_DATA
 from backend.repositories.verification_repo import VerificationRepo
 
@@ -23,7 +24,7 @@ def build():
     companies = CompanyRepo.from_data(SEED_COMPANY_DATA)
     verifications = VerificationRepo()
     submit = SubmitVerificationController(companies, verifications, FakeUploadService())
-    review = ReviewVerificationController(verifications, companies)
+    review = DecideVerificationController(verifications, companies)
     return submit, review
 
 def docs(*names):

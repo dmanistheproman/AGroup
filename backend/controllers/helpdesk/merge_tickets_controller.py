@@ -1,4 +1,4 @@
-"""<<control>> MergeTicketController — HD-05 merge duplicate tickets. Method names follow the HD05 sequence diagram.
+"""<<control>> MergeTicketsController — HD-05 merge duplicate tickets. Method names follow the HD05 sequence diagram.
 
 Works on the shared SupportTicket (S-15): the remaining (main) ticket receives the other ticket's messages
 (S-01) and internal notes (S-02), so it holds the combined case history; the other ticket becomes MERGED
@@ -22,7 +22,7 @@ def validate_same_requester_and_idp(main, other):
         raise MergeNotAllowed("Tickets must have the same requester and IDP")
 
 
-class MergeTicketController:
+class MergeTicketsController:
     TARGET = "SUPPORT_TICKET"
 
     def __init__(self, ticket_repo, status_change, message_repo, note_repo):

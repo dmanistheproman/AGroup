@@ -5,6 +5,13 @@ and archived categories are left out; with no recent activity the zero counts ar
 import json
 
 from backend.controllers.management.view_category_usage_controller import ViewCategoryUsageController
+from backend.controllers.shared.report_service import ReportService
+
+
+def usage(store):
+    """PM-14 counts come from the shared ReportService."""
+    return ViewCategoryUsageController(store, ReportService(store))
+from backend.controllers.shared.report_service import ReportService
 from backend.server import create_app
 from backend.storage import SQLiteStore
 
@@ -32,7 +39,7 @@ def test_active_categories_are_ranked_by_activity_in_the_last_30_days(tmp_path):
     events = ([(1, "VIEW", recent)] + [(1, "VIEW", old)] * 5
               + [(2, "VIEW", recent), (2, "FAVOURITE_ADD", recent), (2, "ENQUIRY", recent)]
               + [(3, "VIEW", recent)] * 10)
-    result = ViewCategoryUsageController(store_with(tmp_path, events)).trending(TODAY)
+    result = usage(store_with(tmp_path, events)).trending(TODAY)
     ranked = [(r["name"], r["trendingRank"], r["views"], r["favourites"], r["enquiries"]) for r in result["categories"]]
     assert ranked == [("Industrial", 1, 1, 1, 1), ("Japandi", 2, 1, 0, 0)]      # Retro is archived
     assert result["days"] == 30 and not result["noRecentActivity"]
@@ -40,7 +47,7 @@ def test_active_categories_are_ranked_by_activity_in_the_last_30_days(tmp_path):
 
 
 def test_no_recent_activity_shows_zero_counts_with_a_message(tmp_path):
-    result = ViewCategoryUsageController(store_with(tmp_path, [(1, "VIEW", "2026-08-01T02:00:00.000000Z")])).trending(TODAY)
+    result = usage(store_with(tmp_path, [(1, "VIEW", "2026-08-01T02:00:00.000000Z")])).trending(TODAY)
     assert result["noRecentActivity"] is True
     assert {r["name"] for r in result["categories"]} == {"Industrial", "Japandi"}
     assert all(r["views"] + r["favourites"] + r["enquiries"] == 0 for r in result["categories"])

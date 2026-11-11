@@ -7,8 +7,6 @@ member will connect the user accounts and account database.
 ## Files added
 
 - `backend/boundary/user_admin_routes.py` — HTTP API (User Admin routes).
-- `backend/entities/account.py` — BCE entity classes.
-- `backend/repositories/account_repo.py` — account-repository contract and safe placeholder.
 - `backend/controllers/user_admin/suspend_account_controller.py` — BCE suspension controller.
 - `backend/tests/user_admin/test_suspend_account_controller.py` — independent unit tests with fake accounts.
 - `frontend/js/suspend-account.js` — suspension form and API call.
@@ -44,29 +42,17 @@ Log in as the User Admin (`admin@demo.agroup`, password `demo`), visit
 **Suspend User Account (backend)**. **Do not** use `python -m http.server`
 for the API workflow.
 
-The suspension uses the real account repository (`UserAccountRepo`), so it
+The suspension uses the real account repository (`UserAccountRepository`), so it
 persists and is audited. The `ACC-401` and
 `ACC-402` records in `portal.js` are sample wireframe records, not real users.
 
-## Contract for the teammate implementing accounts
+## How the suspension is saved
 
-The account module must supply an object with these operations:
-
-```python
-find_by_id(account_id: str) -> UserAccount | None
-commit_suspension(account_id: str, record: SuspensionRecord, action: AdminAction) -> bool
-```
-
-`UserAccount` has at least `account_id` and `status`, with statuses `ACTIVE` and
-`SUSPENDED`. `commit_suspension` must atomically:
-
-1. Check that the account still has status `ACTIVE`.
-2. Change its status to `SUSPENDED`.
-3. Persist the `SuspensionRecord` and `AdminAction`.
-4. Return `True` on success, or `False` if the account was no longer active.
-
-It must not partially commit the status or audit records. `create_app` uses
-`UserAccountRepo` by default; pass another registry only in tests.
+`SuspendAccountController` checks the request (an account, a reason of 1–500 characters, not the administrator's
+own account, an active account) and then moves the account from `ACTIVE` to `SUSPENDED` through the shared
+`StatusChangeService` (S-04), as Final UA-01 asks: the change is checked against `UserAccount.TRANSITIONS`, saved
+in `UserAccountRepository`, written to the shared audit log with the administrator and the reason (UA-11 shows it
+as "Suspended the account") and the account holder is notified. UA-02 reactivation works the same way.
 
 The administrator is the logged-in account. By default `create_app` builds
 `admin_provider` from the login session and returns

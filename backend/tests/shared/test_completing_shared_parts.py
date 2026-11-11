@@ -130,9 +130,9 @@ def test_an_overdue_milestone_is_announced_once_to_the_customer_and_the_designer
     shared.requests.assign_handler("CUS-101", "user-form-field")
     past = (date.today() - timedelta(days=10)).isoformat()
     designer_side.payment_repo.create_for_quotation("QT-101", [{"name": "Deposit", "amount": 5000, "due_date": past}])
-    designer_side.payment_controller._quotations_for = lambda user_id: ["QT-101"]
-    designer_side.payment_controller.progress("user-form-field")
-    designer_side.payment_controller.progress("user-form-field")
+    designer_side.record_payment_controller._quotations_for = lambda user_id: ["QT-101"]
+    designer_side.record_payment_controller.progress("user-form-field")
+    designer_side.record_payment_controller.progress("user-form-field")
     assert kinds(shared, "CUS-101").count("PAYMENT_REMINDER") == 1
     assert kinds(shared, "user-form-field").count("PAYMENT_OVERDUE") == 1
 
@@ -172,7 +172,8 @@ def test_archiving_a_category_is_in_the_shared_audit_log(app, shared):
                             json={"version": category["version"]}, headers={"X-CSRF-Token": token})
     assert archived.status_code == 200, archived.get_data(as_text=True)
     history = manager.get(f"/api/history/CATEGORY/{category['id']}").get_json()["history"]
-    assert [(h["from_status"], h["to_status"], h["actor_id"]) for h in history] == [("ACTIVE", "ARCHIVED", "user-manager")]
+    # through StatusChangeService the log keeps the category's own status values (CategoryStatus), as for every record
+    assert [(h["from_status"], h["to_status"], h["actor_id"]) for h in history] == [("Active", "Archived", "user-manager")]
 
 
 # ---- S-03: every accepted upload is kept as an attachment of its owner ----

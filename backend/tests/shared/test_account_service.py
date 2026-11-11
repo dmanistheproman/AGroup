@@ -5,11 +5,11 @@ from backend.controllers.shared.account_service import AccountService, FieldErro
 from backend.entities.user_account import UserAccount
 from backend.repositories.company_repo import SEED_COMPANY_DATA, CompanyRepo
 from backend.repositories.customer_repo import SEED_CUSTOMER_DATA, CustomerRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 
 
 def build():
-    accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA)
     customers = CustomerRepo.from_data(SEED_CUSTOMER_DATA)
     companies = CompanyRepo.from_data(SEED_COMPANY_DATA)
     return AccountService(accounts, customers, companies), accounts, customers, companies

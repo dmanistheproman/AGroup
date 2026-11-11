@@ -8,7 +8,7 @@ import pytest
 from backend.controllers.customer.recommendation_service import RecommendationService
 from backend.database import MemoryStore
 from backend.repositories.favourite_repo import FavouriteRepository
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.project_repository import ProjectRepository
 from backend.seed import seed_demo
 
 
@@ -16,7 +16,7 @@ def build(hidden_firms=frozenset(), customers=("CUS-101", "CUS-102")):
     store = MemoryStore()
     seed_demo(store)
     favourites = FavouriteRepository(store)
-    service = RecommendationService(favourites, ProjectRepo(store), customers=lambda: list(customers),
+    service = RecommendationService(favourites, ProjectRepository(store), customers=lambda: list(customers),
                                     hidden_firms=lambda: set(hidden_firms))
     for customer_id, refs in (("CUS-101", ["IDP-001", "IDP-002", "IDP-003"]), ("CUS-102", ["IDP-004", "IDP-005"])):
         fav_list = favourites.get_by_customer(customer_id)

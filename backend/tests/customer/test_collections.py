@@ -1,14 +1,15 @@
 """S-22 collections: named folders that organise a customer's favourites (C-04, D-02) and the moodboard rule (C-11)."""
 import pytest
 
-from backend.controllers.customer.manage_favourites_controller import ManageFavouritesController
+from backend.controllers.customer.save_favourite_controller import SaveFavouriteController
+from backend.controllers.customer.view_favourites_controller import ViewFavouritesController
 from backend.controllers.shared.collection_service import CollectionService
 from backend.database import MemoryStore
 from backend.entities.collection import Collection, Moodboard
 from backend.repositories.collection_repo import CollectionRepo
 from backend.repositories.favourite_repo import FavouriteRepository
-from backend.repositories.project_repo import ProjectRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.project_repository import ProjectRepository
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 from backend.seed import seed_demo
 
 
@@ -16,8 +17,8 @@ from backend.seed import seed_demo
 def setup():
     store = MemoryStore()
     seed_demo(store)
-    accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
-    favourites = ManageFavouritesController(FavouriteRepository(store), ProjectRepo(store))
+    accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
+    favourites = SaveFavouriteController(FavouriteRepository(store), ProjectRepository(store))
     collections = CollectionService(CollectionRepo(store), FavouriteRepository(store))
     favourites.collections = collections
     for ref in ("IDP-001", "IDP-002", "IDP-003"):
@@ -89,7 +90,7 @@ def test_removing_an_item_or_a_folder_keeps_the_favourite(setup):
     collections.remove_item(alex, folder.id, item.id)
     collections.delete(alex, folder.id)
     assert collections.list_for(alex) == []
-    assert "IDP-001" in favourites.get_favourites("CUS-101")["project_ids"]
+    assert "IDP-001" in ViewFavouritesController(favourites.favourite_repo).get_favourites("CUS-101")["project_ids"]
 
 
 def test_only_the_owner_uses_a_folder(setup):

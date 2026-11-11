@@ -1,6 +1,6 @@
 """<<control>> ViewAdminHistoryController — UA-11 View Administrative Action History.
 
-Every administrative action on a user account (suspend, flag, unflag) is already written to the shared audit log
+Every administrative action on a user account (suspend, reactivate, flag, unflag) is already written to the shared audit log
 (S-04) with the User Admin who did it. This lists them across all accounts, newest first, and gives the details of
 one action: the affected account, the action, the date and the administrator responsible (UC-UA11).
 """
@@ -14,6 +14,7 @@ class ViewAdminHistoryController:
     TARGET = "USER_ACCOUNT"
     LABELS = {"SUSPEND_ACCOUNT": "Suspended the account", "FLAG_ACCOUNT": "Flagged the account",
               "UNFLAG_ACCOUNT": "Removed the flag"}
+    STATUS_LABELS = {"ACTIVE": "Reactivated the account", "SUSPENDED": "Suspended the account"}
 
     def __init__(self, audit_repo, account_repo):
         self.audit = audit_repo
@@ -31,7 +32,10 @@ class ViewAdminHistoryController:
 
     def _row(self, entry, details):
         account = self.accounts.get(entry.target_id)
-        row = {"id": entry.id, "action": entry.action, "label": self.LABELS.get(entry.action, entry.action),
+        label = self.LABELS.get(entry.action, entry.action)
+        if entry.action == "STATUS_CHANGED":            # through StatusChangeService: UA-01, UA-02
+            label = self.STATUS_LABELS.get(str(entry.to_status), label)
+        row = {"id": entry.id, "action": entry.action, "label": label,
                "date": entry.created_at, "account_id": entry.target_id,
                "account_name": account.name if account else entry.target_id}
         if details:

@@ -8,11 +8,11 @@ from backend.controllers.shared.submit_ticket_controller import SubmitTicketCont
 from backend.entities.support_ticket import SupportTicket
 from backend.repositories.notification_repo import NotificationRepo
 from backend.repositories.support_ticket_repo import SupportTicketRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 
 
 def build():
-    accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA)
+    accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA)
     tickets = SupportTicketRepo()
     notifications = NotificationService(NotificationRepo())
     rules = NotificationRules(notifications, accounts, tickets)

@@ -44,7 +44,7 @@ def test_public_view_has_no_password_hash():
                     "flagged": False, "flag_reason": None}
 
 
-def test_account_id_matches_id_for_the_user_admin_contract():
-    # UA-01 (suspend account) reads account.account_id and account.status.
+def test_account_id_is_the_id_as_in_the_shared_class_diagram():
+    # Class_4 (shared) draws UserAccount.accountId(); it names the same id.
     account = make()
     assert account.account_id == account.id == "USR-001"

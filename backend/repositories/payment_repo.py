@@ -78,7 +78,15 @@ class PaymentRepo:
         return self._select(f"WHERE offer_id IN ({', '.join('?' * len(wanted))})", wanted, "offer_id, due_date")
 
     def _lazy_overdue(self, today=None):
+        """Pending milestones past their due date become Overdue (ID-09 task 4): through the shared status change
+        when server.py has connected it (audit log, actor "system"), otherwise directly."""
         today = today or date.today().isoformat()
+        if getattr(self, "status_change", None) is not None:
+            due = self._select("WHERE status = ? AND due_date < ?", (PaymentMilestone.PENDING, today))
+            for milestone in due:
+                self.status_change.change_status(PaymentMilestone.RECORD_TYPE, milestone.id,
+                                                 PaymentMilestone.OVERDUE, "system")
+            return
         with self.store.transaction(write=True) as connection:
             connection.execute("UPDATE payment_milestone SET status = ? WHERE status = ? AND due_date < ?",
                                (PaymentMilestone.OVERDUE, PaymentMilestone.PENDING, today))

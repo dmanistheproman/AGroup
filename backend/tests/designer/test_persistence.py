@@ -2,7 +2,7 @@
 restart) sees every saved change, including changes made through the controllers."""
 import pytest
 
-from backend.controllers.designer.payment_controller import PaymentController
+from backend.controllers.designer.payment_controller import RecordPaymentController
 from backend.controllers.designer.proposal_controller import ReviseProposalController, SubmitProposalController
 from backend.controllers.designer.quotation_controller import SubmitQuotationController
 from backend.controllers.designer.review_enquiry_controller import ReviewEnquiryController
@@ -123,7 +123,7 @@ def test_quotation_send_revise_and_expiry_survive_a_restart(store):
 
 def test_payments_marked_paid_and_reminded_survive_a_restart(store):
     companies = CompanyRepo.from_data(SEED_COMPANY_DATA, store)
-    controller = PaymentController(PaymentRepo(store), companies, quotations_for=lambda user: ["QT-103"])
+    controller = RecordPaymentController(PaymentRepo(store), companies, quotations_for=lambda user: ["QT-103"])
     controller.mark_paid("PM-002", "user-form-field", {"paid_date": "2026-10-24"})
     controller.remind("PM-003", "user-form-field")
     again = PaymentRepo(store)

@@ -8,7 +8,7 @@ from backend.entities.user_account import UserAccount
 from backend.repositories.enquiry_repo import EnquiryRepo
 from backend.repositories.payment_repo import PaymentRepo
 from backend.repositories.quotation_repo import QuotationRepo
-from backend.repositories.user_account_repo import UserAccountRepo
+from backend.repositories.user_account_repository import UserAccountRepository
 from backend.services.credit_status_service import CreditStatusService
 
 TODAY = "2026-11-07"
@@ -19,7 +19,7 @@ ROWS = [
 
 
 def _service(account_rows):
-    accounts = UserAccountRepo.from_data(account_rows)
+    accounts = UserAccountRepository.from_data(account_rows)
     return CreditStatusService(EnquiryRepo.from_data(ROWS), QuotationRepo.from_data([]),
                                PaymentRepo(), account_repo=accounts)
 

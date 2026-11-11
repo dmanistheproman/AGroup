@@ -7,7 +7,9 @@ from backend.entities.user_account import UserAccount
 
 
 def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_status=None,
-                              submit_enquiry=None, compare_controller=None, recommendations_controller=None):
+                              submit_enquiry=None, compare_controller=None, recommendations_controller=None,
+                              view_favourites=None, create_moodboard=None, share_moodboard=None):
+    """favourites_ctrl: SaveFavouriteController (C-04.1, C-04.4); view_favourites: ViewFavouritesController (C-04.2)."""
     bp = Blueprint("customer", __name__)
 
     @bp.before_request
@@ -32,7 +34,7 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
 
     @bp.get("/api/favourites")
     def get_favourites():
-        return jsonify(favourites_ctrl.get_favourites(customer_id()))
+        return jsonify(view_favourites.get_favourites(customer_id()))
 
     @bp.post("/api/favourites")
     def add_favourite():
@@ -65,7 +67,11 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
     @bp.post("/api/collections")
     def create_collection():
         data = body()
-        collection = collections.create(login.current_user(), data.get("name"), data.get("kind", "FOLDER"))
+        kind = data.get("kind", "FOLDER")
+        if kind == create_moodboard.KIND:      # C-11.1
+            collection = create_moodboard.create_moodboard(login.current_user(), data.get("name"))
+        else:                                  # C-04.3 folders of favourites
+            collection = collections.create(login.current_user(), data.get("name"), kind)
         return jsonify(collection=collection_view(collection)), 201
 
     @bp.patch("/api/collections/<collection_id>")
@@ -96,12 +102,12 @@ def create_customer_blueprint(favourites_ctrl, login, collections=None, credit_s
 
     @bp.post("/api/collections/<collection_id>/share")
     def share_collection(collection_id):
-        token = collections.share(login.current_user(), collection_id)
+        token = share_moodboard.share(login.current_user(), collection_id)
         return jsonify(share_token=token, url=f"/moodboard.html#{token}")
 
     @bp.delete("/api/collections/<collection_id>/share")
     def revoke_collection_share(collection_id):
-        collections.revoke(login.current_user(), collection_id)
+        share_moodboard.revoke(login.current_user(), collection_id)
         return jsonify(shared=False)
 
     @bp.delete("/api/collections/<collection_id>/items/<item_id>")

@@ -1,5 +1,5 @@
 import pytest
-from backend.controllers.designer.project_controller import ProjectController
+from backend.controllers.designer.project_controller import CreateProjectController
 
 class FakeCategoryRepo:
     def __init__(self):
@@ -40,7 +40,7 @@ def make_data(**overrides):
 
 def build():
     repo = FakeProjectRepo()
-    return ProjectController(repo, FakeCategoryRepo(), FakeUploadService()), repo
+    return CreateProjectController(repo, FakeCategoryRepo(), FakeUploadService()), repo
 
 # ---- Basic flow ----
 def test_add_project_success():

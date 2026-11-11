@@ -1,10 +1,11 @@
-"""<<control>> ProjectController — method names match the sequence diagram messages.
+"""<<control>> CreateProjectController, EditProjectController, DeleteProjectController — ID-03.1 to ID-03.3, one
+controller per story as in the Final task list; method names match the sequence diagram messages.
 
-ID-03: create, list, edit and delete the designer's own projects. A project holds what customers see (C-03):
-description, images, materials, estimated cost, category, location, home type and area. New projects are drafts;
-publishing goes through the shared ProjectStatusController (S-04). Deleting removes the project from customers'
-favourites and folders and keeps its activity for reports.
+A project holds what customers see (C-03): description, images, materials, estimated cost, category, location, home
+type and area. New projects are drafts; publishing (ID-03.4) goes through the shared ProjectStatusController (S-04).
+Deleting removes the project from customers' favourites and folders and keeps its activity for reports.
 """
+from backend.entities.category import Category
 from backend.services.validators import require_text
 
 MAX_COST = 10_000_000
@@ -27,13 +28,23 @@ def _details(data):
     return details
 
 
-class ProjectController:
+def _own(projects, user_id, project_id, refusal="You can only change projects in your own portfolio."):
+    """The designer's own project, or LookupError / PermissionError (ownership check of ID-03.2 and ID-03.3)."""
+    project = projects.get(project_id)
+    if project is None:
+        raise LookupError(f"Project {project_id} was not found.")
+    if project.get("owner_id") and project["owner_id"] != user_id:
+        raise PermissionError(refusal)
+    return project
+
+
+class CreateProjectController:
+    """ID-03.1: add a past design project (and the "My Projects" list the ID-03 stories share, task 4)."""
+
     def __init__(self, project_repo, category_repo, upload_service):
         self.projects = project_repo
         self.categories = category_repo
         self.uploads = upload_service
-        self.on_delete = None      # set in server.py: take a deleted project out of favourites and folders
-        self.attachments = None    # AttachmentRepo (S-03), set in server.py: the primary image of a project
 
     def create(self, data):
         # 1) Field validation
@@ -48,7 +59,7 @@ class ProjectController:
             attachments.append(self.uploads.upload(image, "Project", project_id))
         # 3) isActive(categoryId): the category must be ACTIVE (sequence diagram msg8-9)
         category = self.categories.get(data.get("category_id"))
-        if category is None or category.get("status") != "ACTIVE":
+        if category is None or not Category.from_record(category).is_active():
             raise ValueError("Selected category is not active. Please choose an active category.")
         # 4) save(projectData): a new project is DRAFT (sequence diagram msg10-11)
         extra = _details(data)
@@ -69,6 +80,21 @@ class ProjectController:
         }
         return self.projects.save(project)
 
+    def list_projects(self, user_id=""):
+        """ID-03.1 task 4: the designer's portfolio list. user_id filters by owner (same rule as ID-04)."""
+        return [project for project in self.projects.all()
+                if not user_id or not project.get("owner_id") or project["owner_id"] == user_id]
+
+
+class EditProjectController:
+    """ID-03.3: edit a past design project; reuses the create editor's checks, and sets the primary image."""
+
+    def __init__(self, project_repo, category_repo, upload_service):
+        self.projects = project_repo
+        self.categories = category_repo
+        self.uploads = upload_service
+        self.attachments = None    # AttachmentRepo (S-03), set in server.py: the primary image of a project
+
     def update(self, user_id, project_id, data):
         """ID-03 edit (owner only): the same checks as create; new images are added after the current ones."""
         project = self._own(user_id, project_id)
@@ -77,7 +103,7 @@ class ProjectController:
         if not title or not description:
             raise ValueError("Title and description are required.")
         category = self.categories.get(data.get("category_id"))
-        if category is None or category.get("status") != "ACTIVE":
+        if category is None or not Category.from_record(category).is_active():
             raise ValueError("Selected category is not active. Please choose an active category.")
         attachments = list(project.get("attachments") or [])
         for image in data.get("images") or []:
@@ -107,17 +133,15 @@ class ProjectController:
         return updated
 
     def _own(self, user_id, project_id):
-        project = self.projects.get(project_id)
-        if project is None:
-            raise LookupError(f"Project {project_id} was not found.")
-        if project.get("owner_id") and project["owner_id"] != user_id:
-            raise PermissionError("You can only change projects in your own portfolio.")
-        return project
+        return _own(self.projects, user_id, project_id)
 
-    def list_projects(self, user_id=""):
-        """ID-03b: portfolio list. user_id filters by owner (same rule as ID-04)."""
-        return [project for project in self.projects.all()
-                if not user_id or not project.get("owner_id") or project["owner_id"] == user_id]
+
+class DeleteProjectController:
+    """ID-03.2: delete a past design project (ownership check; out of favourites and moodboards, history kept)."""
+
+    def __init__(self, project_repo):
+        self.projects = project_repo
+        self.on_delete = None      # set in server.py: take a deleted project out of favourites and folders
 
     def delete(self, user_id, project_id, confirm_impact=False):
         """ID-03b use case 4. AF2: for a project with client views or favourites the first call only returns an impact warning
@@ -125,8 +149,7 @@ class ProjectController:
         project = self.projects.get(project_id)
         if project is None:
             raise ValueError("Project not found. It may have been deleted already.")
-        if project.get("owner_id") and project["owner_id"] != user_id:
-            raise PermissionError("You can only delete projects from your own portfolio.")
+        _own(self.projects, user_id, project_id, "You can only delete projects from your own portfolio.")
         views = project.get("views", 0)
         favourites = project.get("favourites", 0)
         if (views or favourites) and not confirm_impact:

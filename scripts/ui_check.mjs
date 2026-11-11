@@ -128,9 +128,10 @@ try {
       await page.goto("/portal.html#designer/reviews");
       return page.waitFor("#portal-main tbody tr");
     });
-    await step("ID-13 the statistics page loads", async () => {
+    await step("ID-13 the statistics page loads with the shared period selector and trend chart", async () => {
       await page.goto("/portal.html#designer/analytics");
-      return page.waitFor("#portal-main table");
+      return await page.waitFor("#portal-main table") && page.waitFor("#statistics-form.period-selector") &&
+        page.waitFor("#portal-main .trend-chart");                              // S-06 PeriodSelector, TrendChart
     });
   });
 
@@ -167,28 +168,55 @@ try {
       await page.goto("/portal.html#admin/verification");
       return page.waitFor("#portal-main", { text: "Company verification" });
     });
-    await step("UA-09 flag a user account from the accounts page", async () => {
+    await step("UA-04 to UA-06 search the account list and open an account", async () => {
       await page.goto("/portal.html#admin/accounts");
-      if (!await page.waitFor("[data-action=open-flag]")) return false;
-      await page.click("[data-action=open-flag]");
+      if (!await page.waitFor("#ua-accounts-filter")) return false;
+      await page.eval(`(() => { const f = document.querySelector('#ua-accounts-filter');
+        f.q.value = 'customer@demo'; f.role.value = 'CUSTOMER'; f.requestSubmit(); })()`);
+      if (!await page.waitFor("#portal-main tbody tr", { text: "customer@demo.agroup" })) return false;
+      await page.click("[data-ua=account]");
+      return page.waitFor("#modal .record-page", { text: "customer@demo.agroup" });   // S-20 RecordPage
+    });
+    await step("UA-01 suspend and UA-02 reactivate the account (shared reason dialog)", async () => {
+      const move = async (kind, reason) => {
+        await page.click(`[data-ua=status][data-move=${kind}]`);
+        if (!await page.waitFor("#reason-dialog[open]")) return false;              // S-04 ConfirmWithReasonDialog
+        await page.eval(`(() => { const f = document.querySelector('#reason-dialog form');
+          f.reason.value = '${reason}'; f.querySelector('button[value=confirm]').click(); })()`);
+        return true;
+      };
+      if (!await move("suspend", "UI check: suspended for a test.")) return false;
+      if (!await page.waitFor("#toast", { text: "Account suspended." })) return false;
+      await page.click("[data-ua=account]");
+      if (!await page.waitFor("[data-ua=status][data-move=reactivate]")) return false;
+      if (!await move("reactivate", "UI check: appeal accepted.")) return false;
+      return page.waitFor("#toast", { text: "Account reactivated." });
+    });
+    await step("UA-09 flag the account", async () => {
+      await page.click("[data-ua=account]");
+      if (!await page.waitFor("[data-ua=flag]")) return false;
+      await page.click("[data-ua=flag]");
       if (!await page.waitFor("#ua-flag-form")) return false;
       await page.eval(`(() => { const f = document.querySelector('#ua-flag-form');
-        f.accountId.value = 'CUS-101'; f.reason.value = 'UI check: possible fake reviews.';
+        f.reason.value = 'UI check: possible fake reviews.';
         f.requestSubmit(f.querySelector('[value=flag]')); })()`);
       return page.waitFor("#toast", { text: "is flagged" });
     });
     await step("UA-10 add an internal note to the account", async () => {
-      await page.click("[data-action=open-account-notes]");
+      await page.click("[data-ua=account]");
+      if (!await page.waitFor("[data-ua=notes]")) return false;
+      await page.click("[data-ua=notes]");
       if (!await page.waitFor("#ua-notes-form")) return false;
       await page.eval(`(() => { const f = document.querySelector('#ua-notes-form');
-        f.accountId.value = 'CUS-101'; f.text.value = 'UI check: asked for documents.';
+        f.text.value = 'UI check: asked for documents.';
         f.requestSubmit(f.querySelector('[value=save]')); })()`);
       return page.waitFor("#ua-notes-list", { text: "UI check: asked for documents." });
     });
-    await step("UA-11 the action history shows the flag and its details", async () => {
+    await step("UA-11 the action history shows the flag, the reactivation and the details", async () => {
       await page.eval("document.querySelector('#modal')?.close()");
       await page.goto("/portal.html#admin/history");
       if (!await page.waitFor("#portal-main tbody tr", { text: "Flagged the account" })) return false;
+      if (!await page.waitFor("#portal-main tbody", { text: "Reactivated the account" })) return false;
       await page.click("[data-ua=action]");
       return page.waitFor("#modal", { text: "UI check: possible fake reviews." });
     });
@@ -200,16 +228,39 @@ try {
       await page.goto("/portal.html#management/categories");
       return page.waitFor("#portal-main tbody tr");
     });
-    await step("PM-05 the report shows published projects and new accounts", async () => {
+    await step("PM-04 a category shows its shared status badge and history; archive opens the shared reason dialog", async () => {
+      await page.waitFor("#portal-main .record-status");                      // S-04 StatusBadge
+      await page.eval(`(() => { const row = [...document.querySelectorAll('#portal-main tbody tr')]
+        .find(r => r.querySelector('.record-status').textContent.trim() === 'Active');
+        row.querySelector('[data-management-action=edit]').click(); })()`);
+      await page.waitFor("#management-history .history-timeline, #management-history .small-note");   // S-04 HistoryTimeline
+      await page.waitFor("#modal-content [data-management-action=archive]");
+      await page.click("#modal-content [data-management-action=archive]");
+      const opened = await page.waitFor("#reason-dialog[open]");              // S-04 ConfirmWithReasonDialog
+      await page.eval("document.querySelector('#reason-dialog button[value=cancel]').click(); document.querySelector('#modal').close()");
+      return opened;
+    });
+    await step("PM-10 a category's projects show as shared project cards", async () => {
+      await page.goto("/portal.html#management/categories");
+      await page.waitFor("#portal-main tbody tr");
+      await page.eval(`(() => { const row = [...document.querySelectorAll('#portal-main tbody tr')]
+        .find(r => Number(r.children[1].textContent) > 0); row.querySelector('[data-management-action=projects]').click(); })()`);
+      const shown = await page.waitFor("#modal-content .ui-project-card");      // S-08 ProjectCard
+      await page.eval("document.querySelector('#modal').close()");
+      return shown;
+    });
+    await step("PM-05 the report shows published projects, new accounts and activity by project", async () => {
       await page.goto("/portal.html#management/reports");
       return await page.waitFor("#management-report", { text: "Projects published", timeout: 8000 }) &&
-        page.waitFor("#management-report", { text: "New accounts by role" });
+        page.waitFor("#management-report", { text: "New accounts by role" }) &&
+        page.waitFor("#management-report", { text: "Activity by project" });
     });
-    await step("PM-11 the report covers two chosen categories", async () => {
+    await step("PM-11 the report covers two chosen categories, project by project", async () => {
       const names = await page.eval(`(() => { const f = document.querySelector('[data-management-form=report]');
         const picked = [...f.categoryId.options].filter(o => !o.text.includes('archived')).slice(0, 2);
         picked.forEach(o => { o.selected = true; }); f.requestSubmit(); return picked.map(o => o.text).join(', '); })()`);
-      return page.waitFor(".management-report-caption", { text: names.split(', ')[1] });
+      return await page.waitFor(".management-report-caption", { text: names.split(', ')[1] }) &&
+        page.waitFor("#management-report", { text: "Activity by project" });   // UC-PM11: views and favourites per project
     });
   });
 } finally {

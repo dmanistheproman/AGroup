@@ -4,7 +4,7 @@ import pytest
 from backend.controllers.customer.recommendation_service import RecommendationService
 from backend.database import MemoryStore
 from backend.repositories.favourite_repo import FavouriteRepository
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.project_repository import ProjectRepository
 from backend.seed import seed_demo
 
 
@@ -13,7 +13,7 @@ def service():
     store = MemoryStore()
     seed_demo(store)
     favourites = FavouriteRepository(store)
-    return RecommendationService(favourites, ProjectRepo(store)), favourites
+    return RecommendationService(favourites, ProjectRepository(store)), favourites
 
 
 def _save(favourites, customer_id, references):

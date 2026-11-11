@@ -5,8 +5,8 @@ import json
 
 import pytest
 
-from backend.entities.project_category import ProjectCategory
-from backend.repositories.project_repo import ProjectRepo
+from backend.repositories.category_repository import CategoryRepository
+from backend.repositories.project_repository import ProjectRepository
 from backend.server import create_app
 from backend.services.management_rules import SINGAPORE
 
@@ -89,7 +89,7 @@ def test_activity_is_shared_by_management_reports_and_designer_statistics(app):
     designer = signed_in(app, 'designer@demo.agroup')
     source = category(manager, 'Activity')
     created = project(designer, source['id'])
-    project_id = ProjectRepo.database_id(created['id'])
+    project_id = ProjectRepository.database_id(created['id'])
     for event_type in ('VIEW', 'FAVOURITE_ADD', 'ENQUIRY'):
         response = send(manager, '/api/activity', {'projectId': project_id, 'type': event_type, 'eventId': 'shared-event-' + event_type})
         assert response.status_code == 200
@@ -116,13 +116,13 @@ def test_shared_portfolio_restricts_other_designers_and_draft_discovery(app):
 
 def test_concurrent_reference_allocation_and_category_change_during_save(app):
     store = app.extensions['management_store']
-    repo = ProjectRepo(store)
+    repo = ProjectRepository(store)
     with ThreadPoolExecutor(max_workers=4) as executor:
         references = list(executor.map(lambda _: repo.next_reference('IDP'), range(12)))
     assert len(set(references)) == 12
-    categories = ProjectCategory(store)
+    categories = CategoryRepository(store)
     source = categories.create('Race condition', '')
-    categories.change_status(source['id'], 1, 'Active', 'Archived')
+    app.extensions['management'].ArchiveCategoryController.archive_category(source['id'], 1)   # shared status change
     with pytest.raises(ValueError, match='not active'):
         repo.save({'id': references[0], 'title': 'Blocked', 'description': 'Details', 'category_id': source['id']})
     assert repo.all() == []
@@ -155,4 +155,4 @@ def test_legacy_project_primary_category_survives_rename_and_merge(app):
     })
     assert merged.status_code == 200 and merged.json['duplicatesRemoved'] == 1
     assert manager.get('/api/catalog').json['projects'][0]['style'] == 'Target style'
-    assert ProjectRepo(store).get('IDP-001')['category_id'] == target['id']
+    assert ProjectRepository(store).get('IDP-001')['category_id'] == target['id']

@@ -7,7 +7,7 @@ import pathlib
 
 import pytest
 
-from backend.controllers.helpdesk.merge_ticket_controller import MergeFailed, MergeNotAllowed, MergeTicketController
+from backend.controllers.helpdesk.merge_tickets_controller import MergeFailed, MergeNotAllowed, MergeTicketsController
 from backend.controllers.shared.notification_rules import NotificationRules
 from backend.controllers.shared.notification_service import NotificationService
 from backend.controllers.shared.post_message_controller import PostMessageController
@@ -22,7 +22,7 @@ from backend.repositories.message_repo import MessageRepo
 from backend.repositories.notification_repo import NotificationRepo
 from backend.repositories.support_ticket_repo import SupportTicketRepo
 from backend.repositories.thread_repo import ThreadRepo
-from backend.repositories.user_account_repo import SEED_ACCOUNT_DATA, UserAccountRepo
+from backend.repositories.user_account_repository import SEED_ACCOUNT_DATA, UserAccountRepository
 
 ROWS = []
 
@@ -48,7 +48,7 @@ class Desk:
 
     def __init__(self):
         store = MemoryStore()
-        self.accounts = UserAccountRepo.from_data(SEED_ACCOUNT_DATA, store)
+        self.accounts = UserAccountRepository.from_data(SEED_ACCOUNT_DATA, store)
         self.tickets, self.messages, self.notes = SupportTicketRepo(store), MessageRepo(store), InternalNoteRepo(store)
         rules = NotificationRules(NotificationService(NotificationRepo(store)), self.accounts, self.tickets)
         requests = RequestService(self.tickets, rules, ThreadRepo(store))
@@ -70,7 +70,7 @@ class Desk:
         self.notes.create("REQUEST", self.id["B"], "user-helpdesk", "bn1")
         self._set("C", "CLOSED")
         self._set("D", "MERGED", merged_into_id=self.id["A"])
-        self.controller = MergeTicketController(self.tickets, self.status_change, self.messages, self.notes)
+        self.controller = MergeTicketsController(self.tickets, self.status_change, self.messages, self.notes)
 
     def ticket(self, name):
         return self.tickets.get(self.id[name])

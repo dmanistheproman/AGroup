@@ -5,7 +5,7 @@ The ticket queue, ticket page and status changes are shared routes (boundary/sha
 from flask import Blueprint, jsonify, request
 
 from backend.boundary.auth_guard import role_error
-from backend.controllers.helpdesk.merge_ticket_controller import MergeFailed, MergeNotAllowed
+from backend.controllers.helpdesk.merge_tickets_controller import MergeFailed, MergeNotAllowed
 from backend.entities.user_account import UserAccount
 
 
