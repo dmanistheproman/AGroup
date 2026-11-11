@@ -54,9 +54,8 @@ class ReportService:
         filters = dict(filters or {})
         if filters.get("project_ids") is not None:
             filters["project_ids"] = [self._number(p) for p in filters["project_ids"]]
-        with self.store.transaction() as connection:
-            rows = self.events.count_in(connection, period, group_by, filters)
-            total = self.events.count_in(connection, period, "total", filters)
+        rows = self.events.count_by(period, group_by, filters)   # Seq_9: countBy through ProjectEventRepository
+        total = self.events.count_by(period, "total", filters)
         return ReportModel(period, group_by, rows, total[0] if total else {})
 
     def export_csv(self, report):
@@ -91,12 +90,12 @@ class ReportService:
                     raise BusinessError("Choose an existing category.", 404) from error
             if any(c["status"] == "Merged" for c in chosen):
                 raise BusinessError("Choose the surviving category for reporting.", 409)
-            events = self.events.count_in(connection, period, "total", {"category_ids": ids})
-            totals = events[0] if events else {}
             values = {"projects": ProjectRepository.count_created(connection, period, ids),
-                      "published": ProjectRepository.count_published(connection, period, ids),
-                      **{m: totals.get(m, 0) for m in METRICS}}
+                      "published": ProjectRepository.count_published(connection, period, ids)}
             accounts = None if ids else UserAccountRepository.count_created_by_role(connection, period.start, period.end)
+        events = self.events.count_by(period, "total", {"category_ids": ids})
+        totals = events[0] if events else {}
+        values.update({m: totals.get(m, 0) for m in METRICS})
         return values, accounts, chosen
 
     def remember(self, report):

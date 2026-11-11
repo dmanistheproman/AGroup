@@ -63,10 +63,10 @@ class ProjectEventRepository:
     # ---- counting ----
     def count_by(self, period, group_by="total", filters=None):
         with self.store.transaction() as connection:
-            return self.count_in(connection, period, group_by, filters)
+            return self._count_in(connection, period, group_by, filters)
 
     @staticmethod
-    def count_in(connection, period, group_by="total", filters=None):
+    def _count_in(connection, period, group_by="total", filters=None):
         """count_by inside an open transaction. filters: project_ids, category_id or category_ids (any of them)."""
         if group_by not in GROUPS:
             raise ValueError(f"Choose a report group: {', '.join(GROUPS)}.")
