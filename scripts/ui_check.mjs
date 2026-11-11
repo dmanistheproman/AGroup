@@ -240,6 +240,15 @@ try {
       await page.eval("document.querySelector('#reason-dialog button[value=cancel]').click(); document.querySelector('#modal').close()");
       return opened;
     });
+    await step("PM-10 a category's projects show as shared project cards", async () => {
+      await page.goto("/portal.html#management/categories");
+      await page.waitFor("#portal-main tbody tr");
+      await page.eval(`(() => { const row = [...document.querySelectorAll('#portal-main tbody tr')]
+        .find(r => Number(r.children[1].textContent) > 0); row.querySelector('[data-management-action=projects]').click(); })()`);
+      const shown = await page.waitFor("#modal-content .ui-project-card");      // S-08 ProjectCard
+      await page.eval("document.querySelector('#modal').close()");
+      return shown;
+    });
     await step("PM-05 the report shows published projects, new accounts and activity by project", async () => {
       await page.goto("/portal.html#management/reports");
       return await page.waitFor("#management-report", { text: "Projects published", timeout: 8000 }) &&

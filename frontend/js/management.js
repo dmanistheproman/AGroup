@@ -222,11 +222,10 @@
         <p>${result.projects.length} assigned projects · ${escape(result.category.status)}</p>
         ${result.target ? `<p>Merged into ${escape(result.target.name)}.
           ${button('Review target projects', 'projects', result.target.id)}</p>` : ''}
-        <div class="management-project-list">${result.projects.map(project => `
-          <article class="management-project"><img src="${escape(project.attachments?.[0] || 'assets/' + (project.image || 'living') + '.jpg')}" alt="" loading="lazy">
-            <div><b>${escape(project.title)}</b><p>${[project.firm, project.type, project.location].filter(Boolean).map(escape).join(' · ')}</p>
-              <small>${project.categoryNames.map(escape).join(' · ')}</small></div></article>`).join('') ||
-          '<p>No projects are currently assigned to this category.</p>'}</div>`);
+        ${result.projects.length ? `<div class="project-grid">${result.projects.map(project => `<div>${ui().projectCard(   // PM-10: shared ProjectCard (S-08)
+            { ...project, image: project.attachments?.[0] || project.image }, { saved: null, link: `index.html#project-${project.id}` })}
+            <small>${project.categoryNames.map(escape).join(' · ')}</small></div>`).join('')}</div>`
+          : ui().state('empty', 'No projects are currently assigned to this category.')}`);
     }
   }
 
