@@ -17,6 +17,10 @@ class ViewProjectStatisticsController:
 
     def statistics(self, user_id, period="monthly", date_from=None, date_to=None, today=None):
         today = today or date.today().isoformat()
+        try:
+            date.fromisoformat(today)
+        except (TypeError, ValueError) as error:
+            raise ValueError("Choose a valid date.") from error
         if period not in self.PERIODS:
             raise ValueError("Period must be daily, weekly, monthly or custom.")
         if period == "custom":

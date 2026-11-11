@@ -356,7 +356,8 @@ def create_designer_blueprint(c, upload_dir, login):
             return jsonify(c.statistics_controller.statistics(
                 current_user_id(),
                 period=request.args.get("period", "monthly"),
-                date_from=request.args.get("from"), date_to=request.args.get("to")))
+                date_from=request.args.get("from"), date_to=request.args.get("to"),
+                today=request.args.get("date") or None))   # shared PeriodSelector: the last day shown
         except ValueError as err:
             return jsonify({"error": str(err)}), 400
 

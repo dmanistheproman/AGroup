@@ -128,9 +128,10 @@ try {
       await page.goto("/portal.html#designer/reviews");
       return page.waitFor("#portal-main tbody tr");
     });
-    await step("ID-13 the statistics page loads", async () => {
+    await step("ID-13 the statistics page loads with the shared period selector and trend chart", async () => {
       await page.goto("/portal.html#designer/analytics");
-      return page.waitFor("#portal-main table");
+      return await page.waitFor("#portal-main table") && page.waitFor("#statistics-form.period-selector") &&
+        page.waitFor("#portal-main .trend-chart");                              // S-06 PeriodSelector, TrendChart
     });
   });
 
