@@ -60,6 +60,19 @@ def test_archive_and_restore_are_shared_status_changes(app, monkeypatch):
     assert [e.to_status for e in history if e.to_status] == ["Archived", "Active"]
 
 
+def test_archive_and_restore_keep_the_reason_from_the_shared_dialog(app):
+    """UC-PM04 step 5 / UC-PM07: the ConfirmWithReasonDialog reason (optional) is kept in the AuditLog, and the
+    category's status history is the shared GET /api/history/CATEGORY/<id> (HistoryTimeline)."""
+    send, client = manager(app)
+    category = send("/api/management/categories", {"name": "Attic", "description": ""}).json["category"]
+    archived = send(f"/api/management/categories/{category['id']}/archive",
+                    {"version": category["version"], "reason": "No longer offered by designers."}).json["category"]
+    send(f"/api/management/categories/{category['id']}/restore", {"version": archived["version"]})
+    history = client.get(f"/api/history/CATEGORY/{category['id']}").json["history"]
+    changes = [(e["to_status"], e["reason"]) for e in history if e["to_status"]]
+    assert ("Archived", "No longer offered by designers.") in changes and ("Active", None) in changes
+
+
 def test_every_category_change_is_in_the_shared_audit_log(app):
     send, client = manager(app)
     category = send("/api/management/categories", {"name": "Coastal", "description": ""}).json["category"]
