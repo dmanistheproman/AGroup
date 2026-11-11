@@ -60,7 +60,7 @@
     return new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore', dateStyle: 'medium', timeStyle: 'short' });
   }
 
-  class CategoryManagementPage {
+  class CategoryListPage {   // PM-01 to PM-14: the category list (Final Design Alignment name)
     constructor() {
       this.categories = [];
       this.search = '';
@@ -342,7 +342,7 @@
     }
   }
 
-  const categoryPage = new CategoryManagementPage();
+  const categoryPage = new CategoryListPage();
   const usagePage = new CategoryUsagePage();
   const reportPage = new ActivityReportPage();
 
