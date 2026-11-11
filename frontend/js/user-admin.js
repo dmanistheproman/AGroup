@@ -181,15 +181,15 @@
     const { account: a, allowed_statuses: allowed } = res.data;
     const move = allowed.includes('SUSPENDED') ? ['suspend', 'Suspend account', 'Why is the account suspended?']
       : allowed.includes('ACTIVE') ? ['reactivate', 'Reactivate account', 'Why can the account be used again?'] : null;
-    open(`<p class="eyebrow">ACCOUNT ${esc(a.id)}</p><h2>${esc(a.name)}</h2>
-      <dl class="detail-list"><dt>Email</dt><dd>${esc(a.email)}</dd><dt>Role</dt><dd>${esc(R.label(a.role))}</dd>
-        <dt>Status</dt><dd>${R.statusBadge(a.status)}</dd>
-        <dt>Flag</dt><dd>${a.flagged ? esc(a.flag_reason || 'Flagged') : 'Not flagged'}</dd></dl>
-      <div class="row">${move ? `<button class="button" data-ua="status" data-id="${esc(a.id)}" data-move="${move[0]}"
+    open(window.AGroupUI.recordPage({   // UA-06 task 3: the account detail page is the shared RecordPage (S-20)
+      eyebrow: `ACCOUNT ${a.id}`, title: a.name, status: a.status,
+      details: [['Email', esc(a.email)], ['Role', esc(R.label(a.role))],
+                ['Flag', a.flagged ? esc(a.flag_reason || 'Flagged') : 'Not flagged']],
+      actions: `${move ? `<button class="button" data-ua="status" data-id="${esc(a.id)}" data-move="${move[0]}"
           data-title="${esc(move[1])}" data-placeholder="${esc(move[2])}">${esc(move[1])}</button>` : ''}
         <button class="button outline" data-ua="flag" data-id="${esc(a.id)}">Flag or remove flag</button>
         <button class="button outline" data-ua="notes" data-id="${esc(a.id)}">Internal notes</button>
-        <button class="text-button" data-action="close">Close</button></div>`);
+        <button class="text-button" data-action="close">Close</button>` }));
   }
 
   /* UA-01 task 3, UA-02: suspend or reactivate with the shared ConfirmWithReasonDialog (S-04) on the account page. */

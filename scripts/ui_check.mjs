@@ -175,7 +175,7 @@ try {
         f.q.value = 'customer@demo'; f.role.value = 'CUSTOMER'; f.requestSubmit(); })()`);
       if (!await page.waitFor("#portal-main tbody tr", { text: "customer@demo.agroup" })) return false;
       await page.click("[data-ua=account]");
-      return page.waitFor("#modal", { text: "customer@demo.agroup" });
+      return page.waitFor("#modal .record-page", { text: "customer@demo.agroup" });   // S-20 RecordPage
     });
     await step("UA-01 suspend and UA-02 reactivate the account (shared reason dialog)", async () => {
       const move = async (kind, reason) => {
