@@ -42,3 +42,9 @@ def test_public_view_has_no_password_hash():
     assert view == {"id": "USR-001", "name": "Alex Tan", "email": "alex@example.com",
                     "role": UserAccount.ROLE_CUSTOMER, "status": UserAccount.STATUS_ACTIVE,
                     "flagged": False, "flag_reason": None}
+
+
+def test_account_id_is_the_id_as_in_the_shared_class_diagram():
+    # Class_4 (shared) draws UserAccount.accountId(); it names the same id.
+    account = make()
+    assert account.account_id == account.id == "USR-001"
