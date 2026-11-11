@@ -105,6 +105,9 @@ named).
 projects with their real status and client activity, search and status filter, new / edit form with materials,
 estimated cost, location, home type, area and images (choose the primary one), publish / unpublish and delete with an
 impact check. A published project appears in the customer catalogue with its primary photo.
+**Statistics** (ID-13, portal analytics page): the shared PeriodSelector and TrendChart (S-06) over
+`GET /api/statistics?period=daily|weekly|monthly|custom&date=&from=&to=` (the date ends the daily, weekly and monthly
+buckets; custom uses from and to), then each project's lifetime and period figures.
 
 ### Helpdesk Agent
 Ready:
@@ -143,6 +146,8 @@ role and status filters (UA-04 to UA-06, `GET /api/user-admin/accounts?q=&role=&
 change (UA-02, `POST /api/user-admin/accounts/<id>/reactivate`).
 Suspend (UA-01, `POST /api/user-admin/accounts/<id>/suspend`, through the shared status change like UA-02) and flag
 (UA-09, `POST/DELETE .../flag`) work on the real accounts; the administrator is the logged-in User Admin (other roles get 403, nobody acts without logging in).
+The Accounts and action history pages are the shared ListPage, an account opens as the shared RecordPage, and
+suspend / reactivate ask for the reason in the shared ConfirmWithReasonDialog (`js/user-admin.js`).
 Escalated tickets (UA-12): `GET /api/support/tickets` lists only escalated tickets for the User Admin, the ticket page
 opens them, the User Admin can write in their thread and resolve them with a note
 (`POST /api/support/tickets/<id>/status {status: RESOLVED, reason}`), and can restore a hidden IDP
@@ -158,6 +163,10 @@ so the PM has no audit table of its own. Creating and editing check the details 
 `GET /api/categories` (active categories), `GET /api/reports/activity?period=&group_by=project|category|day&format=csv`,
 and the customer catalogue hides projects that are not `PUBLISHED`. Removing a favourite records an `UNFAVOURITE`
 event, which reports do not count (older databases are updated on start).
+The category page (`CategoryListPage` in `js/management.js`) uses the shared parts: StatusBadge, the ListPage table and
+empty state, the ConfirmWithReasonDialog for archive and restore (an optional reason, sent as `reason` and kept in
+the audit log), the HistoryTimeline of `GET /api/history/CATEGORY/<id>` in the manage dialog, and ProjectCard for a
+category's projects (PM-10).
 
 ## 4. Statuses
 
