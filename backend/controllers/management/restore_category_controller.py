@@ -9,12 +9,13 @@ class RestoreCategoryController:
         self.categories = categories
         self.status_change = status_change
 
-    def restore_category(self, category_id, version):
+    def restore_category(self, category_id, version, reason=None):
         with self.categories.store.transaction() as connection:
             category = self.categories.find_by_id(connection, category_id)
         check_version(category, version)
         if category["status"] != "Archived":
             raise BusinessError("This action requires an archived category.", 409)
-        self.status_change.change_status(TARGET, category_id, "Active", actor())
+        self.status_change.change_status(TARGET, category_id, "Active", actor(),
+                                         str(reason or "").strip() or None)   # optional, ConfirmWithReasonDialog
         with self.categories.store.transaction() as connection:
             return self.categories.find_by_id(connection, category_id)

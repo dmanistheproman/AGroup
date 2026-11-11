@@ -84,11 +84,13 @@ def create_management_blueprint(c, store, login):
 
     @bp.post("/api/management/categories/<category_id>/archive")
     def archive_category(category_id):
-        return jsonify(category=c.ArchiveCategoryController.archive_category(category_id, data().get("version")))
+        return jsonify(category=c.ArchiveCategoryController.archive_category(category_id, data().get("version"),
+                                                                         data().get("reason")))
 
     @bp.post("/api/management/categories/<category_id>/restore")
     def restore_category(category_id):
-        return jsonify(category=c.RestoreCategoryController.restore_category(category_id, data().get("version")))
+        return jsonify(category=c.RestoreCategoryController.restore_category(category_id, data().get("version"),
+                                                                         data().get("reason")))
 
     @bp.post("/api/management/categories/<category_id>/feature")
     def feature_category(category_id):

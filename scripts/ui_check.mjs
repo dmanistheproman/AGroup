@@ -222,6 +222,18 @@ try {
       await page.goto("/portal.html#management/categories");
       return page.waitFor("#portal-main tbody tr");
     });
+    await step("PM-04 a category shows its shared status badge and history; archive opens the shared reason dialog", async () => {
+      await page.waitFor("#portal-main .record-status");                      // S-04 StatusBadge
+      await page.eval(`(() => { const row = [...document.querySelectorAll('#portal-main tbody tr')]
+        .find(r => r.querySelector('.record-status').textContent.trim() === 'Active');
+        row.querySelector('[data-management-action=edit]').click(); })()`);
+      await page.waitFor("#management-history .history-timeline, #management-history .small-note");   // S-04 HistoryTimeline
+      await page.waitFor("#modal-content [data-management-action=archive]");
+      await page.click("#modal-content [data-management-action=archive]");
+      const opened = await page.waitFor("#reason-dialog[open]");              // S-04 ConfirmWithReasonDialog
+      await page.eval("document.querySelector('#reason-dialog button[value=cancel]').click(); document.querySelector('#modal').close()");
+      return opened;
+    });
     await step("PM-05 the report shows published projects, new accounts and activity by project", async () => {
       await page.goto("/portal.html#management/reports");
       return await page.waitFor("#management-report", { text: "Projects published", timeout: 8000 }) &&
